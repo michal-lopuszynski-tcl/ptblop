@@ -11,6 +11,7 @@ build:
 
 check: -check_black -check_isort -check_flake8 -check_mypy
 
+check_fast: -check_black -check_isort -check_flake8
 
 check_black:
 	@black --color --check $(PY_DIRS) > make.black.log 2>&1 && \
@@ -46,7 +47,7 @@ fixall:
 
 commit:
 	./aux/block_empty_commit.sh
-	git commit -e
+	git commit -m "[ptblopgen] " -e
 
 show_version:
 	@./aux/get_version.py --version-file=$(VER_FILE)
@@ -57,13 +58,13 @@ vercommit:
 	./aux/block_empty_commit.sh
 	./aux/update_version.py --version-segment=2 --version-file=$(VER_FILE)
 	git add $(VER_FILE)
-	-VER=$$(./aux/get_version.py --version-file=$(VER_FILE)) && git commit -m "$${VER}" -e
+	-VER=$$(./aux/get_version.py --version-file=$(VER_FILE)) && git commit -m "[ptblopgen] $${VER}" -e
 	git restore --staged  $(VER_FILE) && git checkout $(VER_FILE) # In case of failed commit
 
 manualvercommit:
 	./aux/block_empty_commit.sh
 	git add $(VER_FILE)
-	VER=$$(./aux/get_version.py --version-file=$(VER_FILE)) && git commit -m "$${VER}" -e
+	VER=$$(./aux/get_version.py --version-file=$(VER_FILE)) && git commit -m "[ptblopgen] $${VER}" -e
 
 -%:
 	-@$(MAKE) --no-print-directory $*
