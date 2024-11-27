@@ -1,1 +1,1 @@
-from .qwen2 import PrunableQwen2Block
+from .qwen2 import PrunableQwen2Block  # noqa: F401

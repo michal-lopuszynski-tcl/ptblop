@@ -1,10 +1,16 @@
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
 
-import transformers
 import torch
+import transformers  # type: ignore
 
 from .. import prunable_block
 from . import common
+
+_ForwardOutputType = (
+    tuple[torch.Tensor]
+    | tuple[torch.Tensor, Optional[torch.Tensor]]
+    | tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]
+)
 
 
 class PrunableQwen2Block(torch.nn.Module, prunable_block.PrunableBlock):
@@ -53,13 +59,12 @@ class PrunableQwen2Block(torch.nn.Module, prunable_block.PrunableBlock):
         output_attentions: Optional[bool] = False,
         use_cache: Optional[bool] = False,
         cache_position: Optional[torch.LongTensor] = None,
-        **kwargs,
-    ) -> tuple[
-        torch.FloatTensor, Optional[tuple[torch.FloatTensor, torch.FloatTensor]]
-    ]:
-
+        **kwargs: Any,
+    ) -> _ForwardOutputType:
         if self.use_attention:
             out = self.input_layernorm(hidden_states)
+            if TYPE_CHECKING:
+                assert self.self_attn is not None
             out, self_attn_weights, present_key_value = self.self_attn(
                 hidden_states=out,
                 attention_mask=attention_mask,
@@ -76,15 +81,17 @@ class PrunableQwen2Block(torch.nn.Module, prunable_block.PrunableBlock):
 
         if self.use_mlp:
             out = self.post_attention_layernorm(hidden_states)
+            if TYPE_CHECKING:
+                assert self.mlp is not None
             out = self.mlp(out)
             hidden_states = hidden_states + out
 
-        outputs = (hidden_states,)
+        outputs: _ForwardOutputType = (hidden_states,)
 
         if output_attentions:
-            outputs += (self_attn_weights,)
+            outputs = outputs[0], self_attn_weights
 
         if use_cache:
-            outputs += (present_key_value,)
+            outputs = (*outputs, present_key_value)
 
         return outputs

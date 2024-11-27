@@ -3,6 +3,20 @@ import torch
 from .. import prunable_block
 
 
+def _set_self_attn_layer_idx(
+    layer: torch.nn.Module | prunable_block.PrunableBlock, val: int
+) -> None:
+    self_attn = getattr(layer, "self_attn", None)
+    if self_attn is not None:
+        if hasattr(self_attn, "layer_idx"):
+            self_attn.layer_idx = val
+        else:
+            msg = f"no `layer.self_attn.layer_idx` - unsuported layer {type(layer)}"
+            raise ValueError(msg)
+    else:
+        raise ValueError(f"no `layer.self_attn` - unsuported layer {type(layer)}")
+
+
 def fix_root_model_attention_indices(root_model: torch.nn.Module) -> None:
     # Oh, weird - but this is because of transormers model.model
     root_model_model = getattr(root_model, "model", None)
@@ -17,10 +31,10 @@ def fix_root_model_attention_indices(root_model: torch.nn.Module) -> None:
 
     counter = 0
     for layer in root_layers:
-        if not isinstance(layer, prunable_block.PrunableBlock):
-            counter += 1
-            layer.self_attn.layer_idx = counter
-        else:
+        if isinstance(layer, prunable_block.PrunableBlock):
             if layer.use_attention:
-                layer.self_attn.layer_idx = counter
+                _set_self_attn_layer_idx(layer, counter)
                 counter += 1
+        else:
+            _set_self_attn_layer_idx(layer, counter)
+            counter += 1
