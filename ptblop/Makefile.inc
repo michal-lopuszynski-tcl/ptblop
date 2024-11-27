@@ -11,6 +11,7 @@ build:
 
 check: -check_black -check_isort -check_flake8 -check_mypy
 
+check_fast: -check_black -check_isort -check_flake8
 
 check_black:
 	@black --color --check $(PY_DIRS) > make.black.log 2>&1 && \
@@ -63,7 +64,7 @@ vercommit:
 manualvercommit:
 	./aux/block_empty_commit.sh
 	git add $(VER_FILE)
-	VER=$$(./aux/get_version.py --version-file=$(VER_FILE)) && git commit -m "$${VER}" -e
+	VER=$$(./aux/get_version.py --version-file=$(VER_FILE)) && git commit -m "[ptblop] $${VER}" -e
 
 -%:
 	-@$(MAKE) --no-print-directory $*
