@@ -161,3 +161,55 @@ def test_qwen_disabled_mlps_cpu() -> None:
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda not available")
 def test_qwen_disabled_mlps_gpu() -> None:
     check_qwen_disabled_mlps(torch.device("cuda"))
+
+
+# Test pruned blocks
+
+
+def make_bp_config_with_disabled_test_blocks(
+    bp_config0: dict[str, dict[str, bool]]
+) -> dict[str, dict[str, bool]]:
+    bp_config = copy.deepcopy(bp_config0)
+    ki = iter(bp_config.keys())
+    _ = next(ki)
+    k2 = next(ki)
+    k3 = next(ki)
+    bp_config[k2]["use_attention"] = False
+    bp_config[k3]["use_attention"] = False
+    bp_config[k2]["use_mlp"] = False
+    bp_config[k3]["use_mlp"] = False
+
+    return bp_config
+
+
+def check_qwen_disabled_blocks(device: torch.device) -> None:
+    model, tokenizer, bp_config0 = make_model_tokenizer_unpruned_bp_config()
+
+    idx = tokenizer("How are you today?", return_tensors="pt")["input_ids"].to(device)
+    model.to(device)
+    bp_config = make_bp_config_with_disabled_test_blocks(bp_config0)
+    num_params0 = get_num_params(model)
+    ptblop.apply_bp_config_in_place(model, bp_config)
+    num_params1 = get_num_params(model)
+
+    # Make sure forward works
+    with torch.no_grad():
+        _ = model(idx).logits
+
+    assert num_params1 < num_params0
+    assert ptblop.get_num_attention_blocks(model) == len(bp_config0) - 2
+    assert ptblop.get_num_mlp_blocks(model) == len(bp_config0) - 2
+
+    with pytest.raises(ValueError) as exc_info:
+        ptblop.apply_bp_config_in_place(model, bp_config0)
+
+    assert str(exc_info.value) == "Attention is used, but was set to None previously"
+
+
+def test_qwen_disabled_blocks_cpu() -> None:
+    check_qwen_disabled_blocks(torch.device("cpu"))
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda not available")
+def test_qwen_disabled_blocks_gpu() -> None:
+    check_qwen_disabled_blocks(torch.device("cuda"))
