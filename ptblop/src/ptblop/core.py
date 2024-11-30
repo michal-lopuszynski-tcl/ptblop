@@ -12,16 +12,26 @@ try:
         Qwen2DecoderLayer,
     )
 
-    from . import wrapper_transformers
+    from .wrapper_transformers import PrunableQwen2Block
 
-    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS = {
-        Qwen2DecoderLayer: wrapper_transformers.PrunableQwen2Block,
-    }
+    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS = {Qwen2DecoderLayer: PrunableQwen2Block}
 except ImportError:
     _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS = {}
 
+try:
+    import timm
 
-_BLOCK_TYPE_TO_WRAPPER_TYPE = _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS
+    from .wrapper_timm import PrunableVisionTransformerBlock
+
+    _BLOCK_TYPE_TO_WRAPPER_TYPE_TIMM = {
+        timm.models.vision_transformer.Block: PrunableVisionTransformerBlock,
+    }
+except ImportError:
+    _BLOCK_TYPE_TO_WRAPPER_TYPE_TIMM = {}
+
+_BLOCK_TYPE_TO_WRAPPER_TYPE = (
+    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS | _BLOCK_TYPE_TO_WRAPPER_TYPE_TIMM
+)
 
 
 def has_prunable_blocks(module: torch.nn.Module) -> int:
@@ -64,6 +74,13 @@ def get_num_mlp_blocks(module: torch.nn.Module) -> int:
     return num_attention
 
 
+def _get_prunable_block_bp_config(m: prunable_block.PrunableBlock) -> dict[str, bool]:
+    return {
+        "use_attention": m.use_attention,
+        "use_mlp": m.use_mlp,
+    }
+
+
 def _get_bp_config(
     module: torch.nn.Module, module_path: str
 ) -> dict[str, dict[str, bool]]:
@@ -75,7 +92,7 @@ def _get_bp_config(
             prefix = module_path
 
         if isinstance(child_module, prunable_block.PrunableBlock):
-            res[prefix + child_name] = child_module.set_bp_config()
+            res[prefix + child_name] = _get_prunable_block_bp_config(child_module)
         else:
             child_config = _get_bp_config(child_module, prefix + child_name)
             res |= child_config
@@ -140,6 +157,7 @@ def apply_bp_config_in_place(
         else:
             submodule_type = type(submodule)
             if submodule_type in _BLOCK_TYPE_TO_WRAPPER_TYPE:
+                logger.info(f"Wraping {submodule_name} of {submodule_type}")
                 wrapper_type = _BLOCK_TYPE_TO_WRAPPER_TYPE[submodule_type]
                 if module_config is None:
                     module_config = {"use_attention": True, "use_mlp": True}
