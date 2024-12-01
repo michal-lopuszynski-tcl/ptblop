@@ -14,25 +14,34 @@ def get_num_params(m: torch.nn.Module, only_trainable: bool = False) -> int:
     return sum(p.numel() for p in unique)
 
 
+def _forward(model, x):
+    res = model(x)
+    if hasattr(res, "logits"):
+        return res.logits
+    else:
+        return res
+
+
 # Test unpruned model
 
 
-def check_qwen_unpruned_forward(
-    make_model_tokenizer_unprued_bp_config_fn,
+def check_unpruned_forward(
+    make_model_fn,
     device: torch.device,
 ) -> None:
-    model, tokenizer, bp_config0 = make_model_tokenizer_unprued_bp_config_fn()
+    model, gen_data, bp_config0 = make_model_fn()
 
-    idx = tokenizer("How are you today?", return_tensors="pt")["input_ids"].to(device)
+    idx = gen_data().to(device)
+
     model.to(device)
 
     with torch.no_grad():
-        output1 = model(idx).logits
+        output1 = _forward(model, idx)
 
     ptblop.apply_bp_config_in_place(model, bp_config0)
 
     with torch.no_grad():
-        output2 = model(idx).logits
+        output2 = _forward(model, idx)
         delta = torch.max(torch.abs(output1 - output2))
 
     assert delta.item() < 1.0e-5
@@ -56,12 +65,11 @@ def make_bp_config_with_disabled_test_attentions(
     return bp_config
 
 
-def check_qwen_disabled_attentnions(
-    make_model_tokenizer_unpruned_bp_config_fn, device: torch.device
-) -> None:
-    model, tokenizer, bp_config0 = make_model_tokenizer_unpruned_bp_config_fn()
+def check_disabled_attentnions(make_model_fn, device: torch.device) -> None:
 
-    idx = tokenizer("How are you today?", return_tensors="pt")["input_ids"].to(device)
+    model, gen_data, bp_config0 = make_model_fn()
+
+    idx = gen_data().to(device)
     model.to(device)
     bp_config = make_bp_config_with_disabled_test_attentions(bp_config0)
     num_params0 = get_num_params(model)
@@ -69,7 +77,7 @@ def check_qwen_disabled_attentnions(
 
     # Make sure forward works
     with torch.no_grad():
-        _ = model(idx).logits
+        _ = _forward(model, idx)
 
     bp_config_test = ptblop.get_bp_config(model)
     assert bp_config == bp_config_test
@@ -102,12 +110,10 @@ def make_bp_config_with_disabled_test_mlps(
     return bp_config
 
 
-def check_qwen_disabled_mlps(
-    make_model_tokenizer_unpruned_bp_config_fn, device: torch.device
-) -> None:
-    model, tokenizer, bp_config0 = make_model_tokenizer_unpruned_bp_config_fn()
+def check_disabled_mlps(make_model_fn, device: torch.device) -> None:
+    model, gen_data, bp_config0 = make_model_fn()
 
-    idx = tokenizer("How are you today?", return_tensors="pt")["input_ids"].to(device)
+    idx = gen_data().to(device)
     model.to(device)
     bp_config = make_bp_config_with_disabled_test_mlps(bp_config0)
     num_params0 = get_num_params(model)
@@ -116,7 +122,7 @@ def check_qwen_disabled_mlps(
 
     # Make sure forward works
     with torch.no_grad():
-        _ = model(idx).logits
+        _ = _forward(model, idx)
 
     bp_config_test = ptblop.get_bp_config(model)
     assert bp_config == bp_config_test
@@ -150,12 +156,10 @@ def make_bp_config_with_disabled_test_blocks(
     return bp_config
 
 
-def check_qwen_disabled_blocks(
-    make_model_tokenizer_unpruned_bp_config_fn, device: torch.device
-) -> None:
-    model, tokenizer, bp_config0 = make_model_tokenizer_unpruned_bp_config_fn()
+def check_disabled_blocks(make_model_fn, device: torch.device) -> None:
+    model, gen_data, bp_config0 = make_model_fn()
 
-    idx = tokenizer("How are you today?", return_tensors="pt")["input_ids"].to(device)
+    idx = gen_data().to(device)
     model.to(device)
     bp_config = make_bp_config_with_disabled_test_blocks(bp_config0)
     num_params0 = get_num_params(model)
@@ -164,7 +168,7 @@ def check_qwen_disabled_blocks(
 
     # Make sure forward works
     with torch.no_grad():
-        _ = model(idx).logits
+        _ = _forward(model, idx)
 
     bp_config_test = ptblop.get_bp_config(model)
     assert bp_config == bp_config_test
