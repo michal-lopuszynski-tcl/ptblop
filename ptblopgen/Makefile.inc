@@ -35,6 +35,8 @@ check_mypy:
 test:
 	pytest -vv tests
 
+test_cpu:
+	CUDA_VISIBLE_DEVICES="" pytest -vv tests
 
 clean:
 	rm -rf make.black.log make.flake8.log make.mypy.log $(FILES_TO_CLEAN)
