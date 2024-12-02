@@ -1,19 +1,19 @@
 import helpers
 import pytest
-import timm
+import timm  # type: ignore
 import torch
 
 import ptblop
 
 
-def make_vit():
+def make_vit() -> helpers.MODEL_DATA_TYPE:
     model = timm.create_model(
         "vit_tiny_patch16_224.augreg_in21k_ft_in1k", pretrained=False
     )
     bp_config0 = ptblop.get_unpruned_bp_config(model)
     generator_cpu = torch.Generator()
 
-    def __get_vit_data():
+    def __get_vit_data() -> torch.Tensor:
         return torch.rand(1, 3, 224, 224, generator=generator_cpu)
 
     return model, __get_vit_data, bp_config0

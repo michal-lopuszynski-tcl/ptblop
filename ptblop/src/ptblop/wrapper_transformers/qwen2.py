@@ -6,7 +6,7 @@ import transformers  # type: ignore
 from .. import prunable_block
 from . import common
 
-_ForwardOutputType = (
+_FORWARD_OUTPUT_TYPE = (
     tuple[torch.Tensor]
     | tuple[torch.Tensor, Optional[torch.Tensor]]
     | tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]
@@ -60,7 +60,7 @@ class PrunableQwen2Block(torch.nn.Module, prunable_block.PrunableBlock):
         use_cache: Optional[bool] = False,
         cache_position: Optional[torch.LongTensor] = None,
         **kwargs: Any,
-    ) -> _ForwardOutputType:
+    ) -> _FORWARD_OUTPUT_TYPE:
         if self.use_attention:
             out = self.input_layernorm(hidden_states)
             if TYPE_CHECKING:
@@ -86,7 +86,7 @@ class PrunableQwen2Block(torch.nn.Module, prunable_block.PrunableBlock):
             out = self.mlp(out)
             hidden_states = hidden_states + out
 
-        outputs: _ForwardOutputType = (hidden_states,)
+        outputs: _FORWARD_OUTPUT_TYPE = (hidden_states,)
 
         if output_attentions:
             outputs = outputs[0], self_attn_weights

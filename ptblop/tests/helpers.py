@@ -1,9 +1,14 @@
 import copy
+from collections.abc import Callable
 
 import pytest
 import torch
 
 import ptblop
+
+MODEL_DATA_TYPE = tuple[
+    torch.nn.Module, Callable[[], torch.Tensor], dict[str, dict[str, bool]]
+]
 
 
 def get_num_params(m: torch.nn.Module, only_trainable: bool = False) -> int:
@@ -14,7 +19,7 @@ def get_num_params(m: torch.nn.Module, only_trainable: bool = False) -> int:
     return sum(p.numel() for p in unique)
 
 
-def _forward(model, x):
+def _forward(model: torch.nn.Module, x: torch.Tensor) -> torch.Tensor:
     res = model(x)
     if hasattr(res, "logits"):
         return res.logits
@@ -26,7 +31,7 @@ def _forward(model, x):
 
 
 def check_unpruned_forward(
-    make_model_fn,
+    make_model_fn: Callable[[], MODEL_DATA_TYPE],
     device: torch.device,
 ) -> None:
     model, gen_data, bp_config0 = make_model_fn()
@@ -65,7 +70,9 @@ def make_bp_config_with_disabled_test_attentions(
     return bp_config
 
 
-def check_disabled_attentnions(make_model_fn, device: torch.device) -> None:
+def check_disabled_attentnions(
+    make_model_fn: Callable[[], MODEL_DATA_TYPE], device: torch.device
+) -> None:
 
     model, gen_data, bp_config0 = make_model_fn()
 
@@ -110,7 +117,9 @@ def make_bp_config_with_disabled_test_mlps(
     return bp_config
 
 
-def check_disabled_mlps(make_model_fn, device: torch.device) -> None:
+def check_disabled_mlps(
+    make_model_fn: Callable[[], MODEL_DATA_TYPE], device: torch.device
+) -> None:
     model, gen_data, bp_config0 = make_model_fn()
 
     idx = gen_data().to(device)
@@ -156,7 +165,9 @@ def make_bp_config_with_disabled_test_blocks(
     return bp_config
 
 
-def check_disabled_blocks(make_model_fn, device: torch.device) -> None:
+def check_disabled_blocks(
+    make_model_fn: Callable[[], MODEL_DATA_TYPE], device: torch.device
+) -> None:
     model, gen_data, bp_config0 = make_model_fn()
 
     idx = gen_data().to(device)

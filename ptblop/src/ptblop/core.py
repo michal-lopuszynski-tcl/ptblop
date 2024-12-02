@@ -19,7 +19,7 @@ except ImportError:
     _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS = {}
 
 try:
-    import timm
+    import timm  # type: ignore
 
     from .wrapper_timm import PrunableVisionTransformerBlock
 

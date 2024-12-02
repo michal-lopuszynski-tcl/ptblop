@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 import helpers
 import pytest
 import torch
@@ -6,11 +8,7 @@ import transformers  # type: ignore
 import ptblop
 
 
-def make_qwen() -> tuple[
-    transformers.PreTrainedModel,
-    transformers.PreTrainedTokenizer,
-    dict[str, dict[str, bool]],
-]:
+def make_qwen() -> helpers.MODEL_DATA_TYPE:
     model_name = "Qwen/Qwen2-0.5B"
     model_revision = "main"
     model = transformers.AutoModelForCausalLM.from_pretrained(
@@ -24,7 +22,7 @@ def make_qwen() -> tuple[
         model_name, revision=model_revision, trust_remote_code=True
     )
 
-    def __gen_data_qwen():
+    def __gen_data_qwen() -> torch.Tensor:
         return tokenizer("How are you today?", return_tensors="pt")["input_ids"]
 
     bp_config = ptblop.get_unpruned_bp_config(model)
