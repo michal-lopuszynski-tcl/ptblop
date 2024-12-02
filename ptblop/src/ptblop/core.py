@@ -10,8 +10,8 @@ logger = logging.getLogger(__name__)
 _WRAPPER_DICT_TYPE = dict[type[torch.nn.Module], type[torch.nn.Module]]
 
 try:
-    from transformers.models.llama.modeling_llama import (
-        LlamaDecoderLayer,  # type: ignore
+    from transformers.models.llama.modeling_llama import (  # type: ignore
+        LlamaDecoderLayer,
     )
     from transformers.models.phi.modeling_phi import PhiDecoderLayer  # type: ignore
     from transformers.models.qwen2.modeling_qwen2 import (  # type: ignore

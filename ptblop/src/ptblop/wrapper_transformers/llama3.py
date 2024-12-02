@@ -1,7 +1,7 @@
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import torch
-import transformers
+import transformers  # type: ignore
 
 from .. import prunable_block
 from . import common
@@ -67,6 +67,8 @@ class PrunableLlamaBlock(torch.nn.Module, prunable_block.PrunableBlock):
     ) -> _FORWARD_OUTPUT_TYPE:
 
         if self.use_attention:
+            if TYPE_CHECKING:
+                assert self.self_attn is not None
             out = self.input_layernorm(hidden_states)
             out, self_attn_weights, present_key_value = self.self_attn(
                 hidden_states=out,
@@ -83,17 +85,18 @@ class PrunableLlamaBlock(torch.nn.Module, prunable_block.PrunableBlock):
             present_key_value = past_key_value
 
         if self.use_mlp:
-            # Fully Connected
+            if TYPE_CHECKING:
+                assert self.mlp is not None
             out = self.post_attention_layernorm(hidden_states)
             out = self.mlp(out)
             hidden_states = hidden_states + out
 
-        outputs = (hidden_states,)
+        outputs: _FORWARD_OUTPUT_TYPE = (hidden_states,)
 
         if output_attentions:
-            outputs += (self_attn_weights,)
+            outputs = (*outputs, self_attn_weights)
 
         if use_cache:
-            outputs += (present_key_value,)
+            outputs = (*outputs, present_key_value)
 
         return outputs
