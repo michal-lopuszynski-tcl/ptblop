@@ -1,13 +1,19 @@
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import torch
-import transformers
+import transformers  # type: ignore
 
 from .. import prunable_block
 from . import common
 
 logger = logging.getLogger(__name__)
+
+_FORWARD_OUTPUT_TYPE = (
+    tuple[torch.Tensor]
+    | tuple[torch.Tensor, Optional[torch.Tensor]]
+    | tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]
+)
 
 
 class PrunablePhi2BLock(torch.nn.Module, prunable_block.PrunableBlock):
@@ -35,7 +41,10 @@ class PrunablePhi2BLock(torch.nn.Module, prunable_block.PrunableBlock):
         use_mlp: bool = True,
         set_unused_layers_to_none: bool = False,
     ):
-        super().__init__()
+        torch.nn.Module.__init__(self)
+        prunable_block.PrunableBlock.__init__(
+            self, use_attention=use_attention, use_mlp=use_mlp
+        )
         self.use_attention = use_attention
         self.use_mlp = use_mlp
         self.self_attn = original_module.self_attn
@@ -54,16 +63,16 @@ class PrunablePhi2BLock(torch.nn.Module, prunable_block.PrunableBlock):
         use_cache: Optional[bool] = False,
         past_key_value: Optional[tuple[torch.Tensor]] = None,
         cache_position: Optional[torch.LongTensor] = None,
-        **kwargs,
-    ) -> tuple[
-        torch.FloatTensor, Optional[tuple[torch.FloatTensor, torch.FloatTensor]]
-    ]:
+        **kwargs: Any,
+    ) -> _FORWARD_OUTPUT_TYPE:
 
         residual = hidden_states
 
         hidden_states = self.input_layernorm(hidden_states)
 
         if self.use_attention:
+            if TYPE_CHECKING:
+                assert self.self_attn is not None
             attn_outputs, self_attn_weights, present_key_value = self.self_attn(
                 hidden_states=hidden_states,
                 attention_mask=attention_mask,
@@ -79,6 +88,8 @@ class PrunablePhi2BLock(torch.nn.Module, prunable_block.PrunableBlock):
             present_key_value = past_key_value
 
         if self.use_mlp:
+            if TYPE_CHECKING:
+                assert self.mlp is not None
             feed_forward_hidden_states = self.mlp(hidden_states)
             feed_forward_hidden_states = self.resid_dropout(feed_forward_hidden_states)
 
@@ -91,12 +102,12 @@ class PrunablePhi2BLock(torch.nn.Module, prunable_block.PrunableBlock):
         else:
             result = residual
 
-        outputs = (result,)
+        outputs: _FORWARD_OUTPUT_TYPE = (result,)
 
         if output_attentions:
-            outputs += (self_attn_weights,)
+            outputs = (*outputs, self_attn_weights)
 
         if use_cache:
-            outputs += (present_key_value,)
+            outputs = (*outputs, present_key_value)
 
         return outputs

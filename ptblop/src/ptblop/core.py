@@ -1,4 +1,5 @@
 import logging
+from typing import cast
 
 import torch
 
@@ -6,16 +7,17 @@ from . import prunable_block
 
 logger = logging.getLogger(__name__)
 
+_WRAPPER_DICT_TYPE = dict[type[torch.nn.Module], type[torch.nn.Module]]
 
 try:
-    from transformers.models.phi.modeling_phi import PhiDecoderLayer
+    from transformers.models.phi.modeling_phi import PhiDecoderLayer  # type: ignore
     from transformers.models.qwen2.modeling_qwen2 import (  # type: ignore
         Qwen2DecoderLayer,
     )
 
     from .wrapper_transformers import PrunablePhi2BLock, PrunableQwen2Block
 
-    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS = {
+    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS: _WRAPPER_DICT_TYPE = {
         Qwen2DecoderLayer: PrunableQwen2Block,
         PhiDecoderLayer: PrunablePhi2BLock,
     }
@@ -27,13 +29,13 @@ try:
 
     from .wrapper_timm import PrunableVisionTransformerBlock
 
-    _BLOCK_TYPE_TO_WRAPPER_TYPE_TIMM = {
+    _BLOCK_TYPE_TO_WRAPPER_TYPE_TIMM: _WRAPPER_DICT_TYPE = {
         timm.models.vision_transformer.Block: PrunableVisionTransformerBlock,
     }
 except ImportError:
     _BLOCK_TYPE_TO_WRAPPER_TYPE_TIMM = {}
 
-_BLOCK_TYPE_TO_WRAPPER_TYPE = (
+_BLOCK_TYPE_TO_WRAPPER_TYPE: _WRAPPER_DICT_TYPE = (
     _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS | _BLOCK_TYPE_TO_WRAPPER_TYPE_TIMM
 )
 
@@ -157,7 +159,7 @@ def apply_bp_config_in_place(
                     submodule.set_unused_layers_to_none()
                 # Check if we did not enable layers previously set to None
                 submodule.check_used_layers_not_none()
-                last_prunable_submodule = submodule
+                last_prunable_submodule = cast(torch.nn.Module, submodule)
         else:
             submodule_type = type(submodule)
             if submodule_type in _BLOCK_TYPE_TO_WRAPPER_TYPE:

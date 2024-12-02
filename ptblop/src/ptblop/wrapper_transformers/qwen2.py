@@ -89,7 +89,7 @@ class PrunableQwen2Block(torch.nn.Module, prunable_block.PrunableBlock):
         outputs: _FORWARD_OUTPUT_TYPE = (hidden_states,)
 
         if output_attentions:
-            outputs = outputs[0], self_attn_weights
+            outputs = (*outputs, self_attn_weights)
 
         if use_cache:
             outputs = (*outputs, present_key_value)
