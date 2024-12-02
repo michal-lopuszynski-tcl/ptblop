@@ -10,16 +10,24 @@ logger = logging.getLogger(__name__)
 _WRAPPER_DICT_TYPE = dict[type[torch.nn.Module], type[torch.nn.Module]]
 
 try:
+    from transformers.models.llama.modeling_llama import (
+        LlamaDecoderLayer,  # type: ignore
+    )
     from transformers.models.phi.modeling_phi import PhiDecoderLayer  # type: ignore
     from transformers.models.qwen2.modeling_qwen2 import (  # type: ignore
         Qwen2DecoderLayer,
     )
 
-    from .wrapper_transformers import PrunablePhi2BLock, PrunableQwen2Block
+    from .wrapper_transformers import (
+        PrunableLlamaBlock,
+        PrunablePhi2BLock,
+        PrunableQwen2Block,
+    )
 
     _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS: _WRAPPER_DICT_TYPE = {
         Qwen2DecoderLayer: PrunableQwen2Block,
         PhiDecoderLayer: PrunablePhi2BLock,
+        LlamaDecoderLayer: PrunableLlamaBlock,
     }
 except ImportError:
     _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS = {}

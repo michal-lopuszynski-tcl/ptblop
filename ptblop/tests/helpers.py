@@ -35,6 +35,7 @@ def check_unpruned_forward(
     device: torch.device,
 ) -> None:
     model, gen_data, bp_config0 = make_model_fn()
+    assert len(bp_config0) > 0
 
     idx = gen_data().to(device)
 
@@ -50,11 +51,10 @@ def check_unpruned_forward(
         delta = torch.max(torch.abs(output1 - output2))
 
     assert delta.item() < 1.0e-5
-    bp_config_test = ptblop.get_bp_config(model)
 
-    assert bp_config0 == bp_config_test
-    assert len(bp_config0) > 0
+    bp_config_test = ptblop.get_bp_config(model)
     assert len(bp_config_test) > 0
+    assert bp_config0 == bp_config_test
 
 
 # Test pruned attentions
@@ -78,6 +78,7 @@ def check_disabled_attentnions(
 ) -> None:
 
     model, gen_data, bp_config0 = make_model_fn()
+    assert len(bp_config0) > 0
 
     idx = gen_data().to(device)
     model.to(device)
@@ -90,6 +91,7 @@ def check_disabled_attentnions(
         _ = _forward(model, idx)
 
     bp_config_test = ptblop.get_bp_config(model)
+    assert len(bp_config_test) > 0
     assert bp_config == bp_config_test
 
     num_params1 = get_num_params(model)
@@ -124,6 +126,7 @@ def check_disabled_mlps(
     make_model_fn: Callable[[], MODEL_DATA_TYPE], device: torch.device
 ) -> None:
     model, gen_data, bp_config0 = make_model_fn()
+    assert len(bp_config0) > 0
 
     idx = gen_data().to(device)
     model.to(device)
@@ -137,6 +140,7 @@ def check_disabled_mlps(
         _ = _forward(model, idx)
 
     bp_config_test = ptblop.get_bp_config(model)
+    assert len(bp_config_test) > 0
     assert bp_config == bp_config_test
 
     assert num_params1 < num_params0
@@ -172,6 +176,7 @@ def check_disabled_blocks(
     make_model_fn: Callable[[], MODEL_DATA_TYPE], device: torch.device
 ) -> None:
     model, gen_data, bp_config0 = make_model_fn()
+    assert len(bp_config0) > 0
 
     idx = gen_data().to(device)
     model.to(device)
@@ -185,6 +190,7 @@ def check_disabled_blocks(
         _ = _forward(model, idx)
 
     bp_config_test = ptblop.get_bp_config(model)
+    assert len(bp_config_test) > 0
     assert bp_config == bp_config_test
 
     assert num_params1 < num_params0
