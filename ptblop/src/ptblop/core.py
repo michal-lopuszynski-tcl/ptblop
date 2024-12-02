@@ -8,13 +8,17 @@ logger = logging.getLogger(__name__)
 
 
 try:
+    from transformers.models.phi.modeling_phi import PhiDecoderLayer
     from transformers.models.qwen2.modeling_qwen2 import (  # type: ignore
         Qwen2DecoderLayer,
     )
 
-    from .wrapper_transformers import PrunableQwen2Block
+    from .wrapper_transformers import PrunablePhi2BLock, PrunableQwen2Block
 
-    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS = {Qwen2DecoderLayer: PrunableQwen2Block}
+    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS = {
+        Qwen2DecoderLayer: PrunableQwen2Block,
+        PhiDecoderLayer: PrunablePhi2BLock,
+    }
 except ImportError:
     _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS = {}
 

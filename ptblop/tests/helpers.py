@@ -51,7 +51,10 @@ def check_unpruned_forward(
 
     assert delta.item() < 1.0e-5
     bp_config_test = ptblop.get_bp_config(model)
+
     assert bp_config0 == bp_config_test
+    assert len(bp_config0) > 0
+    assert len(bp_config_test) > 0
 
 
 # Test pruned attentions
