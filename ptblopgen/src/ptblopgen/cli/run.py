@@ -19,10 +19,10 @@ def parse_args() -> tuple[argparse.Namespace, str]:
 
 
 def print_versions() -> None:
-    from ptblop import __version__
-    from .. import _version
-    print(f"ptblop version: {__version__}")
-    print(f"ptblopgen version: {_version.__version__}")
+    from ptblop import __version__ as ptblop_version
+    from .._version import __version__ as ptblopgen_version
+    print(f"ptblop version: {ptblop_version}")
+    print(f"ptblopgen version: {ptblopgen_version}")
 
 
 # def parse_args() -> argparse.Namespace:
