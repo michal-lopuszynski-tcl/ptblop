@@ -16,6 +16,9 @@ classifiers = [
 ]
 dynamic = ["version", "dependencies"]
 
+[project.scripts]
+blop = "ptblopgen.cli:run"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 exclude = ["tests"]
