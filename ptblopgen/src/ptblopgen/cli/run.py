@@ -1,64 +1,38 @@
 import argparse
-import pathlib
 import logging
+import pathlib
+import subprocess
+import sys
+from typing import Any
 
+import yaml
+from ptblop import __version__ as ptblop_version
+
+from .._version import __version__ as ptblopgen_version
 from . import run_gen
+
+REPRO_SUBDIR = "repro"
 
 
 def parse_args() -> tuple[argparse.Namespace, str]:
     parser = argparse.ArgumentParser()
-    parser.add_argument('--version', action='store_true')
+    parser.add_argument("--version", action="store_true")
     subparsers = parser.add_subparsers(dest="command")
 
-    parser_gen = subparsers.add_parser('gen')
-    parser_gen.add_argument('--output-path', type=pathlib.Path, required=True)
-    parser_gen.add_argument('--config', type=pathlib.Path, required=True)
+    parser_gen = subparsers.add_parser("gen")
+    parser_gen.add_argument("--output-path", type=pathlib.Path, required=True)
+    parser_gen.add_argument("--config", type=pathlib.Path, required=True)
     help_msg = parser.format_help()
 
     return parser.parse_args(), help_msg
 
 
 def print_versions() -> None:
-    from ptblop import __version__ as ptblop_version
-    from .._version import __version__ as ptblopgen_version
     print(f"ptblop version: {ptblop_version}")
     print(f"ptblopgen version: {ptblopgen_version}")
 
 
-# def parse_args() -> argparse.Namespace:
-#     # Try to parse --version
-
-#     arg_parser = argparse.ArgumentParser()
-#     subparsers = parser.add_subparsers(help='subcommand help')
-#     # arg_parser.add_argument("--version", action="store_true")
-#     # arg_parser.add_argument("--output-path", type=pathlib.Path)
-#     # arg_parser.add_argument("--active-learning", type=int, default=0)
-#     # # arg_parser.add_argument("--config", type=pathlib.Path)
-
-#     # args = arg_parser.parse_args()
-
-#     # # If no --version, run parsing of trainign/decomposition arguments
-
-#     # if not args.version:
-#     #     arg_parser = argparse.ArgumentParser()
-#     #     arg_parser.add_argument(
-#     #         "--output-path",
-#     #         type=pathlib.Path,
-#     #         required=True,
-#     #     )
-#     #     arg_parser.add_argument("--active-learning", type=int, default=0)
-#     #     # arg_parser.add_argument(
-#     #     #     "--config",
-#     #     #     type=pathlib.Path,
-#     #     #     required=True,
-#     #     # )
-#     #     args = arg_parser.parse_args()
-#     #     args.version = False
-
-#     # return args
-
-
-def setup_logging():
+def setup_logging() -> None:
     logging.basicConfig(
         level=logging.WARNING,
         format="%(asctime)s.%(msecs)03d500: %(levelname).1s %(name)s.py:%(lineno)d] %(message)s",
@@ -70,6 +44,62 @@ def setup_logging():
         logging.getLogger(module_name).setLevel(logging.INFO)
 
 
+def read_config(fname: str) -> dict[str, Any]:
+    with open(fname, "rt") as f:
+        return yaml.safe_load(f)
+
+
+def copy_config(config_path: pathlib.Path, output_path: pathlib.Path) -> None:
+    config_copy_path = output_path / REPRO_SUBDIR / "config.yaml"
+    if config_copy_path.exists():
+        msg = f"Config copy already exists, please delete it first, {config_copy_path}"
+        raise FileExistsError(msg)
+    config_copy_path.parent.mkdir(exist_ok=True, parents=True)
+    with open(config_path, "rt") as f_in, open(config_copy_path, "wt") as f_out:
+        f_out.write(f'ptblop_version: "{ptblop_version}"\n')
+        f_out.write(f'ptblopgen_version: "{ptblopgen_version}"\n\n')
+        for line in f_in:
+            if not line.startswith("ptblop_version:") and not line.startswith(
+                "ptblopgen_version:"
+            ):
+                f_out.write(f"{line}")
+
+
+def save_requirements(
+    requirements_path: pathlib.Path, requirements_unsafe_path: pathlib.Path
+) -> None:
+    # Dump "normal" requirements
+
+    result = subprocess.run(
+        [sys.executable, "-mpip", "freeze"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    requirements_safe = result.stdout.decode("utf-8").splitlines()
+
+    with requirements_path.open("wt") as f:
+        f.write(f"# Python {sys.version}\n\n")
+        for r in requirements_safe:
+            f.write(r + "\n")
+
+    # Dump "unsafe" requirements (rarely needed)
+
+    result = subprocess.run(
+        [sys.executable, "-mpip", "freeze", "--all"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    requirements_all = result.stdout.decode("utf-8").splitlines()
+
+    with requirements_unsafe_path.open("wt") as f:
+        f.write(f"# Python {sys.version}\n\n")
+        for r in requirements_all:
+            if r not in requirements_safe:
+                f.write(r + "\n")
+
+
 def main() -> int:
     setup_logging()
     args, help_msg = parse_args()
@@ -77,22 +107,18 @@ def main() -> int:
         print_versions()
     else:
         if args.command == "gen":
-            run_gen.main(args)
+            output_path = pathlib.Path(args.output_path)
+            output_path.mkdir(exist_ok=True, parents=True)
+            copy_config(args.config, output_path)
+            save_requirements(
+                output_path / REPRO_SUBDIR / "requirements.txt",
+                output_path / REPRO_SUBDIR / "requirements_unsafe.txt",
+            )
+            config = read_config(args.config)
+            run_gen.main(config, output_path)
         else:
             if args.command is None:
                 print("No command given\n")
             else:
                 print(f"Unknown command {args.command}\n")
             print(help_msg)
-
-
-    # elif args.active_learning == 0:
-    #
-    # elif args.active_learning == 1:
-    #     modelgen.main_sample_active_learn(args)
-    # elif args.active_learning == -1:
-    #     modelgen.main_eval_pareto(args)
-    # else:
-    #     msg = f"Unsupported value --active-learning={args.active_learning}"
-    #     raise ValueError(msg)
-    # return 0
