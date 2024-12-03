@@ -35,6 +35,7 @@ def check_unpruned_forward(
     device: torch.device,
 ) -> None:
     model, gen_data, bp_config0 = make_model_fn()
+    model.eval()
     assert len(bp_config0) > 0
 
     idx = gen_data().to(device)
@@ -78,6 +79,7 @@ def check_disabled_attentnions(
 ) -> None:
 
     model, gen_data, bp_config0 = make_model_fn()
+    model.eval()
     assert len(bp_config0) > 0
 
     idx = gen_data().to(device)
@@ -126,6 +128,7 @@ def check_disabled_mlps(
     make_model_fn: Callable[[], MODEL_DATA_TYPE], device: torch.device
 ) -> None:
     model, gen_data, bp_config0 = make_model_fn()
+    model.eval()
     assert len(bp_config0) > 0
 
     idx = gen_data().to(device)
@@ -176,6 +179,7 @@ def check_disabled_blocks(
     make_model_fn: Callable[[], MODEL_DATA_TYPE], device: torch.device
 ) -> None:
     model, gen_data, bp_config0 = make_model_fn()
+    model.eval()
     assert len(bp_config0) > 0
 
     idx = gen_data().to(device)
