@@ -1,3 +1,4 @@
+from ._version import __version__, __version_info__  # noqa: F401
 from .core import (  # noqa: F401
     apply_bp_config_in_place,
     get_bp_config,
