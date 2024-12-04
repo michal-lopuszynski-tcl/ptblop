@@ -88,6 +88,39 @@ def get_num_mlp_blocks(module: torch.nn.Module) -> int:
     return num_attention
 
 
+def get_unused_parameters(
+    prunable_block: prunable_block.PrunableBlock,
+) -> list[torch.nn.Parameter]:
+    res = []
+    for layer_name in prunable_block.get_unused_layer_names():
+        msg = f"{layer_name=} not in {prunable_block}"
+        assert hasattr(prunable_block, layer_name), msg
+        layer = getattr(prunable_block, layer_name)
+        if layer is not None:
+            res.extend(list(layer.parameters()))
+    return res
+
+
+def get_num_params(module: torch.nn.Module, only_trainable: bool = False) -> int:
+    unused_parameters = []
+    for _, submodule in module.named_modules():
+        if isinstance(submodule, prunable_block.PrunableBlock):
+            unused_parameters.extend(get_unused_parameters(submodule))
+
+    unused_data_ptrs = {p.data_ptr() for p in unused_parameters}
+
+    parameters = list(module.parameters())
+
+    if only_trainable:
+        parameters = [p for p in parameters if p.requires_grad]
+
+    unique = {
+        p.data_ptr(): p for p in parameters if p.data_ptr() not in unused_data_ptrs
+    }.values()
+
+    return sum(p.numel() for p in unique)
+
+
 def _get_prunable_block_bp_config(m: prunable_block.PrunableBlock) -> dict[str, bool]:
     return {
         "use_attention": m.use_attention,

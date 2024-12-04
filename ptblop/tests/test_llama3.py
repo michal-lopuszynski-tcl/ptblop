@@ -96,3 +96,7 @@ def test_llama3_enable_disable_cpu() -> None:
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda not available")
 def test_llama3_enable_disable_gpu() -> None:
     helpers.check_enable_disable(make_llama3, torch.device("cuda"))
+
+
+def test_llama3_num_params() -> None:
+    helpers.check_num_params(make_llama3)

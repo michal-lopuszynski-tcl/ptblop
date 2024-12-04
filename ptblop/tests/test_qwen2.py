@@ -70,3 +70,7 @@ def test_qwen2_enable_disable_cpu() -> None:
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda not available")
 def test_qwen2_enable_disable_gpu() -> None:
     helpers.check_enable_disable(make_qwen2, torch.device("cuda"))
+
+
+def test_qwen2_num_params() -> None:
+    helpers.check_num_params(make_qwen2)

@@ -9,6 +9,9 @@ class PrunableBlock(abc.ABC):
         self.use_attention = use_attention
         self.use_mlp = use_mlp
 
+    def get_unused_layer_names(self) -> list[str]:
+        return []
+
     @abc.abstractmethod
     def set_unused_layers_to_none(self) -> None:
         pass

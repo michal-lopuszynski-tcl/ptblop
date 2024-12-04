@@ -261,3 +261,52 @@ def check_enable_disable(
         output3 = _forward(model, idx)
         delta3 = torch.max(torch.abs(output1 - output3))
     assert delta3.item() < 1.0e-5
+
+
+def make_bp_config_num_params(
+    bp_config0: dict[str, dict[str, bool]]
+) -> dict[str, dict[str, bool]]:
+    bp_config = copy.deepcopy(bp_config0)
+    ki = iter(bp_config.keys())
+    _ = next(ki)
+    k2 = next(ki)
+    k3 = next(ki)
+    k4 = next(ki)
+
+    bp_config[k2]["use_attention"] = False
+    bp_config[k2]["use_mlp"] = False
+
+    bp_config[k3]["use_attention"] = False
+    bp_config[k3]["use_mlp"] = True
+
+    bp_config[k4]["use_attention"] = True
+    bp_config[k4]["use_mlp"] = False
+
+    return bp_config
+
+
+def check_num_params(
+    make_model_fn: Callable[[], MODEL_DATA_TYPE],
+) -> None:
+    model, _, bp_config0 = make_model_fn()
+    model.eval()
+    assert len(bp_config0) > 0
+
+    params_orig = get_num_params(model)
+
+    bp_config = make_bp_config_num_params(bp_config0)
+    ptblop.apply_bp_config_in_place(model, bp_config, set_unused_layers_to_none=False)
+
+    params_orig1 = get_num_params(model)
+    params_prun1 = ptblop.get_num_params(model)
+
+    ptblop.apply_bp_config_in_place(model, bp_config, set_unused_layers_to_none=True)
+    params_prun2 = get_num_params(model)
+    params_prun3 = ptblop.get_num_params(model)
+
+    msg = f"{params_orig=}, {params_orig1=},"
+    assert params_orig1 == params_orig
+    msg = f"{params_prun1=}, {params_prun2=}, {params_prun3=}"
+    assert params_prun1 == params_prun2 == params_prun3, msg
+    msg = f"{params_prun1=}, {params_orig=}"
+    assert params_prun1 < params_orig, msg

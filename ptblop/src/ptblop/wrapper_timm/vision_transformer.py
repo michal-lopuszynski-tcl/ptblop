@@ -7,6 +7,13 @@ from .. import prunable_block
 
 
 class PrunableVisionTransformerBlock(torch.nn.Module, prunable_block.PrunableBlock):
+    def get_unused_layer_names(self) -> list[str]:
+        unused_layer_names = []
+        if not self.use_attention:
+            unused_layer_names += ["attn", "ls1", "norm1", "drop_path1"]
+        if not self.use_mlp:
+            unused_layer_names += ["mlp", "ls2", "norm2", "drop_path2"]
+        return unused_layer_names
 
     def set_unused_layers_to_none(self) -> None:
         if not self.use_attention:

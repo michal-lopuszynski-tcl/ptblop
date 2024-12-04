@@ -70,3 +70,7 @@ def test_phi2_enable_disable_cpu() -> None:
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda not available")
 def test_phi2_enable_disable_gpu() -> None:
     helpers.check_enable_disable(make_phi2, torch.device("cuda"))
+
+
+def test_phi2_num_params() -> None:
+    helpers.check_num_params(make_phi2)

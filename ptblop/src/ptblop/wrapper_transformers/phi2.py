@@ -18,6 +18,14 @@ _FORWARD_OUTPUT_TYPE = (
 
 class PrunablePhi2BLock(torch.nn.Module, prunable_block.PrunableBlock):
 
+    def get_unused_layer_names(self) -> list[str]:
+        unused_layer_names = []
+        if not self.use_attention:
+            unused_layer_names.append("self_attn")
+        if not self.use_mlp:
+            unused_layer_names.append("mlp")
+        return unused_layer_names
+
     def set_unused_layers_to_none(self) -> None:
         if not self.use_attention:
             self.self_attn = None
