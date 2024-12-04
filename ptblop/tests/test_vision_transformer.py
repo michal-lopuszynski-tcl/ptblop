@@ -53,3 +53,12 @@ def test_vit_disabled_blocks_cpu() -> None:
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda not available")
 def test_vit_disabled_blocks_gpu() -> None:
     helpers.check_disabled_blocks(make_vit, torch.device("cuda"))
+
+
+def test_vit_enable_disable_cpu() -> None:
+    helpers.check_enable_disable(make_vit, torch.device("cpu"))
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda not available")
+def test_vit_enable_disable_gpu() -> None:
+    helpers.check_enable_disable(make_vit, torch.device("cuda"))
