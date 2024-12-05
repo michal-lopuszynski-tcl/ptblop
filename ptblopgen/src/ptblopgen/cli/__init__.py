@@ -1,1 +1,1 @@
-from .run import main
+from .run import main  # noqa: F401

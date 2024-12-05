@@ -8,8 +8,9 @@ from typing import Any
 import yaml
 from ptblop import __version__ as ptblop_version
 
+from .. import modelgen
 from .._version import __version__ as ptblopgen_version
-from . import run_gen
+
 
 REPRO_SUBDIR = "repro"
 
@@ -33,14 +34,22 @@ def print_versions() -> None:
 
 
 def setup_logging() -> None:
+    fmt = (
+        "%(asctime)s.%(msecs)03d500: %(levelname).1s "
+        + "%(name)s.py:%(lineno)d] %(message)s"
+    )
     logging.basicConfig(
         level=logging.WARNING,
-        format="%(asctime)s.%(msecs)03d500: %(levelname).1s %(name)s.py:%(lineno)d] %(message)s",
+        format=fmt,
         datefmt="%Y-%m-%d %H:%M:%S",
     )
     # Here you put modules where you want more verbose logging
 
-    for module_name in [__name__, "modelgen", "regressors", "wrappers"]:
+    for module_name in [
+        __name__,
+        "modelgen",
+        "regressors",
+    ]:
         logging.getLogger(module_name).setLevel(logging.INFO)
 
 
@@ -115,7 +124,7 @@ def main() -> int:
                 output_path / REPRO_SUBDIR / "requirements_unsafe.txt",
             )
             config = read_config(args.config)
-            run_gen.main(config, output_path)
+            modelgen.main_sample_random(config, output_path)
         else:
             if args.command is None:
                 print("No command given\n")
