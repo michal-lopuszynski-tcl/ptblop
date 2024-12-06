@@ -357,12 +357,7 @@ class LMEvalWithPPLEvaluator:
             res_lm_eval["time_lm_eval"] = t2 - t1
         else:
             res_lm_eval = {}
-
-        device_str = str(device)
-        if "cuda" in device_str:
-            device_str += " @ " + torch.cuda.get_device_name(device)
         res = res_ppl | res_lm_eval
-        res["device"] = device_str
         return res
 
 

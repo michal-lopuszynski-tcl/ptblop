@@ -111,10 +111,14 @@ def process_single_bp_config(*, model, device, bp_config_data, evaluator_fn):
     res["n_mlp"] = ptblop.get_num_mlp_blocks(model)
     res["n"] = ptblop.get_num_prunable_blocks(model)
     res["mparams"] = ptblop.get_num_params(model) / 1.0e6
-    res |= evaluator_fn(model, device)
+    res["evaluation"] = evaluator_fn(model, device)
     res["bp_config_score"] = bp_config_score
     res["bp_config"] = bp_config
     res["timestamp"] = get_timestamp()
+    device_str = str(device)
+    if "cuda" in device_str:
+        device_str += " @ " + torch.cuda.get_device_name(device)
+    res["device"] = device_str
     res["ptblop_version"] = ptblop.__version__
     res["ptblopgen_version"] = _version.__version__
     return res
