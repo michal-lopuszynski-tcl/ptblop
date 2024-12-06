@@ -14,7 +14,7 @@ import torch
 from .. import _version, builders, regressors
 from . import configurator, regressor_helpers
 
-BPCONFIG_DB_FNAME = "bpconfigs.json"
+BPCONFIG_DB_FNAME = "bp_configs.json"
 REGRESSORS_DB_FNAME = "regressors.json"
 STOP_FNAME = "STOP"
 
