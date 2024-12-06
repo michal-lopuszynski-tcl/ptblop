@@ -1,13 +1,16 @@
 import copy
+import datetime
 import json
 import logging
 import pathlib
 import random
+
 from typing import Any
 
 import numpy as np
 import ptblop
 import torch
+
 
 from .. import _version, builders, regressors
 from . import configurator, regressor_helpers
@@ -19,6 +22,22 @@ STOP_FNAME = "STOP"
 MAX_RANDOM_CONFIG_TRIALS = 20
 
 logger = logging.getLogger(__name__)
+
+
+# Helpers
+
+
+def get_timestamp() -> str:
+    current_utc = datetime.datetime.now(datetime.timezone.utc)
+    return current_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def get_num_params(m: torch.nn.Module, only_trainable: bool = False) -> int:
+    parameters = list(m.parameters())
+    if only_trainable:
+        parameters = [p for p in parameters if p.requires_grad]
+    unique = {p.data_ptr(): p for p in parameters}.values()
+    return sum(p.numel() for p in unique)
 
 
 def update_db(db_path, db_entry, mode="append"):
@@ -33,39 +52,10 @@ def update_db(db_path, db_entry, mode="append"):
         f.write(json.dumps(db_entry) + "\n")
 
 
-# Helpers
-
-
-def get_num_params(m: torch.nn.Module, only_trainable: bool = False) -> int:
-    parameters = list(m.parameters())
-    if only_trainable:
-        parameters = [p for p in parameters if p.requires_grad]
-    unique = {p.data_ptr(): p for p in parameters}.values()
-    return sum(p.numel() for p in unique)
-
-
-# Model - benchmarking
-
-
-def process_single_bp_config(*, model, device, bp_config_data, evaluator_fn):
-    bp_config, bp_config_id, bp_config_score = bp_config_data
-    res = {"id": bp_config_id}
-    res["n_attention"] = ptblop.get_num_attention_blocks(model)
-    res["n_mlp"] = ptblop.get_num_mlp_blocks(model)
-    res["n"] = ptblop.get_num_prunable_blocks(model)
-    res["mparams"] = ptblop.get_num_params(model) / 1.0e6
-    ptblop.apply_bp_config_in_place(model, bp_config, set_unused_layers_to_none=False)
-    res |= evaluator_fn(model, device)
-    res["bpconfig_score"] = bp_config_score
-    res["bpconfig"] = bp_config
-    res["ptblop"] = _version.__version__
-    return res
-
-
 # Bpconfigs - helper functions
 
 
-def genereate_bpconfig_changes(bpconfog_unpruned):
+def genereate_bp_config_changes(bpconfog_unpruned):
     config_changes = []
 
     for k, v in bpconfog_unpruned.items():
@@ -74,10 +64,10 @@ def genereate_bpconfig_changes(bpconfog_unpruned):
     return config_changes
 
 
-def get_bpconfig_signature(bpconfig):
+def get_bp_config_signature(bp_config):
     singature_strs = []
 
-    for v in bpconfig.values():
+    for v in bp_config.values():
         v_signature_str = str(int(not v["use_attention"])) + str(int(not v["use_mlp"]))
         singature_strs.append(v_signature_str)
     signature_str = "".join(singature_strs)
@@ -94,58 +84,83 @@ def apply_bpconfig_changes(bpconfig_unpruned, bpconfig_changes):
     return blockprune_cfg
 
 
-def are_all_bp_configs_processed(bpconfigs, bpconfig_id_fmt, bpconfig_db_path):
-    if bpconfig_db_path.exists():
-        bpconfig_ids = {(bpconfig_id_fmt % i) for i, _ in enumerate(bpconfigs, start=1)}
+def are_all_bp_configs_processed(bp_configs, bp_config_id_fmt, bp_config_db_path):
+    if bp_config_db_path.exists():
+        bpconfig_ids = {
+            (bp_config_id_fmt % i) for i, _ in enumerate(bp_configs, start=1)
+        }
         processed_bpconfigs_ids = set()
 
-        with open(bpconfig_db_path, "rt") as f:
+        with open(bp_config_db_path, "rt") as f:
             for line in f:
                 d = json.loads(line)
                 processed_bpconfigs_ids.add(d["id"])
 
         n1 = len(bpconfig_ids)
         n2 = len(bpconfig_ids & processed_bpconfigs_ids)
-        logger.info(f"{bpconfig_id_fmt} {n1=} {n2=}")
+        logger.info(f"{bp_config_id_fmt} {n1=} {n2=}")
         return n1 == n2
     else:
         return False
+
+
+def process_single_bp_config(*, model, device, bp_config_data, evaluator_fn):
+    bp_config, bp_config_id, bp_config_score = bp_config_data
+    res = {"id": bp_config_id}
+    ptblop.apply_bp_config_in_place(model, bp_config, set_unused_layers_to_none=False)
+    res["n_attention"] = ptblop.get_num_attention_blocks(model)
+    res["n_mlp"] = ptblop.get_num_mlp_blocks(model)
+    res["n"] = ptblop.get_num_prunable_blocks(model)
+    res["mparams"] = ptblop.get_num_params(model) / 1.0e6
+    res |= evaluator_fn(model, device)
+    res["bp_config_score"] = bp_config_score
+    res["bp_config"] = bp_config
+    res["timestamp"] = get_timestamp()
+    res["ptblop_version"] = ptblop.__version__
+    res["ptblopgen_version"] = _version.__version__
+    return res
 
 
 def process_bp_configs(
     *,
     bp_configs,
     bp_config_scores,
-    bpconfig_id_prefix,
-    bpconfig_db_path,
+    bp_config_id_prefix,
+    bp_config_db_path,
     model,
     device,
     evaluator_fn,
-    processed_bpconfig_signatures,
+    processed_bp_config_signatures,
+    stop_path,
 ):
     assert len(bp_configs) == len(bp_config_scores)
-    bpconfig_id_fmt = f"{bpconfig_id_prefix}%04d"
+    bp_config_id_fmt = f"{bp_config_id_prefix}%04d"
 
-    if are_all_bp_configs_processed(bp_configs, bpconfig_id_fmt, bpconfig_db_path):
-        logger.info(f"All configs from batch {bpconfig_id_prefix} already processed")
+    if are_all_bp_configs_processed(bp_configs, bp_config_id_fmt, bp_config_db_path):
+        logger.info(f"All configs from batch {bp_config_id_prefix} already processed")
     else:
-        bpconfigs_and_scores = zip(bp_configs, bp_config_scores)
-        for i, (bpconfig, bpconfig_score) in enumerate(bpconfigs_and_scores, start=1):
-            bpconfig_signature = get_bpconfig_signature(bpconfig)
-            if bpconfig_signature in processed_bpconfig_signatures:
-                logger.warning(f"Model already processed {bpconfig_signature=}")
+        bp_configs_and_scores = zip(bp_configs, bp_config_scores)
+        for i, (bp_config, bp_config_score) in enumerate(
+            bp_configs_and_scores, start=1
+        ):
+            if stop_path.exists():
+                logger.warning(f"Stop file found {stop_path}, exiting...")
+                break
+            bp_config_signature = get_bp_config_signature(bp_config)
+            if bp_config_signature in processed_bp_config_signatures:
+                logger.warning(f"Model already processed {bp_config_signature=}")
             else:
-                bpconfig_id = bpconfig_id_fmt % i
-                bp_config_data = (bpconfig, bpconfig_id, bpconfig_score)
+                bp_config_id = bp_config_id_fmt % i
+                bp_config_data = (bp_config, bp_config_id, bp_config_score)
                 res = process_single_bp_config(
                     bp_config_data=bp_config_data,
                     model=model,
                     device=device,
                     evaluator_fn=evaluator_fn,
                 )
-                assert bpconfig_signature not in processed_bpconfig_signatures
-                processed_bpconfig_signatures.add(bpconfig_signature)
-                update_db(bpconfig_db_path, res)
+                assert bp_config_signature not in processed_bp_config_signatures
+                processed_bp_config_signatures.add(bp_config_signature)
+                update_db(bp_config_db_path, res)
 
 
 def read_processed_bp_config_signatures(db_path):
@@ -154,8 +169,8 @@ def read_processed_bp_config_signatures(db_path):
     with open(db_path, "rt") as f:
         for line in f:
             d = json.loads(line)
-            bpconfig = d["bpconfig"]
-            sig = get_bpconfig_signature(bpconfig)
+            bp_config = d["bp_config"]
+            sig = get_bp_config_signature(bp_config)
             signatures.add(sig)
     logger.info(f"Read {len(signatures)} configurations and stored their signatures")
     return signatures
@@ -164,12 +179,12 @@ def read_processed_bp_config_signatures(db_path):
 # Bpconfigs - generation - one layer
 
 
-def make_one_layer_bp_configs(bpconfig_unpruned):
-    cfg_changes_all = genereate_bpconfig_changes(bpconfig_unpruned)
+def make_one_layer_bp_configs(bp_config_unpruned):
+    cfg_changes_all = genereate_bp_config_changes(bp_config_unpruned)
     res = []
 
     for cfg_change in cfg_changes_all:
-        bpconfig = copy.deepcopy(bpconfig_unpruned)
+        bpconfig = copy.deepcopy(bp_config_unpruned)
         bpconfig = apply_bpconfig_changes(bpconfig, [cfg_change])
         res.append(bpconfig)
 
@@ -190,14 +205,14 @@ def _make_random_bp_config(
 ):
     # TODO Delete this line
     if cfg_changes_all is None:
-        cfg_changes_all = genereate_bpconfig_changes(bpconfig_unpruned)
+        cfg_changes_all = genereate_bp_config_changes(bpconfig_unpruned)
 
     bpconfig, bpconfig_signature = None, None
 
     for j in range(1, max_random_config_trials + 1):
         cfg_changes = rng.sample(cfg_changes_all, k=num_changes)
         bpconfig = apply_bpconfig_changes(bpconfig_unpruned, cfg_changes)
-        bpconfig_signature = get_bpconfig_signature(bpconfig)
+        bpconfig_signature = get_bp_config_signature(bpconfig)
 
         if bpconfig_signature not in processed_bp_config_signatures:
             break
@@ -220,7 +235,7 @@ def make_random_bp_configs(
     processed_bpbconfig_signatures,
 ):
     processed_bpbconfig_signatures_all = copy.deepcopy(processed_bpbconfig_signatures)
-    cfg_changes_all = genereate_bpconfig_changes(bpconfig_unpruned)
+    cfg_changes_all = genereate_bp_config_changes(bpconfig_unpruned)
 
     res = []
     while len(res) < num_configs:
@@ -244,7 +259,7 @@ def make_random_bp_configs(
 # Bpconfigs - generation - with scoring
 
 
-def make_random_bpconfigs_with_scoring(
+def make_random_bp_configs_with_scoring(
     *,
     bp_config_unpruned,
     num_configs,
@@ -256,7 +271,7 @@ def make_random_bpconfigs_with_scoring(
     scoring_fn,
 ):
     processed_bpbconfig_signatures_all = copy.deepcopy(processed_bpbconfig_signatures)
-    cfg_changes_all = genereate_bpconfig_changes(bp_config_unpruned)
+    cfg_changes_all = genereate_bp_config_changes(bp_config_unpruned)
 
     final_bpconfigs = []
     final_scores = []
@@ -301,7 +316,7 @@ def make_random_bpconfigs_with_scoring(
             # for i, r in enumerate(scores, start=1):
             #     logger.info(f"Scoring {i} - {r}")
 
-            bpconfig_signature = get_bpconfig_signature(bpconfig)
+            bpconfig_signature = get_bp_config_signature(bpconfig)
             final_bpconfigs.append(bpconfig)
             final_scores.append(max_score)
             processed_bpbconfig_signatures_all.add(bpconfig_signature)
@@ -324,14 +339,14 @@ def conv_regressor_to_scoring_fn(reg):
     return __scoring_fn
 
 
-def make_scoring_fn(regressor_id, bpconfig_db_path, regressor_db_path):
-    data_trn, data_val = regressor_helpers.read_data(bpconfig_db_path)
+def make_scoring_fn(regressor_id, bp_config_db_path, regressor_db_path):
+    data_trn, data_val = regressor_helpers.read_data(bp_config_db_path)
 
-    X_trn = regressor_helpers.get_quality_features([d["bpconfig"] for d in data_trn])
+    X_trn = regressor_helpers.get_quality_features([d["bp_config"] for d in data_trn])
     y_trn = regressor_helpers.get_target(data_trn, "arc_challenge_acc")
     logger.info(f"{X_trn.shape=} {X_trn.dtype=} {y_trn.shape=} {y_trn.dtype=}")
 
-    X_val = regressor_helpers.get_quality_features([d["bpconfig"] for d in data_val])
+    X_val = regressor_helpers.get_quality_features([d["bp_config"] for d in data_val])
     y_val = regressor_helpers.get_target(data_val, "arc_challenge_acc")
     logger.info(f"{X_val.shape=} {X_val.dtype=} {y_val.shape=} {y_val.dtype=}")
 
@@ -370,84 +385,14 @@ def make_scoring_fn(regressor_id, bpconfig_db_path, regressor_db_path):
     return scoring_fn
 
 
-# def make_seed_dataset(
-#     *,
-#     model_data,
-#     device,
-#     bpconfig_unpruned,
-#     rng,
-#     bpconfig_db_path,
-#     processed_bpconfig_signatures,
-# ):
-#     # VAL - random configs
-
-#     for i_val in range(1, 5):
-#         bpconfigs, bpconfig_scores = make_random_bpconfigs(
-#             bpconfig_unpruned=bpconfig_unpruned,
-#             num_configs=N_VAL,
-#             rng=rng,
-#             min_num_changes=2,
-#             max_num_changes=32,
-#             processed_bpbconfig_signatures=processed_bpconfig_signatures,
-#         )
-
-#         process_bpconfigs(
-#             bpconfigs=bpconfigs,
-#             bpconfig_scores=bpconfig_scores,
-#             bpconfig_id_prefix=f"val.rndl.{i_val:03d}.",
-#             bpconfig_db_path=bpconfig_db_path,
-#             model_data=model_data,
-#             device=device,
-#             processed_bpconfig_signatures=processed_bpconfig_signatures,
-#         )
-
-#     # TRN - Unpruned config
-
-#     process_bpconfigs(
-#         bpconfigs=[bpconfig_unpruned],
-#         bpconfig_scores=[-1.0],
-#         bpconfig_id_prefix="trn.zerl.001.",
-#         bpconfig_db_path=bpconfig_db_path,
-#         model_data=model_data,
-#         device=device,
-#         processed_bpconfig_signatures=processed_bpconfig_signatures,
-#     )
-
-#     # TRN - one layer configs
-
-#     bpconfigs, bpconfig_scores = make_one_layer_bpconfigs(bpconfig_unpruned)
-
-#     process_bpconfigs(
-#         bpconfigs=bpconfigs[:N_TRN_LAYER_CONFIGS],
-#         bpconfig_scores=bpconfig_scores[:N_TRN_LAYER_CONFIGS],
-#         bpconfig_id_prefix="trn.onel.001.",
-#         bpconfig_db_path=bpconfig_db_path,
-#         model_data=model_data,
-#         device=device,
-#         processed_bpconfig_signatures=processed_bpconfig_signatures,
-#     )
-
-#     # TRN - random configs
-
-#     for i_trn in range(1, 3):
-#         bpconfigs, bpconfig_scores = make_random_bpconfigs(
-#             bpconfig_unpruned=bpconfig_unpruned,
-#             num_configs=N_TRN,
-#             rng=rng,
-#             min_num_changes=2,
-#             max_num_changes=32,
-#             processed_bpbconfig_signatures=processed_bpconfig_signatures,
-#         )
-
-#         process_bpconfigs(
-#             bpconfigs=bpconfigs,
-#             bpconfig_scores=bpconfig_scores,
-#             bpconfig_id_prefix=f"trn.rndl.{i_trn:03d}.",
-#             bpconfig_db_path=bpconfig_db_path,
-#             model_data=model_data,
-#             device=device,
-#             processed_bpconfig_signatures=processed_bpconfig_signatures,
-#         )
+def bp_configs_scores_sample(bp_configs, bp_config_scores, n: int, rng):
+    if len(bp_configs) < 0 or len(bp_configs) < n:
+        return bp_configs, bp_config_scores
+    else:
+        indices = rng.sample(range(len(bp_configs)), k=n)
+        bp_configs_new = [bp_configs[i] for i in indices]
+        bp_config_scores_new = [bp_config_scores[i] for i in indices]
+        return bp_configs_new, bp_config_scores_new
 
 
 def main_sample_random(config: dict[str, Any], output_path: pathlib.Path) -> None:
@@ -460,16 +405,24 @@ def main_sample_random(config: dict[str, Any], output_path: pathlib.Path) -> Non
     )
 
     bp_config_unpruned = ptblop.get_unpruned_bp_config(model)
+    ptblop.apply_bp_config_in_place(model, {})
 
     config_sampler = configurator.SamplerConfig(**config["sampler"])
+
+    rng = random.Random(config_sampler.random_bp_config_rng_seed)
+
     max_num_changes = round(
         config_sampler.max_num_changes_factor * len(bp_config_unpruned)
     )
-    rng = random.Random(config_sampler.random_bp_config_rng_seed)
+    logger.info(
+        f"{max_num_changes=} num_blocks={len(bp_config_unpruned)} "
+        f"max_num_changes_factor={config_sampler.max_num_changes_factor}"
+    )
 
     processed_bpconfig_signatures = set()
 
-    # VAL DATASET
+    # Validation dataset
+
     bp_configs, bp_config_scores = make_random_bp_configs(
         bpconfig_unpruned=bp_config_unpruned,
         num_configs=config_sampler.n_val_rand,
@@ -483,13 +436,51 @@ def main_sample_random(config: dict[str, Any], output_path: pathlib.Path) -> Non
     process_bp_configs(
         bp_configs=bp_configs,
         bp_config_scores=bp_config_scores,
-        bpconfig_id_prefix="val.rndl.001.",
-        bpconfig_db_path=bpconfig_db_path,
+        bp_config_id_prefix="val.rndl.001.",
+        bp_config_db_path=bpconfig_db_path,
         model=model,
         evaluator_fn=evaluator_fn,
         device=device,
-        processed_bpconfig_signatures=processed_bpconfig_signatures,
+        processed_bp_config_signatures=processed_bpconfig_signatures,
+        stop_path=stop_path,
     )
+
+    # Training dataset - unpruned model
+
+    process_bp_configs(
+        bp_configs=[bp_config_unpruned],
+        bp_config_scores=[-1],
+        bp_config_id_prefix="trn.zerl.001.",
+        bp_config_db_path=bpconfig_db_path,
+        model=model,
+        evaluator_fn=evaluator_fn,
+        device=device,
+        processed_bp_config_signatures=processed_bpconfig_signatures,
+        stop_path=stop_path,
+    )
+
+    # Training dataset - inital - one layer fixes
+
+    bp_configs, bp_config_scores = make_one_layer_bp_configs(bp_config_unpruned)
+
+    if config_sampler.n_trn_onel_initial != 0:
+        bp_configs, bp_config_scores = bp_configs_scores_sample(
+            bp_configs,
+            bp_config_scores,
+            config_sampler.n_trn_onel_initial,
+            rng
+        )
+        process_bp_configs(
+            bp_configs=bp_configs,
+            bp_config_scores=bp_config_scores,
+            bp_config_id_prefix="trn.onel.001.",
+            bp_config_db_path=bpconfig_db_path,
+            model=model,
+            evaluator_fn=evaluator_fn,
+            device=device,
+            processed_bp_config_signatures=processed_bpconfig_signatures,
+            stop_path=stop_path,
+        )
 
     # make_seed_dataset(
     #     model_data=model_data,
@@ -535,7 +526,7 @@ def main_sample_random(config: dict[str, Any], output_path: pathlib.Path) -> Non
 #         for line in f:
 #             data.append(json.loads(line))
 
-#     bpconfigs = [d["bpconfig"] for d in data]
+#     bpconfigs = [d["bp_config"] for d in data]
 #     bpconfig_scores = [d["arc_challenge_acc_pred"] for d in data]
 #     return bpconfigs, bpconfig_scores
 
