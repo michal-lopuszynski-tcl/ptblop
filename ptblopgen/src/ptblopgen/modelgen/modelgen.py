@@ -1,16 +1,15 @@
+import collections.abc
 import copy
 import datetime
 import json
 import logging
 import pathlib
 import random
-
 from typing import Any
 
 import numpy as np
 import ptblop
 import torch
-
 
 from .. import _version, builders, regressors
 from . import configurator, regressor_helpers
@@ -226,24 +225,24 @@ def _make_random_bp_config(
 
 def make_random_bp_configs(
     *,
-    bpconfig_unpruned,
-    num_configs,
+    bp_config_unpruned,
+    n,
     rng,
     min_num_changes,
     max_num_changes,
     max_random_config_trials,
-    processed_bpbconfig_signatures,
+    processed_bp_bconfig_signatures,
 ):
-    processed_bpbconfig_signatures_all = copy.deepcopy(processed_bpbconfig_signatures)
-    cfg_changes_all = genereate_bp_config_changes(bpconfig_unpruned)
+    processed_bpbconfig_signatures_all = copy.deepcopy(processed_bp_bconfig_signatures)
+    cfg_changes_all = genereate_bp_config_changes(bp_config_unpruned)
 
     res = []
-    while len(res) < num_configs:
+    while len(res) < n:
 
         num_changes = rng.randint(min_num_changes, max_num_changes)
         bpconfig, bpconfig_signature = _make_random_bp_config(
             rng=rng,
-            bpconfig_unpruned=bpconfig_unpruned,
+            bpconfig_unpruned=bp_config_unpruned,
             num_changes=num_changes,
             processed_bp_config_signatures=processed_bpbconfig_signatures_all,
             cfg_changes_all=cfg_changes_all,
@@ -256,7 +255,7 @@ def make_random_bp_configs(
     return res, res_scores
 
 
-# Bpconfigs - generation - with scoring
+# Bp configs - generation - with scoring
 
 
 def make_random_bp_configs_with_scoring(
@@ -395,7 +394,122 @@ def bp_configs_scores_sample(bp_configs, bp_config_scores, n: int, rng):
         return bp_configs_new, bp_config_scores_new
 
 
-def main_sample_random(config: dict[str, Any], output_path: pathlib.Path) -> None:
+def gen_sample_configs(
+    trn_schedule: list[configurator.TrnSchedulerEntryConfig],
+) -> collections.abc.Generator[tuple[int, int, int, int], None, None]:
+
+    for t in trn_schedule:
+        yield t.n_trn_onel, t.n_trn_rand, t.n_trn_actl, t.n_trn_parf
+
+    t = trn_schedule[-1]
+
+    while True:
+        yield t.n_trn_onel, t.n_trn_rand, t.n_trn_actl, t.n_trn_parf
+
+
+def sample_one_layer_bp_configs(
+    *,
+    model,
+    device,
+    evaluator_fn,
+    n,
+    max_num_changes,
+    bp_config_id_prefix,
+    processed_bpconfig_signatures,
+    rng,
+    bpconfig_db_path,
+    stop_path,
+):
+    bp_config_unpruned = ptblop.get_unpruned_bp_config(model)
+
+    bp_configs, bp_config_scores = make_one_layer_bp_configs(bp_config_unpruned)
+
+    bp_configs, bp_config_scores = bp_configs_scores_sample(
+        bp_configs, bp_config_scores, n, rng
+    )
+    process_bp_configs(
+        bp_configs=bp_configs,
+        bp_config_scores=bp_config_scores,
+        bp_config_id_prefix=bp_config_id_prefix,
+        bp_config_db_path=bpconfig_db_path,
+        model=model,
+        evaluator_fn=evaluator_fn,
+        device=device,
+        processed_bp_config_signatures=processed_bpconfig_signatures,
+        stop_path=stop_path,
+    )
+
+
+def sample_random_bp_configs(
+    *,
+    model,
+    device,
+    evaluator_fn,
+    n,
+    max_num_changes,
+    bp_config_id_prefix,
+    processed_bpconfig_signatures,
+    rng,
+    bpconfig_db_path,
+    stop_path,
+) -> None:
+    bp_config_unpruned = ptblop.get_unpruned_bp_config(model)
+    bp_configs, bp_config_scores = make_random_bp_configs(
+        bp_config_unpruned=bp_config_unpruned,
+        n=n,
+        rng=rng,
+        min_num_changes=2,
+        max_num_changes=max_num_changes,
+        max_random_config_trials=MAX_RANDOM_CONFIG_TRIALS,
+        processed_bp_bconfig_signatures=processed_bpconfig_signatures,
+    )
+
+    process_bp_configs(
+        bp_configs=bp_configs,
+        bp_config_scores=bp_config_scores,
+        bp_config_id_prefix=bp_config_id_prefix,
+        bp_config_db_path=bpconfig_db_path,
+        model=model,
+        evaluator_fn=evaluator_fn,
+        device=device,
+        processed_bp_config_signatures=processed_bpconfig_signatures,
+        stop_path=stop_path,
+    )
+
+
+def sample_active_learning_bp_configs(
+    *,
+    model,
+    device,
+    evaluator_fn,
+    n,
+    max_num_changes,
+    bp_config_id_prefix,
+    processed_bpconfig_signatures,
+    rng,
+    bpconfig_db_path,
+    stop_path,
+):
+    pass
+
+
+def sample_pareto_front_bp_configs(
+    *,
+    model,
+    device,
+    evaluator_fn,
+    n,
+    max_num_changes,
+    bp_config_id_prefix,
+    processed_bpconfig_signatures,
+    rng,
+    bpconfig_db_path,
+    stop_path,
+):
+    pass
+
+
+def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
     bpconfig_db_path = output_path / BPCONFIG_DB_FNAME
     stop_path = output_path / STOP_FNAME
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -421,31 +535,24 @@ def main_sample_random(config: dict[str, Any], output_path: pathlib.Path) -> Non
 
     processed_bpconfig_signatures = set()
 
-    # Validation dataset
-
-    bp_configs, bp_config_scores = make_random_bp_configs(
-        bpconfig_unpruned=bp_config_unpruned,
-        num_configs=config_sampler.n_val_rand,
-        rng=rng,
-        min_num_changes=2,
-        max_num_changes=max_num_changes,
-        max_random_config_trials=MAX_RANDOM_CONFIG_TRIALS,
-        processed_bpbconfig_signatures=processed_bpconfig_signatures,
-    )
-
-    process_bp_configs(
-        bp_configs=bp_configs,
-        bp_config_scores=bp_config_scores,
-        bp_config_id_prefix="val.rndl.001.",
-        bp_config_db_path=bpconfig_db_path,
+    fixed_kwargs = dict(
+        bpconfig_db_path=bpconfig_db_path,
+        stop_path=stop_path,
+        device=device,
         model=model,
         evaluator_fn=evaluator_fn,
-        device=device,
-        processed_bp_config_signatures=processed_bpconfig_signatures,
-        stop_path=stop_path,
+        rng=rng,
+        max_num_changes=max_num_changes,
+        processed_bpconfig_signatures=processed_bpconfig_signatures,
     )
 
-    # Training dataset - unpruned model
+    # VALIDATION DATASET
+
+    sample_random_bp_configs(
+        n=config_sampler.n_val_rand, bp_config_id_prefix="val.rndl.001.", **fixed_kwargs
+    )
+
+    # TRAINING DATASET - UNPRUNED MODEL
 
     process_bp_configs(
         bp_configs=[bp_config_unpruned],
@@ -459,191 +566,33 @@ def main_sample_random(config: dict[str, Any], output_path: pathlib.Path) -> Non
         stop_path=stop_path,
     )
 
-    # Training dataset - inital - one layer fixes
+    # TRAINING DATASET - INITAL - ONE LAYER FIXES
 
-    bp_configs, bp_config_scores = make_one_layer_bp_configs(bp_config_unpruned)
+    for i, n_tuple in enumerate(
+        gen_sample_configs(config_sampler.trn_schedule), start=1
+    ):
+        n_onel, n_rand, n_actl, n_parf = n_tuple
 
-    if config_sampler.n_trn_onel_initial != 0:
-        bp_configs, bp_config_scores = bp_configs_scores_sample(
-            bp_configs,
-            bp_config_scores,
-            config_sampler.n_trn_onel_initial,
-            rng
-        )
-        process_bp_configs(
-            bp_configs=bp_configs,
-            bp_config_scores=bp_config_scores,
-            bp_config_id_prefix="trn.onel.001.",
-            bp_config_db_path=bpconfig_db_path,
-            model=model,
-            evaluator_fn=evaluator_fn,
-            device=device,
-            processed_bp_config_signatures=processed_bpconfig_signatures,
-            stop_path=stop_path,
+        sample_one_layer_bp_configs(
+            n=n_onel,
+            bp_config_id_prefix=f"trn.onel.{i:03d}.",
+            **fixed_kwargs,
         )
 
-    # make_seed_dataset(
-    #     model_data=model_data,
-    #     device=device,
-    #     bpconfig_unpruned=bp_config_unpruned,
-    #     rng=rng,
-    #     bpconfig_db_path=bpconfig_db_path,
-    #     processed_bpconfig_signatures=processed_bpconfig_signatures,
-    # )
+        sample_random_bp_configs(
+            n=n_rand,
+            bp_config_id_prefix=f"trn.rand.{i:03d}.",
+            **fixed_kwargs,
+        )
 
-    # # TRN - random configs
+        sample_active_learning_bp_configs(
+            n=n_actl,
+            bp_config_id_prefix=f"trn.actl.{i:03d}.",
+            **fixed_kwargs,
+        )
 
-    # i_trn = 4
-    # while True:
-    #     if stop_path.exists():
-    #         logger.warning(f"{stop_path} found, exiting")
-    #         break
-
-    #     bpconfigs, bpconfig_scores = make_random_bpconfigs(
-    #         bpconfig_unpruned=bp_config_unpruned,
-    #         num_configs=N_TRN,
-    #         rng=rng,
-    #         min_num_changes=2,
-    #         max_num_changes=32,
-    #         processed_bpbconfig_signatures=processed_bpconfig_signatures,
-    #     )
-
-    #     process_bpconfigs(
-    #         bpconfigs=bpconfigs,
-    #         bpconfig_scores=bpconfig_scores,
-    #         bpconfig_id_prefix=f"trn.rndl.{i_trn:03d}.",
-    #         bpconfig_db_path=bpconfig_db_path,
-    #         model_data=model_data,
-    #         device=device,
-    #         processed_bpconfig_signatures=processed_bpconfig_signatures,
-    #     )
-    #     i_trn += 1
-
-
-# def read_pareto(fname):
-#     data = []
-#     with open(fname, "rt") as f:
-#         for line in f:
-#             data.append(json.loads(line))
-
-#     bpconfigs = [d["bp_config"] for d in data]
-#     bpconfig_scores = [d["arc_challenge_acc_pred"] for d in data]
-#     return bpconfigs, bpconfig_scores
-
-
-# def main_eval_pareto(args):
-#     bpconfig_db_path = args.output_path / BPCONFIG_DB_FNAME
-#     pareto_db_path = args.output_path / "pareto.json"
-
-#     model_name = MODEL_NAME
-#     model_revision = MODEL_REVISION
-#     model_dtype = MODEL_DTYPE
-#     model_data = HFModelData(
-#         name=model_name, revision=model_revision, dtype=model_dtype
-#     )
-#     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-
-#     processed_bpconfig_signatures = set()
-
-#     bpconfigs, bpconfig_scores = read_pareto(pareto_db_path)
-
-#     # # Experiment
-
-#     # import sys
-#     # import blockprunekit.modelgen.regressor_helpers as rh
-
-#     # def _get_bpconfig_from_features(sample_bpconfig, features):
-#     #     assert len(features) == 2 * len(sample_bpconfig)
-#     #     res = {}
-
-#     #     for i, k in enumerate(sample_bpconfig):
-#     #         use_attention = float(features[2 * i]) > 0.5
-#     #         use_mlp = float(features[2 * i + 1]) > 0.5
-#     #         res[k] = {"use_attention": use_attention, "use_mlp": use_mlp}
-#     #     return res
-
-#     # bpconfig = bpconfigs[0]
-#     # features = rh.get_quality_features([bpconfig])
-#     # bpconfig_unpruned = get_bpconfig_unpruned(
-#     #     model_name=model_name, model_revision=model_revision, model_dtype=model_dtype
-#     # )
-#     # bpconfig2 = _get_bpconfig_from_features(bpconfig_unpruned, features[0,:])
-#     # print("bpconfig == bpconfig2", bpconfig == bpconfig2)
-#     # sys.exit()
-
-#     # # End experiment
-
-#     process_bpconfigs(
-#         bpconfigs=bpconfigs,
-#         bpconfig_scores=bpconfig_scores,
-#         bpconfig_id_prefix=f"prt.",
-#         bpconfig_db_path=bpconfig_db_path,
-#         model_data=model_data,
-#         device=device,
-#         processed_bpconfig_signatures=processed_bpconfig_signatures,
-#     )
-
-# def main_sample_active_learn(args):
-#     bpconfig_db_path = args.output_path / BPCONFIG_DB_FNAME
-#     stop_path = args.output_path / STOP_FNAME
-#     regressor_db_path = args.output_path / REGRESSORS_DB_FNAME
-
-#     model_name = MODEL_NAME
-#     model_revision = MODEL_REVISION
-#     model_dtype = MODEL_DTYPE
-#     model_data = HFModelData(
-#         name=model_name, revision=model_revision, dtype=model_dtype
-#     )
-#     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-
-#     bpconfig_unpruned = ptblop.get_()
-
-#     if not args.output_path.exists():
-#         args.output_path.mkdir(parents=True, exist_ok=False)
-
-#     rng = random.Random(CONFIG_SAMPLER_SEED)
-#     processed_bpconfig_signatures = set()
-
-#     # VAL + TRN SEED DATASET
-
-#     make_seed_dataset(
-#         model_data=model_data,
-#         device=device,
-#         bpconfig_unpruned=bpconfig_unpruned,
-#         rng=rng,
-#         bpconfig_db_path=bpconfig_db_path,
-#         processed_bpconfig_signatures=processed_bpconfig_signatures,
-#     )
-
-#     # TRN - ACTIVE LEARNING
-
-#     i_trn_actl = 1
-
-#     while True:
-#         bpconfig_prefix = f"trn.actl.{i_trn_actl:03d}."
-#         if stop_path.exists():
-#             logger.warning(f"{stop_path} found, exiting")
-#             break
-#         scoring_fn = make_scoring_fn(
-#             bpconfig_prefix, bpconfig_db_path, regressor_db_path
-#         )
-#         bpconfigs, bpconfig_scores = make_random_bpconfigs_with_scoring(
-#             bpconfig_unpruned=bpconfig_unpruned,
-#             num_configs=N_TRN,
-#             rng=rng,
-#             min_num_changes=2,
-#             max_num_changes=MAX_NUM_CHANGES,
-#             processed_bpbconfig_signatures=processed_bpconfig_signatures,
-#             num_scored_candidates=NUM_RANKED_CANDIDATES,
-#             scoring_fn=scoring_fn,
-#         )
-#         process_bpconfigs(
-#             bpconfigs=bpconfigs,
-#             bpconfig_scores=bpconfig_scores,
-#             bpconfig_id_prefix=bpconfig_prefix,
-#             bpconfig_db_path=bpconfig_db_path,
-#             model_data=model_data,
-#             device=device,
-#             processed_bpconfig_signatures=processed_bpconfig_signatures,
-#         )
-#         i_trn_actl += 1
+        sample_pareto_front_bp_configs(
+            n=n_parf,
+            bp_config_id_prefix=f"trn.actl.{i:03d}.",
+            **fixed_kwargs,
+        )

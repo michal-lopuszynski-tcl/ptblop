@@ -11,7 +11,6 @@ from ptblop import __version__ as ptblop_version
 from .. import modelgen
 from .._version import __version__ as ptblopgen_version
 
-
 REPRO_SUBDIR = "repro"
 
 
@@ -125,7 +124,7 @@ def main() -> int:
                 output_path / REPRO_SUBDIR / "requirements_unsafe.txt",
             )
             config = read_config(args.config)
-            modelgen.main_sample_random(config, output_path)
+            modelgen.main_modelgen(config, output_path)
         else:
             if args.command is None:
                 print("No command given\n")
