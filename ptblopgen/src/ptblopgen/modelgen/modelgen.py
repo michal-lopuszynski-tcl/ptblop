@@ -11,8 +11,8 @@ import numpy as np
 import ptblop
 import torch
 
-from .. import _version, builders, regressors
-from . import configurator, regressor_helpers
+from .. import _version, builders, estimators
+from . import configurator, estimator_helpers, pareto
 
 BPCONFIG_DB_FNAME = "bp_configs.json"
 REGRESSORS_DB_FNAME = "regressors.json"
@@ -335,7 +335,7 @@ def make_random_bp_configs_with_scoring(
 def conv_regressor_to_scoring_fn(reg):
 
     def __scoring_fn(bp_config):
-        X = regressor_helpers.get_quality_features([bp_config])
+        X = estimator_helpers.get_quality_features([bp_config])
         _, ypred_min, ypred_max = reg.predict_with_bounds(X)
         return np.abs(ypred_max - ypred_min).item()
 
@@ -343,14 +343,14 @@ def conv_regressor_to_scoring_fn(reg):
 
 
 def make_scoring_fn(regressor_id, bp_config_db_path, regressor_db_path):
-    data_trn, data_val = regressor_helpers.read_data(bp_config_db_path)
+    data_trn, data_val = estimator_helpers.read_data(bp_config_db_path)
 
-    X_trn = regressor_helpers.get_quality_features([d["bp_config"] for d in data_trn])
-    y_trn = regressor_helpers.get_target(data_trn, "arc_challenge_acc")
+    X_trn = estimator_helpers.get_quality_features([d["bp_config"] for d in data_trn])
+    y_trn = estimator_helpers.get_target(data_trn, "arc_challenge_acc")
     logger.info(f"{X_trn.shape=} {X_trn.dtype=} {y_trn.shape=} {y_trn.dtype=}")
 
-    X_val = regressor_helpers.get_quality_features([d["bp_config"] for d in data_val])
-    y_val = regressor_helpers.get_target(data_val, "arc_challenge_acc")
+    X_val = estimator_helpers.get_quality_features([d["bp_config"] for d in data_val])
+    y_val = estimator_helpers.get_target(data_val, "arc_challenge_acc")
     logger.info(f"{X_val.shape=} {X_val.dtype=} {y_val.shape=} {y_val.dtype=}")
 
     n_examples_trn, n_features_trn = X_trn.shape
@@ -365,9 +365,9 @@ def make_scoring_fn(regressor_id, bp_config_db_path, regressor_db_path):
         min_samples_split=9,
     )
 
-    reg = regressors.QuantileGradientBoostingBoundsRegressor(**reg_kwargs)
+    reg = estimators.QuantileGradientBoostingBoundsEstimator(**reg_kwargs)
     reg.fit(X_trn, y_trn)
-    reg_metrics = regressor_helpers.evaluate_bounds_regressor(
+    reg_metrics = estimator_helpers.evaluate_bounds_estimator(
         bounds_regressor=reg, X_trn=X_trn, y_trn=y_trn, X_val=X_val, y_val=y_val
     )
     logger.info(f"{reg_metrics=}")
@@ -481,6 +481,94 @@ def sample_random_bp_configs(
     )
 
 
+# def make_scoring_fn(regressor_id, bp_config_db_path, regressor_db_path):
+#     data_trn, data_val = estimator_helpers.read_data(bp_config_db_path)
+
+#     X_trn = estimator_helpers.get_quality_features([d["bpconfig"] for d in data_trn])
+#     y_trn = estimator_helpers.get_target(data_trn, "arc_challenge_acc")
+#     logger.info(f"{X_trn.shape=} {X_trn.dtype=} {y_trn.shape=} {y_trn.dtype=}")
+
+#     X_val = estimator_helpers.get_quality_features([d["bpconfig"] for d in data_val])
+#     y_val = estimator_helpers.get_target(data_val, "arc_challenge_acc")
+#     logger.info(f"{X_val.shape=} {X_val.dtype=} {y_val.shape=} {y_val.dtype=}")
+
+#     n_examples_trn, n_features_trn = X_trn.shape
+#     n_examples_val, n_features_val = X_val.shape
+
+#     reg_type = "QuantileGradientBoostingBoundsRegressor"
+#     reg_kwargs = dict(
+#         learning_rate=0.03,
+#         n_estimators=200,
+#         max_depth=4,
+#         min_samples_leaf=9,
+#         min_samples_split=9,
+#     )
+
+#     reg = estimators.QuantileGradientBoostingBoundsEstimator(**reg_kwargs)
+#     reg.fit(X_trn, y_trn)
+#     reg_metrics = estimator_helpers.evaluate_bounds_regressor(
+#         bounds_regressor=reg, X_trn=X_trn, y_trn=y_trn, X_val=X_val, y_val=y_val
+#     )
+#     logger.info(f"{reg_metrics=}")
+
+#     scoring_fn = conv_regressor_to_scoring_fn(reg)
+#     db_entry = {
+#         "regressor_id": regressor_id,
+#         "n_examples_trn": n_examples_trn,
+#         "n_features_trn": n_features_trn,
+#         "n_examples_val": n_examples_val,
+#         "n_features_val": n_features_val,
+#         "regressor_type": reg_type,
+#         "regressor_kwargs": reg_kwargs,
+#         "regressor_metrics": reg_metrics,
+#         "blockprunekit_version": _version.__version__,
+#     }
+#     update_db(regressor_db_path, db_entry)
+#     return scoring_fn
+
+
+# def sample_active_learning_bp_configs(
+#     *,
+#     model,
+#     device,
+#     evaluator_fn,
+#     n,
+#     max_num_changes,
+#     bp_config_id_prefix,
+#     processed_bpconfig_signatures,
+#     rng,
+#     bp_config_db_path,
+#     stop_path,
+#     n_candidates,
+#     estimator_db_path
+# ):
+#     bp_config_unpruned = ptblop.get_unpruned_bp_config(model)
+#     scoring_fn = make_scoring_fn(
+#         bpconfig_prefix, bp_config_db_path, estimator_db_path
+#     )
+#     bp_configs, bp_config_scores = make_random_bpconfigs_with_scoring(
+#         bpconfig_unpruned=bp_config_unpruned,
+#         num_configs=n,
+#         rng=rng,
+#         min_num_changes=2,
+#         max_num_changes=max_num_changes,
+#         processed_bpbconfig_signatures=processed_bpconfig_signatures,
+#         num_scored_candidates=n_candidates,
+#         scoring_fn=scoring_fn,
+#     )
+#     process_bp_configs(
+#         bp_configs=bp_configs,
+#         bp_config_scores=bp_config_scores,
+#         bp_config_id_prefix=bp_config_id_prefix,
+#         bp_config_db_path=bp_config_db_path,
+#         model=model,
+#         evaluator_fn=evaluator_fn,
+#         device=device,
+#         processed_bp_config_signatures=processed_bpconfig_signatures,
+#         stop_path=stop_path,
+#     )
+
+
 def sample_active_learning_bp_configs(
     *,
     model,
@@ -491,8 +579,10 @@ def sample_active_learning_bp_configs(
     bp_config_id_prefix,
     processed_bpconfig_signatures,
     rng,
-    bpconfig_db_path,
+    bp_config_db_path,
     stop_path,
+    n_candidates,
+    estimator_db_path,
 ):
     pass
 
@@ -514,7 +604,7 @@ def sample_pareto_front_bp_configs(
 
 
 def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
-    bpconfig_db_path = output_path / BPCONFIG_DB_FNAME
+    bp_config_db_path = output_path / BPCONFIG_DB_FNAME
     stop_path = output_path / STOP_FNAME
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -540,7 +630,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
     processed_bpconfig_signatures = set()
 
     fixed_kwargs = dict(
-        bpconfig_db_path=bpconfig_db_path,
+        bpconfig_db_path=bp_config_db_path,
         stop_path=stop_path,
         device=device,
         model=model,
@@ -562,7 +652,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
         bp_configs=[bp_config_unpruned],
         bp_config_scores=[-1],
         bp_config_id_prefix="trn.zerl.001.",
-        bp_config_db_path=bpconfig_db_path,
+        bp_config_db_path=bp_config_db_path,
         model=model,
         evaluator_fn=evaluator_fn,
         device=device,
@@ -570,7 +660,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
         stop_path=stop_path,
     )
 
-    # TRAINING DATASET - INITAL - ONE LAYER FIXES
+    # TRAINING DATASET - ITERATIONS AS DEFINED IN CONFIG
 
     for i, n_tuple in enumerate(
         gen_sample_configs(config_sampler.trn_schedule), start=1
@@ -588,15 +678,21 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
             bp_config_id_prefix=f"trn.rand.{i:03d}.",
             **fixed_kwargs,
         )
+        # sample_active_learning_bp_configs(
+        #     n=n_actl,
+        #     bp_config_id_prefix=f"trn.actl.{i:03d}.",
+        #     **fixed_kwargs,
+        # )
 
-        sample_active_learning_bp_configs(
-            n=n_actl,
-            bp_config_id_prefix=f"trn.actl.{i:03d}.",
-            **fixed_kwargs,
-        )
+        # sample_pareto_front_bp_configs(
+        #     n=n_parf,
+        #     bp_config_id_prefix=f"trn.actl.{i:03d}.",
+        #     **fixed_kwargs,
+        # )
 
-        sample_pareto_front_bp_configs(
-            n=n_parf,
-            bp_config_id_prefix=f"trn.actl.{i:03d}.",
-            **fixed_kwargs,
+        quality_estimator, cost_estimator = (
+            estimator_helpers.train_quality_and_cost_estimators(
+                bp_config_db_path=bp_config_db_path
+            )
         )
+        pareto.find_pareto_front()
