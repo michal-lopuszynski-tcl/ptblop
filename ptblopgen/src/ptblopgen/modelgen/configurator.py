@@ -10,7 +10,8 @@ class TrnSchedulerEntryConfig(pydantic.BaseModel):
 
 class SamplerConfig(pydantic.BaseModel):
     random_bp_config_rng_seed: int
-    evaluator_target: str
+    quality_evaluator_metric: str
+    cost_metric: str
     max_num_changes_factor: float
     num_ranked_candidates: int
     max_random_config_trials: int

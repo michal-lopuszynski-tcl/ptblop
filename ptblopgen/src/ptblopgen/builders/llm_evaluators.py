@@ -1,6 +1,7 @@
 import codecs
 import collections
 import logging
+import random
 import time
 from typing import Any
 
@@ -361,9 +362,54 @@ class LMEvalWithPPLEvaluator:
         return res
 
 
+class MockLMEvalWithPPLEvaluator:
+    def __init__(self, tokenizer, evaluator_metrics, evaluator_seed):
+        if "ppl" in evaluator_metrics:
+            self.ppl_dl = True
+        self.tokenizer = tokenizer
+        self.lm_eval_tasks = [em for em in evaluator_metrics if em != "ppl"]
+        self.rng = random.Random(evaluator_seed)
+
+    def __call__(self, model: torch.nn.Module, device: torch.device):
+        if self.ppl_dl:
+            t1 = time.perf_counter()
+            perplexity = 1000.0 * self.rng.random()
+            t2 = time.perf_counter()
+            time_perplex_eval = t2 - t1
+            res_ppl = {
+                "ppl": perplexity,
+                "time_ppl": time_perplex_eval,
+            }
+        else:
+            res_ppl = {}
+
+        if self.lm_eval_tasks:
+            t1 = time.perf_counter()
+
+            res_lm_eval = {}
+            for task in self.lm_eval_tasks:
+                task_score = self.rng.random()
+                res_lm_eval[f"{task}"] = task_score
+                # Add max 20% relative error
+                res_lm_eval[f"{task}_acc_stderr"] = task_score * 0.2 * self.rng.random()
+            t2 = time.perf_counter()
+
+            res_lm_eval["time_lm_eval"] = t2 - t1
+        else:
+            res_lm_eval = {}
+        res = res_ppl | res_lm_eval
+        return res
+
+
 def make_evaluator(evaluator_config, tokenizer):
     evaluator_name = evaluator_config["evaluator_name"]
     if evaluator_name == "lm_eval_with_ppl":
         return LMEvalWithPPLEvaluator(tokenizer, evaluator_config["evaluator_metrics"])
+    elif evaluator_name == "mock_lm_eval_with_ppl":
+        return MockLMEvalWithPPLEvaluator(
+            tokenizer,
+            evaluator_config["evaluator_metrics"],
+            evaluator_seed=evaluator_config["evaluator_seed"],
+        )
     else:
         raise ValueError(f"Unsupported evaluator - {evaluator_name=}")

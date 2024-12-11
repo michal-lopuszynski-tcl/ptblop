@@ -15,7 +15,11 @@ from .. import _version, builders, estimators
 from . import configurator, estimator_helpers, pareto
 
 BPCONFIG_DB_FNAME = "bp_configs.json"
-REGRESSORS_DB_FNAME = "regressors.json"
+QUALITY_ESTIMATOR_REPORT_DIR = "quality_estimators"
+QUALITY_ESTIMATOR_DB_FNAME = "quality_estimators.json"
+QUALITY_ESTIMATOR_ID_TEMPLATE = "quality_estimator_%04d"
+PARETO_FRONT_DIR = "pareto_fronts"
+PARETO_FRONT_FNAME_TEMPLATE = "pareto_front_%04d.json"
 STOP_FNAME = "STOP"
 
 MAX_RANDOM_CONFIG_TRIALS = 20
@@ -389,7 +393,7 @@ def make_scoring_fn(regressor_id, bp_config_db_path, regressor_db_path):
 
 
 def bp_configs_scores_sample(bp_configs, bp_config_scores, n: int, rng):
-    if len(bp_configs) < 0 or len(bp_configs) < n:
+    if n < 0 or len(bp_configs) < n:
         return bp_configs, bp_config_scores
     else:
         indices = rng.sample(range(len(bp_configs)), k=n)
@@ -605,7 +609,12 @@ def sample_pareto_front_bp_configs(
 
 def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
     bp_config_db_path = output_path / BPCONFIG_DB_FNAME
+    quality_estimators_db_path = output_path / QUALITY_ESTIMATOR_DB_FNAME
+    quality_estimators_report_path = output_path / QUALITY_ESTIMATOR_REPORT_DIR
     stop_path = output_path / STOP_FNAME
+
+    quality_estimators_report_path.mkdir(exist_ok=True, parents=True)
+
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     model, evaluator_fn = builders.make_model_and_evaluator(
@@ -669,30 +678,50 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
 
         sample_one_layer_bp_configs(
             n=n_onel,
-            bp_config_id_prefix=f"trn.onel.{i:03d}.",
+            bp_config_id_prefix=f"trn.onel.{i:04d}.",
             **fixed_kwargs,
         )
 
         sample_random_bp_configs(
             n=n_rand,
-            bp_config_id_prefix=f"trn.rand.{i:03d}.",
+            bp_config_id_prefix=f"trn.rand.{i:04d}.",
             **fixed_kwargs,
         )
         # sample_active_learning_bp_configs(
         #     n=n_actl,
-        #     bp_config_id_prefix=f"trn.actl.{i:03d}.",
+        #     bp_config_id_prefix=f"trn.actl.{i:04d}.",
         #     **fixed_kwargs,
         # )
 
         # sample_pareto_front_bp_configs(
         #     n=n_parf,
-        #     bp_config_id_prefix=f"trn.actl.{i:03d}.",
+        #     bp_config_id_prefix=f"trn.actl.{i:04d}.",
         #     **fixed_kwargs,
         # )
 
-        quality_estimator, cost_estimator = (
-            estimator_helpers.train_quality_and_cost_estimators(
-                bp_config_db_path=bp_config_db_path
+        if i == 1:
+            cost_estimator, cost_estimator_metrics = (
+                estimator_helpers.train_param_estimator(bp_config_db_path)
+            )
+
+        quality_estimator_id = "quality_estimator_%04d" % i
+        quality_estimator, quality_estimator_metrics = (
+            estimator_helpers.train_quality_estimator(
+                bp_config_db_path=bp_config_db_path,
+                quality_metric=config_sampler.quality_evaluator_metric,
+                quality_estimator_id=quality_estimator_id,
+                quality_estimator_report_path=quality_estimators_report_path,
             )
         )
-        pareto.find_pareto_front()
+        update_db(quality_estimators_db_path, quality_estimator_metrics)
+        n_features = quality_estimator_metrics["n_features_trn"]
+        pareto_front_path = (
+            output_path / PARETO_FRONT_DIR / (PARETO_FRONT_FNAME_TEMPLATE % i)
+        )
+        pareto.find_pareto_front(
+            quality_estimator=quality_estimator,
+            cost_estimator=cost_estimator,
+            n_features=n_features,
+            bp_config_unpruned=bp_config_unpruned,
+            pareto_path=pareto_front_path,
+        )

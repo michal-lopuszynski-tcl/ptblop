@@ -1,7 +1,6 @@
 import argparse
 import json
 import logging
-import pathlib
 import sys
 
 import numpy as np
@@ -313,11 +312,12 @@ def main_tune_rf(args: argparse.Namespace):
 
 
 def find_pareto_front(
-    bp_config_db_path,
+    *,
     quality_estimator,
-    quality_estimator_metrics,
     cost_estimator,
-    pareto_dir,
+    bp_config_unpruned,
+    n_features,
+    pareto_path,
 ):
     # pareto_dir = args.output_path / "pareto"
     # if pareto_dir.exists():
@@ -336,7 +336,7 @@ def find_pareto_front(
     f_quality = build_predict_quality(quality_estimator)
     # reg_param, reg_param_data = param_regressor_fit(data_trn, data_val)
     f_cost = build_predict_cost(cost_estimator)
-    n_features = quality_estimator_metrics["n_features_trn"]
+    # n_features = quality_estimator_metrics["n_features_trn"]
 
     problem = BinaryProblem(f1=f_quality, f2=f_cost, n_var=n_features)
 
@@ -356,14 +356,13 @@ def find_pareto_front(
 
     # np.savetxt(pareto_dir / "pareto_front.csv", pareto_front, delimiter=",")
     # np.savetxt(pareto_dir / "pareto_solutions.csv", res.X, delimiter=",", fmt="%d")
-    sample_bp_config = data_trn[0]["bp_config"]
     m, _ = pareto_front.shape
 
     pareto_data = []
     for i in range(m):
         features = res.X[i, :]
         # print(features)
-        bp_config = get_bp_config_from_features(sample_bp_config, features)
+        bp_config = get_bp_config_from_features(bp_config_unpruned, features)
         n, n_attention, n_mlp = get_bp_config_stats(bp_config)
         q, qmin, qmax = quality_estimator.predict_with_bounds([features])
         params = cost_estimator.predict([features])
@@ -379,6 +378,7 @@ def find_pareto_front(
         }
         pareto_data.append(d)
     pareto_data = sorted(pareto_data, key=lambda d: -d[f"mparams_pred"])
-    with open(pareto_dir / "pareto.json", "wt") as f:
+    pareto_path.parent.mkdir(exist_ok=True, parents=True)
+    with open(pareto_path, "wt") as f:
         for d in pareto_data:
             f.write(json.dumps(d) + "\n")
