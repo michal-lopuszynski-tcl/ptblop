@@ -47,8 +47,7 @@ def setup_logging() -> None:
     for module_name in [
         __name__,
         "ptblop",
-        "modelgen",
-        "builders",
+        "ptblopgen",
     ]:
         logging.getLogger(module_name).setLevel(logging.INFO)
 

@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 
 import numpy as np
 import pymoo.algorithms.moo.nsga2
@@ -129,6 +130,7 @@ def find_pareto_front(
     pareto_path,
     config_pareto_optimization: configurator.ParetoOptimizationConfig,
 ):
+    t1 = time.perf_counter()
     f_quality = build_predict_quality(quality_estimator)
     f_cost = build_predict_cost(cost_estimator)
 
@@ -183,3 +185,10 @@ def find_pareto_front(
     with open(pareto_path, "wt") as f:
         for d in pareto_data:
             f.write(json.dumps(d) + "\n")
+    t2 = time.perf_counter()
+    msg = f"Finished Pareto optimization: duration={t2-t1:.2f} seconds"
+    msg += f" n_gen={config_pareto_optimization.n_gen}"
+    msg += f" pos_size={config_pareto_optimization.pop_size}"
+    msg += f" optimizer_seed={config_pareto_optimization.optimizer_seed}"
+    msg += f" n_features={n_features}"
+    logger.info(msg)
