@@ -15,9 +15,11 @@ from .. import _version, builders, estimators
 from . import configurator, estimator_helpers, pareto_optimization
 
 BPCONFIG_DB_FNAME = "bp_configs.json"
-QUALITY_ESTIMATOR_REPORT_DIR = "quality_estimators"
-QUALITY_ESTIMATOR_DB_FNAME = "quality_estimators.json"
-QUALITY_ESTIMATOR_ID_TEMPLATE = "quality_estimator_%04d"
+QUALITY_ESTIMATOR_REPORT_DIR = "estimators_quality"
+QUALITY_ESTIMATOR_DB_FNAME = "estimators_quality.json"
+COST_ESTIMATOR_DB_FNAME = "estimators_cost.json"
+QUALITY_ESTIMATOR_ID_TEMPLATE = "estimator_quality_%04d"
+
 PARETO_FRONT_DIR = "pareto_fronts"
 PARETO_FRONT_FNAME_TEMPLATE = "pareto_front_%04d.json"
 STOP_FNAME = "STOP"
@@ -614,6 +616,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
     )
     bp_config_db_path = output_path / BPCONFIG_DB_FNAME
     quality_estimators_db_path = output_path / QUALITY_ESTIMATOR_DB_FNAME
+    cost_estimators_db_path = output_path / COST_ESTIMATOR_DB_FNAME
     quality_estimators_report_path = output_path / QUALITY_ESTIMATOR_REPORT_DIR
     stop_path = output_path / STOP_FNAME
 
@@ -694,22 +697,26 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
         )
         # sample_active_learning_bp_configs(
         #     n=n_actl,
+        #     max_num_changes=max_num_changes,
         #     bp_config_id_prefix=f"trn.actl.{i:04d}.",
         #     **fixed_kwargs,
         # )
 
         # sample_pareto_front_bp_configs(
         #     n=n_parf,
-        #     bp_config_id_prefix=f"trn.actl.{i:04d}.",
+        #     bp_config_id_prefix=f"trn.parf.{i:04d}.",
         #     **fixed_kwargs,
         # )
 
         if i == 1:
+            cost_estimator_id = "estimator_quality_%04d" % i
             cost_estimator, cost_estimator_metrics = (
                 estimator_helpers.train_param_estimator(bp_config_db_path)
             )
+            ceid = {"estimator_id": cost_estimator_id}
+            update_db(cost_estimators_db_path, ceid | cost_estimator_metrics)
 
-        quality_estimator_id = "quality_estimator_%04d" % i
+        quality_estimator_id = "estimator_quality_%04d" % i
         quality_estimator, quality_estimator_metrics = (
             estimator_helpers.train_quality_estimator(
                 bp_config_db_path=bp_config_db_path,
@@ -718,7 +725,8 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
                 quality_estimator_report_path=quality_estimators_report_path,
             )
         )
-        update_db(quality_estimators_db_path, quality_estimator_metrics)
+        qeid = {"estimator_id": quality_estimator_id}
+        update_db(quality_estimators_db_path, qeid | quality_estimator_metrics)
         n_features = quality_estimator_metrics["n_features_trn"]
         pareto_front_path = (
             output_path / PARETO_FRONT_DIR / (PARETO_FRONT_FNAME_TEMPLATE % i)
