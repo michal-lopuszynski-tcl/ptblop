@@ -24,8 +24,8 @@ def read_data(db_path):
     with open(db_path, "rt") as f:
         for line in f:
             d = json.loads(line)
-            # bpconfig = d["bpconfig"]
-            # sig = get_bpconfig_signature(bpconfig)
+            # bp_config = d["bp_config"]
+            # sig = get_bp_config_signature(bp_config)
             # signatures.add(sig)
             data.append(d)
 
@@ -212,17 +212,17 @@ def get_quality_feature_names(bp_configs):
     return feature_names
 
 
-def get_quality_features(bpconfigs):
+def get_quality_features(bp_configs):
 
     def __cast(v):
         return float(v)
 
     feature_list = []
 
-    for bpc in bpconfigs:
+    for bpc in bp_configs:
         row = []
-        # bpconfigs[0] just in case other configs have different keys order
-        for entry in bpconfigs[0]:
+        # bp_configs[0] just in case other configs have different keys order
+        for entry in bp_configs[0]:
             f1 = __cast(bpc[entry]["use_attention"])
             row.append(f1)
             f2 = __cast(bpc[entry]["use_mlp"])
@@ -236,9 +236,9 @@ def get_quality_features(bpconfigs):
 # Utils for params "regression"
 
 
-def _get_params_features_from_bpconfig(bpconfig):
+def _get_params_features_from_bp_config(bp_config):
     n_full, n_attention, n_mlp = 0.0, 0.0, 0.0
-    for d in bpconfig.values():
+    for d in bp_config.values():
         use_attention, use_mlp = d["use_attention"], d["use_mlp"]
         if use_attention and use_mlp:
             n_full += 1.0
@@ -249,8 +249,8 @@ def _get_params_features_from_bpconfig(bpconfig):
     return [n_full, n_attention, n_mlp]
 
 
-def get_params_features(bpconfigs):
-    return np.array([_get_params_features_from_bpconfig(bpc) for bpc in bpconfigs])
+def get_params_features(bp_configs):
+    return np.array([_get_params_features_from_bp_config(bpc) for bpc in bp_configs])
 
 
 # Main library functionality
