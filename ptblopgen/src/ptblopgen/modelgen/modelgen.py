@@ -58,10 +58,10 @@ def update_db(db_path, db_entry, mode="append"):
 # Bpconfigs - helper functions
 
 
-def genereate_bp_config_changes(bpconfog_unpruned):
+def genereate_bp_config_changes(bp_config_unpruned):
     config_changes = []
 
-    for k, v in bpconfog_unpruned.items():
+    for k, v in bp_config_unpruned.items():
         for k1 in v:
             config_changes.append({k: {k1: False}})
     return config_changes
@@ -77,10 +77,10 @@ def get_bp_config_signature(bp_config):
     return int(signature_str, 2)
 
 
-def apply_bpconfig_changes(bpconfig_unpruned, bpconfig_changes):
-    blockprune_cfg = copy.deepcopy(bpconfig_unpruned)
+def apply_bp_config_changes(bp_config_unpruned, bp_config_changes):
+    blockprune_cfg = copy.deepcopy(bp_config_unpruned)
 
-    for c in bpconfig_changes:
+    for c in bp_config_changes:
         for k, v in c.items():
             blockprune_cfg[k] |= v
 
@@ -89,18 +89,18 @@ def apply_bpconfig_changes(bpconfig_unpruned, bpconfig_changes):
 
 def are_all_bp_configs_processed(bp_configs, bp_config_id_fmt, bp_config_db_path):
     if bp_config_db_path.exists():
-        bpconfig_ids = {
+        bp_config_ids = {
             (bp_config_id_fmt % i) for i, _ in enumerate(bp_configs, start=1)
         }
-        processed_bpconfigs_ids = set()
+        processed_bp_configs_ids = set()
 
         with open(bp_config_db_path, "rt") as f:
             for line in f:
                 d = json.loads(line)
-                processed_bpconfigs_ids.add(d["id"])
+                processed_bp_configs_ids.add(d["id"])
 
-        n1 = len(bpconfig_ids)
-        n2 = len(bpconfig_ids & processed_bpconfigs_ids)
+        n1 = len(bp_config_ids)
+        n2 = len(bp_config_ids & processed_bp_configs_ids)
         logger.info(f"{bp_config_id_fmt} {n1=} {n2=}")
         return n1 == n2
     else:
@@ -191,9 +191,9 @@ def make_one_layer_bp_configs(bp_config_unpruned):
     res = []
 
     for cfg_change in cfg_changes_all:
-        bpconfig = copy.deepcopy(bp_config_unpruned)
-        bpconfig = apply_bpconfig_changes(bpconfig, [cfg_change])
-        res.append(bpconfig)
+        bp_config = copy.deepcopy(bp_config_unpruned)
+        bp_config = apply_bp_config_changes(bp_config, [cfg_change])
+        res.append(bp_config)
 
     return res, [-1.0 for r in res]
 
@@ -204,7 +204,7 @@ def make_one_layer_bp_configs(bp_config_unpruned):
 def _make_random_bp_config(
     *,
     rng,
-    bpconfig_unpruned,
+    bp_config_unpruned,
     num_changes,
     processed_bp_config_signatures,
     cfg_changes_all=None,
@@ -212,23 +212,23 @@ def _make_random_bp_config(
 ):
     # TODO Delete this line
     if cfg_changes_all is None:
-        cfg_changes_all = genereate_bp_config_changes(bpconfig_unpruned)
+        cfg_changes_all = genereate_bp_config_changes(bp_config_unpruned)
 
-    bpconfig, bpconfig_signature = None, None
+    bp_config, bp_config_signature = None, None
 
     for j in range(1, max_random_config_trials + 1):
         cfg_changes = rng.sample(cfg_changes_all, k=num_changes)
-        bpconfig = apply_bpconfig_changes(bpconfig_unpruned, cfg_changes)
-        bpconfig_signature = get_bp_config_signature(bpconfig)
+        bp_config = apply_bp_config_changes(bp_config_unpruned, cfg_changes)
+        bp_config_signature = get_bp_config_signature(bp_config)
 
-        if bpconfig_signature not in processed_bp_config_signatures:
+        if bp_config_signature not in processed_bp_config_signatures:
             break
         else:
-            msg = f"Try {j=}, drew signature={bpconfig_signature}"
+            msg = f"Try {j=}, drew signature={bp_config_signature}"
             msg += " that is already processed, repeating"
             logger.warning(msg)
 
-    return bpconfig, bpconfig_signature
+    return bp_config, bp_config_signature
 
 
 def make_random_bp_configs(
@@ -248,17 +248,17 @@ def make_random_bp_configs(
     while len(res) < n:
 
         num_changes = rng.randint(min_num_changes, max_num_changes)
-        bpconfig, bpconfig_signature = _make_random_bp_config(
+        bp_config, bp_config_signature = _make_random_bp_config(
             rng=rng,
-            bpconfig_unpruned=bp_config_unpruned,
+            bp_config_unpruned=bp_config_unpruned,
             num_changes=num_changes,
             processed_bp_config_signatures=processed_bpbconfig_signatures_all,
             cfg_changes_all=cfg_changes_all,
             max_random_config_trials=max_random_config_trials,
         )
-        if bpconfig is not None:
-            res.append(bpconfig)
-            processed_bpbconfig_signatures_all.add(bpconfig_signature)
+        if bp_config is not None:
+            res.append(bp_config)
+            processed_bpbconfig_signatures_all.add(bp_config_signature)
     res_scores = [-1.0 for r in res]  # For random configs scores are meaningless
     return res, res_scores
 
@@ -280,57 +280,57 @@ def make_random_bp_configs_with_scoring(
     processed_bpbconfig_signatures_all = copy.deepcopy(processed_bpbconfig_signatures)
     cfg_changes_all = genereate_bp_config_changes(bp_config_unpruned)
 
-    final_bpconfigs = []
+    final_bp_configs = []
     final_scores = []
-    while len(final_bpconfigs) < num_configs:
+    while len(final_bp_configs) < num_configs:
 
         num_changes = rng.randint(min_num_changes, max_num_changes)
 
         # Generate candidates
 
-        candidate_bpconfigs = []
+        candidate_bp_configs = []
         candidate_signatures = set()
         for _ in range(num_scored_candidates):
             tmp_singnatures = processed_bpbconfig_signatures_all | candidate_signatures
-            bpconfig, bpconfig_signature = _make_random_bp_config(
+            bp_config, bp_config_signature = _make_random_bp_config(
                 rng=rng,
-                bpconfig_unpruned=bp_config_unpruned,
+                bp_config_unpruned=bp_config_unpruned,
                 num_changes=num_changes,
                 processed_bp_config_signatures=tmp_singnatures,
                 cfg_changes_all=cfg_changes_all,
             )
-            if bpconfig is not None:
-                candidate_bpconfigs.append(bpconfig)
-                candidate_signatures.add(bpconfig_signature)
+            if bp_config is not None:
+                candidate_bp_configs.append(bp_config)
+                candidate_signatures.add(bp_config_signature)
 
         # Select highest scored candidate
 
-        if len(candidate_bpconfigs) > 0:
-            n_c = len(candidate_bpconfigs)
+        if len(candidate_bp_configs) > 0:
+            n_c = len(candidate_bp_configs)
             logger.info(f"Generated {n_c} config candidates, selecting one config")
-            scores = np.array([scoring_fn(bpc) for bpc in candidate_bpconfigs])
+            scores = np.array([scoring_fn(bpc) for bpc in candidate_bp_configs])
             imax = np.argmax(scores)
-            bpconfig = candidate_bpconfigs[imax]
+            bp_config = candidate_bp_configs[imax]
             max_score = scores[imax]
             min_score = np.min(scores)
             mean_score = np.mean(scores)
-            assert max_score == scoring_fn(bpconfig)
+            assert max_score == scoring_fn(bp_config)
 
             logger.info(f"Score stats: {max_score=} {min_score=} {mean_score=}")
-            # scores = [scoring_fn(bpc) for bpc in candidate_bpconfigs]
+            # scores = [scoring_fn(bpc) for bpc in candidate_bp_configs]
             # scores.sort(reverse=True)
 
             # for i, r in enumerate(scores, start=1):
             #     logger.info(f"Scoring {i} - {r}")
 
-            bpconfig_signature = get_bp_config_signature(bpconfig)
-            final_bpconfigs.append(bpconfig)
+            bp_config_signature = get_bp_config_signature(bp_config)
+            final_bp_configs.append(bp_config)
             final_scores.append(max_score)
-            processed_bpbconfig_signatures_all.add(bpconfig_signature)
+            processed_bpbconfig_signatures_all.add(bp_config_signature)
         else:
             logger.info(f"Failed to generate any configs for {num_changes=}")
 
-    return final_bpconfigs, final_scores
+    return final_bp_configs, final_scores
 
 
 # Bpconfigs - predictor based scoring
@@ -423,9 +423,9 @@ def sample_one_layer_bp_configs(
     n,
     max_num_changes,
     bp_config_id_prefix,
-    processed_bpconfig_signatures,
+    processed_bp_config_signatures,
     rng,
-    bpconfig_db_path,
+    bp_config_db_path,
     stop_path,
 ):
     bp_config_unpruned = ptblop.get_unpruned_bp_config(model)
@@ -439,11 +439,11 @@ def sample_one_layer_bp_configs(
         bp_configs=bp_configs,
         bp_config_scores=bp_config_scores,
         bp_config_id_prefix=bp_config_id_prefix,
-        bp_config_db_path=bpconfig_db_path,
+        bp_config_db_path=bp_config_db_path,
         model=model,
         evaluator_fn=evaluator_fn,
         device=device,
-        processed_bp_config_signatures=processed_bpconfig_signatures,
+        processed_bp_config_signatures=processed_bp_config_signatures,
         stop_path=stop_path,
     )
 
@@ -456,9 +456,9 @@ def sample_random_bp_configs(
     n,
     max_num_changes,
     bp_config_id_prefix,
-    processed_bpconfig_signatures,
+    processed_bp_config_signatures,
     rng,
-    bpconfig_db_path,
+    bp_config_db_path,
     stop_path,
 ) -> None:
     bp_config_unpruned = ptblop.get_unpruned_bp_config(model)
@@ -469,18 +469,18 @@ def sample_random_bp_configs(
         min_num_changes=2,
         max_num_changes=max_num_changes,
         max_random_config_trials=MAX_RANDOM_CONFIG_TRIALS,
-        processed_bp_bconfig_signatures=processed_bpconfig_signatures,
+        processed_bp_bconfig_signatures=processed_bp_config_signatures,
     )
 
     process_bp_configs(
         bp_configs=bp_configs,
         bp_config_scores=bp_config_scores,
         bp_config_id_prefix=bp_config_id_prefix,
-        bp_config_db_path=bpconfig_db_path,
+        bp_config_db_path=bp_config_db_path,
         model=model,
         evaluator_fn=evaluator_fn,
         device=device,
-        processed_bp_config_signatures=processed_bpconfig_signatures,
+        processed_bp_config_signatures=processed_bp_config_signatures,
         stop_path=stop_path,
     )
 
@@ -488,11 +488,11 @@ def sample_random_bp_configs(
 # def make_scoring_fn(regressor_id, bp_config_db_path, regressor_db_path):
 #     data_trn, data_val = estimator_helpers.read_data(bp_config_db_path)
 
-#     X_trn = estimator_helpers.get_quality_features([d["bpconfig"] for d in data_trn])
+#     X_trn = estimator_helpers.get_quality_features([d["bp_config"] for d in data_trn])
 #     y_trn = estimator_helpers.get_target(data_trn, "arc_challenge_acc")
 #     logger.info(f"{X_trn.shape=} {X_trn.dtype=} {y_trn.shape=} {y_trn.dtype=}")
 
-#     X_val = estimator_helpers.get_quality_features([d["bpconfig"] for d in data_val])
+#     X_val = estimator_helpers.get_quality_features([d["bp_config"] for d in data_val])
 #     y_val = estimator_helpers.get_target(data_val, "arc_challenge_acc")
 #     logger.info(f"{X_val.shape=} {X_val.dtype=} {y_val.shape=} {y_val.dtype=}")
 
@@ -539,7 +539,7 @@ def sample_random_bp_configs(
 #     n,
 #     max_num_changes,
 #     bp_config_id_prefix,
-#     processed_bpconfig_signatures,
+#     processed_bp_config_signatures,
 #     rng,
 #     bp_config_db_path,
 #     stop_path,
@@ -548,15 +548,15 @@ def sample_random_bp_configs(
 # ):
 #     bp_config_unpruned = ptblop.get_unpruned_bp_config(model)
 #     scoring_fn = make_scoring_fn(
-#         bpconfig_prefix, bp_config_db_path, estimator_db_path
+#         bp_config_prefix, bp_config_db_path, estimator_db_path
 #     )
-#     bp_configs, bp_config_scores = make_random_bpconfigs_with_scoring(
-#         bpconfig_unpruned=bp_config_unpruned,
+#     bp_configs, bp_config_scores = make_random_bp_configs_with_scoring(
+#         bp_config_unpruned=bp_config_unpruned,
 #         num_configs=n,
 #         rng=rng,
 #         min_num_changes=2,
 #         max_num_changes=max_num_changes,
-#         processed_bpbconfig_signatures=processed_bpconfig_signatures,
+#         processed_bpbconfig_signatures=processed_bp_config_signatures,
 #         num_scored_candidates=n_candidates,
 #         scoring_fn=scoring_fn,
 #     )
@@ -568,7 +568,7 @@ def sample_random_bp_configs(
 #         model=model,
 #         evaluator_fn=evaluator_fn,
 #         device=device,
-#         processed_bp_config_signatures=processed_bpconfig_signatures,
+#         processed_bp_config_signatures=processed_bp_config_signatures,
 #         stop_path=stop_path,
 #     )
 
@@ -581,7 +581,7 @@ def sample_active_learning_bp_configs(
     n,
     max_num_changes,
     bp_config_id_prefix,
-    processed_bpconfig_signatures,
+    processed_bp_config_signatures,
     rng,
     bp_config_db_path,
     stop_path,
@@ -599,9 +599,9 @@ def sample_pareto_front_bp_configs(
     n,
     max_num_changes,
     bp_config_id_prefix,
-    processed_bpconfig_signatures,
+    processed_bp_config_signatures,
     rng,
-    bpconfig_db_path,
+    bp_config_db_path,
     stop_path,
 ):
     pass
@@ -636,17 +636,17 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
         f"max_num_changes_factor={config_sampler.max_num_changes_factor}"
     )
 
-    processed_bpconfig_signatures = set()
+    processed_bp_config_signatures = set()
 
     fixed_kwargs = dict(
-        bpconfig_db_path=bp_config_db_path,
+        bp_config_db_path=bp_config_db_path,
         stop_path=stop_path,
         device=device,
         model=model,
         evaluator_fn=evaluator_fn,
         rng=rng,
         max_num_changes=max_num_changes,
-        processed_bpconfig_signatures=processed_bpconfig_signatures,
+        processed_bp_config_signatures=processed_bp_config_signatures,
     )
 
     # VALIDATION DATASET
@@ -665,7 +665,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
         model=model,
         evaluator_fn=evaluator_fn,
         device=device,
-        processed_bp_config_signatures=processed_bpconfig_signatures,
+        processed_bp_config_signatures=processed_bp_config_signatures,
         stop_path=stop_path,
     )
 
