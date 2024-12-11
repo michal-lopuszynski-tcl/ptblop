@@ -17,3 +17,9 @@ class SamplerConfig(pydantic.BaseModel):
     max_random_config_trials: int
     n_val_rand: int
     trn_schedule: list[TrnSchedulerEntryConfig]
+
+
+class ParetoOptimizationConfig(pydantic.BaseModel):
+    n_gen: int
+    pop_size: int
+    optimizer_seed: int

@@ -10,6 +10,8 @@ import pymoo.operators.sampling.rnd
 import pymoo.optimize
 import pymoo.termination
 
+from . import configurator
+
 logger = logging.getLogger(__name__)
 
 
@@ -125,6 +127,7 @@ def find_pareto_front(
     bp_config_unpruned,
     n_features,
     pareto_path,
+    config_pareto_optimization: configurator.ParetoOptimizationConfig,
 ):
     f_quality = build_predict_quality(quality_estimator)
     f_cost = build_predict_cost(cost_estimator)
@@ -132,16 +135,24 @@ def find_pareto_front(
     problem = BinaryProblem(f1=f_quality, f2=f_cost, n_var=n_features)
 
     algorithm = pymoo.algorithms.moo.nsga2.NSGA2(
-        pop_size=2000,
+        pop_size=config_pareto_optimization.pop_size,
         sampling=pymoo.operators.sampling.rnd.BinaryRandomSampling(),
         crossover=pymoo.operators.crossover.pntx.TwoPointCrossover(),
         mutation=pymoo.operators.mutation.bitflip.BitflipMutation(prob=1 / n_features),
         eliminate_duplicates=True,
     )
 
-    termination = pymoo.termination.get_termination("n_gen", 500)
+    termination = pymoo.termination.get_termination(
+        "n_gen", config_pareto_optimization.n_gen
+    )
 
-    res = pymoo.optimize.minimize(problem, algorithm, termination, seed=1, verbose=True)
+    res = pymoo.optimize.minimize(
+        problem,
+        algorithm,
+        termination,
+        seed=config_pareto_optimization.optimizer_seed,
+        verbose=True,
+    )
 
     pareto_front = res.F
 

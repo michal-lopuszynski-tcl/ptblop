@@ -607,6 +607,11 @@ def sample_pareto_front_bp_configs(
 
 
 def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
+
+    config_sampler = configurator.SamplerConfig(**config["sampler"])
+    config_pareto_optimization = configurator.ParetoOptimizationConfig(
+        **config["pareto_optimization"]
+    )
     bp_config_db_path = output_path / BPCONFIG_DB_FNAME
     quality_estimators_db_path = output_path / QUALITY_ESTIMATOR_DB_FNAME
     quality_estimators_report_path = output_path / QUALITY_ESTIMATOR_REPORT_DIR
@@ -622,8 +627,6 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
 
     bp_config_unpruned = ptblop.get_unpruned_bp_config(model)
     ptblop.apply_bp_config_in_place(model, {})
-
-    config_sampler = configurator.SamplerConfig(**config["sampler"])
 
     rng = random.Random(config_sampler.random_bp_config_rng_seed)
 
@@ -727,4 +730,5 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
             n_features=n_features,
             bp_config_unpruned=bp_config_unpruned,
             pareto_path=pareto_front_path,
+            config_pareto_optimization=config_pareto_optimization,
         )
