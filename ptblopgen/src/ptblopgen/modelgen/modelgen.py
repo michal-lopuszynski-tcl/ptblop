@@ -12,7 +12,7 @@ import ptblop
 import torch
 
 from .. import _version, builders, estimators
-from . import configurator, estimator_helpers, pareto
+from . import configurator, estimator_helpers, pareto_optimization
 
 BPCONFIG_DB_FNAME = "bp_configs.json"
 QUALITY_ESTIMATOR_REPORT_DIR = "quality_estimators"
@@ -718,7 +718,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
         pareto_front_path = (
             output_path / PARETO_FRONT_DIR / (PARETO_FRONT_FNAME_TEMPLATE % i)
         )
-        pareto.find_pareto_front(
+        pareto_optimization.find_pareto_front(
             quality_estimator=quality_estimator,
             cost_estimator=cost_estimator,
             n_features=n_features,
