@@ -421,7 +421,6 @@ def sample_one_layer_bp_configs(
     device,
     evaluator_fn,
     n,
-    max_num_changes,
     bp_config_id_prefix,
     processed_bp_config_signatures,
     rng,
@@ -645,7 +644,6 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
         model=model,
         evaluator_fn=evaluator_fn,
         rng=rng,
-        max_num_changes=max_num_changes,
         processed_bp_config_signatures=processed_bp_config_signatures,
     )
 
@@ -684,6 +682,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
 
         sample_random_bp_configs(
             n=n_rand,
+            max_num_changes=max_num_changes,
             bp_config_id_prefix=f"trn.rand.{i:04d}.",
             **fixed_kwargs,
         )
