@@ -650,7 +650,10 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
     # VALIDATION DATASET
 
     sample_random_bp_configs(
-        n=config_sampler.n_val_rand, bp_config_id_prefix="val.rndl.001.", **fixed_kwargs
+        n=config_sampler.n_val_rand,
+        bp_config_id_prefix="val.rndl.001.",
+        max_num_changes=max_num_changes,
+        **fixed_kwargs,
     )
 
     # TRAINING DATASET - UNPRUNED MODEL
@@ -719,6 +722,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
         )
         pareto_optimization.find_pareto_front(
             quality_estimator=quality_estimator,
+            quality_metric_name=config_sampler.quality_evaluator_metric,
             cost_estimator=cost_estimator,
             n_features=n_features,
             bp_config_unpruned=bp_config_unpruned,

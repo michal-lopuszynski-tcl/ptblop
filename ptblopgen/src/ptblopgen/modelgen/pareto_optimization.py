@@ -10,11 +10,6 @@ import pymoo.operators.sampling.rnd
 import pymoo.optimize
 import pymoo.termination
 
-TARGET_COLUMN = "arc_challenge_acc"
-
-DB_FNAME = "bp_configs.json"
-
-
 logger = logging.getLogger(__name__)
 
 
@@ -125,6 +120,7 @@ def get_bp_config_stats(bp_config):
 def find_pareto_front(
     *,
     quality_estimator,
+    quality_metric_name,
     cost_estimator,
     bp_config_unpruned,
     n_features,
@@ -165,9 +161,9 @@ def find_pareto_front(
             "n": n,
             "n_attention": n_attention,
             "n_mlp": n_mlp,
-            f"{TARGET_COLUMN}_pred": q.item(),
-            f"{TARGET_COLUMN}_pred_min": qmin.item(),
-            f"{TARGET_COLUMN}_pred_max": qmax.item(),
+            f"{quality_metric_name}_pred": q.item(),
+            f"{quality_metric_name}_pred_min": qmin.item(),
+            f"{quality_metric_name}_pred_max": qmax.item(),
             "bp_config": bp_config,
         }
         pareto_data.append(d)
