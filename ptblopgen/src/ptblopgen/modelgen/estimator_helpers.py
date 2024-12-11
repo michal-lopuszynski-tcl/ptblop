@@ -49,31 +49,6 @@ def get_target(data, target_column):
 # Evaluation - bounds regressor
 
 
-def _evaluate_bounds_regressor_single_dataset2(*, bounds_regressor, X, y, prefix):
-    ypred, ypred_min, ypred_max = bounds_regressor.predict_with_bounds(X)
-    errpred = np.abs(ypred_max - ypred_min)
-    err = np.abs(ypred - y)
-
-    rms = sklearn.metrics.root_mean_squared_error(y, ypred)
-    mae = sklearn.metrics.mean_absolute_error(y, ypred)
-    corerr = np.corrcoef(err, errpred)[0][1]
-    return {
-        f"{prefix}rms": float(rms),
-        f"{prefix}mae": float(mae),
-        f"{prefix}corerr": float(corerr),
-    }
-
-
-def evaluate_bounds_regressor2(*, bounds_regressor, X_trn, y_trn, X_val, y_val):
-    r_trn = _evaluate_bounds_regressor_single_dataset2(
-        bounds_regressor=bounds_regressor, X=X_trn, y=y_trn, prefix="trn_"
-    )
-    r_val = _evaluate_bounds_regressor_single_dataset2(
-        bounds_regressor=bounds_regressor, X=X_val, y=y_val, prefix="val_"
-    )
-    return r_trn | r_val
-
-
 def _get_bounds_pred(bounds_regressor, X, y):
     ypred, ypred_min, ypred_max = bounds_regressor.predict_with_bounds(X)
     errpred = np.abs(ypred_max - ypred_min)
@@ -89,6 +64,7 @@ def _get_metrics(*, prefix, y, ypred, err, errpred):
         f"{prefix}rms": float(rms),
         f"{prefix}mae": float(mae),
         f"{prefix}corerr": float(corerr),
+        f"{prefix}n": len(y),
     }
 
 
@@ -149,20 +125,22 @@ def evaluate_bounds_estimator(
         axs[1, 1].scatter(err_val, err_val_pred, alpha=ALPHA, c=CVAL)
         axs[1, 1].grid()
         axs[0, 2].set_axis_off()
+        num = r_trn["trn_n"]
         rms = r_trn["trn_rms"]
         mae = r_trn["trn_mae"]
         corerr = r_trn["trn_corerr"]
-        trn_stats = (
-            f"trn_rms = {rms:.3f}\ntrn_mae = {mae:.3f}\ntrn_corerr = {corerr:.3f}"
-        )
-        axs[0, 2].text(0.2, 0.8, trn_stats, fontsize=18)
+        trn_stats = f"trn_n = {num}\ntrn_rms = {rms:.3f}\n"
+        trn_stats += f"trn_mae = {mae:.3f}\ntrn_corerr = {corerr:.3f}"
+
+        axs[0, 2].text(0.2, 0.7, trn_stats, fontsize=18)
+        num = r_val["val_n"]
         rms = r_val["val_rms"]
         mae = r_val["val_mae"]
         corerr = r_val["val_corerr"]
-        val_stats = (
-            f"val_rms = {rms:.3f}\nval_mae = {mae:.3f}\nval_corerr = {corerr:.3f}"
-        )
-        axs[1, 2].text(0.2, 0.8, val_stats, fontsize=18)
+        val_stats = f"val_n = {num}\nval_rms = {rms:.3f}\n"
+        val_stats += f"val_mae = {mae:.3f}\nval_corerr = {corerr:.3f}"
+
+        axs[1, 2].text(0.2, 0.7, val_stats, fontsize=18)
         axs[1, 2].set_axis_off()
         fig.savefig(plot_fname, dpi=240, bbox_inches="tight")
         plt.close(fig)
