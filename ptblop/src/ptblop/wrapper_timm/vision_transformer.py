@@ -21,37 +21,6 @@ class PrunableVisionTransformerBlock(torch.nn.Module, prunable_block.PrunableBlo
             unused_layer_names.add("drop_path2")
         return unused_layer_names
 
-    # def set_unused_layers_to_none(self) -> None:
-    #     if not self.use_attention:
-    #         self.attn = None
-    #         self.ls1 = None
-    #         self.norm1 = None
-    #         self.drop_path1 = None
-
-    #     if not self.use_mlp:
-    #         self.mlp = None
-    #         self.ls2 = None
-    #         self.norm2 = None
-    #         self.drop_path2 = None
-
-    # def check_used_layers_not_none(self) -> None:
-    #     if self.use_attention:
-    #         if (
-    #             self.attn is None
-    #             or self.ls1 is None
-    #             or self.norm1 is None
-    #             or self.drop_path1 is None
-    #         ):
-    #             raise ValueError("Attention is used, but was set to None previously")
-    #     if self.use_mlp:
-    #         if (
-    #             self.mlp is None
-    #             or self.ls2 is None
-    #             or self.norm2 is None
-    #             or self.drop_path2 is None
-    #         ):
-    #             raise ValueError("MLP is used, but was set to None previously")
-
     def __init__(
         self,
         original_module: timm.models.vision_transformer.Block,

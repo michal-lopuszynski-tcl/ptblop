@@ -26,18 +26,6 @@ class PrunablePhi2BLock(torch.nn.Module, prunable_block.PrunableBlock):
             unused_layer_names.add("mlp")
         return unused_layer_names
 
-    # def set_unused_layers_to_none(self) -> None:
-    #     if not self.use_attention:
-    #         self.self_attn = None
-    #     if not self.use_mlp:
-    #         self.mlp = None
-
-    # def check_used_layers_not_none(self) -> None:
-    #     if self.use_attention and self.self_attn is None:
-    #         raise ValueError("Attention is used, but was set to None previously")
-    #     if self.use_mlp and self.mlp is None:
-    #         raise ValueError("MLP is used, but was set to None previously")
-
     @classmethod
     def fix_root_model(cls, root_model: torch.nn.Module) -> None:
         common.fix_root_model_attention_indices(root_model)
