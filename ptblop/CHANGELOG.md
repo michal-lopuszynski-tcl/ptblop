@@ -3,7 +3,6 @@
 + **!..** Add `set_unused_layers_to_none` function to `ptblop`
 + **!..** Define type alias for `bp_config`
 + **...** Add raising value error if the `bp_config` on `apply_bp_config_in_place` is malformed
-+ **...** **[tests]** Add test if block with disabled both attention and mlps is equivallent to identity
 + **...** Add logging in deleting modules
 + **...** Rewrite everything in core.py using named_modules() (simplify)
 + **...** **[checks]** Switch to ruff for linting and formatting
@@ -11,8 +10,9 @@
 + **...** Add some visualization of models with pruned blocks?
 
 # DONE
-+ **!..** Review models and make sure all unused modules are nullified
-+ **!!!** Simplify implementation so the get unused module names is used more
++ **[tests]** Add test if block with disabled both attention and mlps is equivallent to identity
++ Review models and make sure all unused modules are nullified
++ Simplify implementation so the get unused module names is used more
 + Add parameter counting functionality
 + **[tests]** Add model.eval in tests
 + **[tests]** Add test_cpu target to Makefile.inc
