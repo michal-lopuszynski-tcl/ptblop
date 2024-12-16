@@ -105,7 +105,8 @@ def check_disabled_attentnions(
     with pytest.raises(ValueError) as exc_info:
         ptblop.apply_bp_config_in_place(model, bp_config0)
 
-    assert str(exc_info.value) == "Attention is used, but was set to None previously"
+    msg = f"Unexpected exception info {exc_info.value}"
+    assert str(exc_info.value).endswith(" is used, but was set to None before"), msg
 
 
 # Test pruned mlp
@@ -153,7 +154,8 @@ def check_disabled_mlps(
     with pytest.raises(ValueError) as exc_info:
         ptblop.apply_bp_config_in_place(model, bp_config0)
 
-    assert str(exc_info.value) == "MLP is used, but was set to None previously"
+    msg = f"Unexpected exception info {exc_info.value}"
+    assert str(exc_info.value).endswith(" is used, but was set to None before"), msg
 
 
 # Test pruned blocks
@@ -205,8 +207,8 @@ def check_disabled_blocks(
         ptblop.apply_bp_config_in_place(
             model, bp_config0, set_unused_layers_to_none=True
         )
-
-    assert str(exc_info.value) == "Attention is used, but was set to None previously"
+    msg = f"Unexpected exception info {exc_info.value}"
+    assert str(exc_info.value).endswith(" is used, but was set to None before"), msg
 
 
 def make_bp_config_pruning_enable_disable(

@@ -3,7 +3,7 @@ from typing import cast
 
 import torch
 
-from . import prunable_block
+from . import prunable_block, utils
 
 logger = logging.getLogger(__name__)
 
@@ -204,7 +204,8 @@ def apply_bp_config_in_place(
         else:
             submodule_type = type(submodule)
             if submodule_type in _BLOCK_TYPE_TO_WRAPPER_TYPE:
-                logger.info(f"Wraping {submodule_name} of {submodule_type}")
+                msg = f"Wraping {submodule_name} of {utils.get_type_name(submodule)}"
+                logger.info(msg)
                 wrapper_type = _BLOCK_TYPE_TO_WRAPPER_TYPE[submodule_type]
                 if module_config is None:
                     module_config = {"use_attention": True, "use_mlp": True}

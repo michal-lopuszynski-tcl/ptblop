@@ -15,25 +15,25 @@ _FORWARD_OUTPUT_TYPE = (
 
 class PrunableLlamaBlock(torch.nn.Module, prunable_block.PrunableBlock):
 
-    def get_unused_layer_names(self) -> list[str]:
-        unused_layer_names = []
+    def get_unused_layer_names(self) -> set[str]:
+        unused_layer_names = set()
         if not self.use_attention:
-            unused_layer_names.append("self_attn")
+            unused_layer_names.add("self_attn")
         if not self.use_mlp:
-            unused_layer_names.append("mlp")
+            unused_layer_names.add("mlp")
         return unused_layer_names
 
-    def set_unused_layers_to_none(self) -> None:
-        if not self.use_attention:
-            self.self_attn = None
-        if not self.use_mlp:
-            self.mlp = None
+    # def set_unused_layers_to_none(self) -> None:
+    #     if not self.use_attention:
+    #         self.self_attn = None
+    #     if not self.use_mlp:
+    #         self.mlp = None
 
-    def check_used_layers_not_none(self) -> None:
-        if self.use_attention and self.self_attn is None:
-            raise ValueError("Attention is used, but was set to None previously")
-        if self.use_mlp and self.mlp is None:
-            raise ValueError("MLP is used, but was set to None previously")
+    # def check_used_layers_not_none(self) -> None:
+    #     if self.use_attention and self.self_attn is None:
+    #         raise ValueError("Attention is used, but was set to None previously")
+    #     if self.use_mlp and self.mlp is None:
+    #         raise ValueError("MLP is used, but was set to None previously")
 
     @classmethod
     def fix_root_model(cls, root_model: torch.nn.Module) -> None:
@@ -48,7 +48,10 @@ class PrunableLlamaBlock(torch.nn.Module, prunable_block.PrunableBlock):
     ):
         torch.nn.Module.__init__(self)
         prunable_block.PrunableBlock.__init__(
-            self, use_attention=use_attention, use_mlp=use_mlp
+            self,
+            original_module=original_module,
+            use_attention=use_attention,
+            use_mlp=use_mlp,
         )
         self.hidden_size = original_module.hidden_size
         self.self_attn = original_module.self_attn
