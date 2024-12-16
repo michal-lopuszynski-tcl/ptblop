@@ -66,3 +66,29 @@ def test_vit_enable_disable_gpu() -> None:
 
 def test_vit_num_params() -> None:
     helpers.check_num_params(make_vit)
+
+
+def test_vit_disabled_block0_is_identity_cpu() -> None:
+    helpers.check_disabled_block_is_identity(
+        make_vit, torch.device("cpu"), "blocks.0", 0
+    )
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda not available")
+def test_vit_disabled_block0_is_identity_gpu() -> None:
+    helpers.check_disabled_block_is_identity(
+        make_vit, torch.device("cuda"), "blocks.0", 0
+    )
+
+
+def test_vit_disabled_block5_is_identity_cpu() -> None:
+    helpers.check_disabled_block_is_identity(
+        make_vit, torch.device("cpu"), "blocks.5", 5
+    )
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda not available")
+def test_vit_disabled_block5_is_identity_gpu() -> None:
+    helpers.check_disabled_block_is_identity(
+        make_vit, torch.device("cuda"), "blocks.5", 5
+    )

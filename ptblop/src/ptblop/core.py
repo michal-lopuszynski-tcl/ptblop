@@ -161,19 +161,6 @@ def get_unpruned_bp_config(module: torch.nn.Module) -> dict[str, dict[str, bool]
     return res
 
 
-def _split_module_parent_child_name(target: str) -> tuple[str, str]:
-    *parent, name = target.rsplit(".", 1)
-    return parent[0] if parent else "", name
-
-
-def _replace_submodule_in_place(
-    root_module: torch.nn.Module, submodule_name: str, new_submodule: torch.nn.Module
-) -> None:
-    parent_name, child_name = _split_module_parent_child_name(submodule_name)
-    parent_module = root_module.get_submodule(parent_name)
-    setattr(parent_module, child_name, new_submodule)
-
-
 def apply_bp_config_in_place(
     module: torch.nn.Module,
     bp_config: dict[str, dict[str, bool]],
@@ -215,7 +202,7 @@ def apply_bp_config_in_place(
                     use_mlp=module_config["use_mlp"],
                     set_unused_layers_to_none=set_unused_layers_to_none,
                 )
-                _replace_submodule_in_place(module, submodule_name, new_submodule)
+                utils.replace_submodule_in_place(module, submodule_name, new_submodule)
                 last_prunable_submodule = new_submodule
 
     # Assumption - there should be only one type of modules

@@ -74,3 +74,29 @@ def test_qwen2_enable_disable_gpu() -> None:
 
 def test_qwen2_num_params() -> None:
     helpers.check_num_params(make_qwen2)
+
+
+def test_qwen2_disabled_block0_is_identity_cpu() -> None:
+    helpers.check_disabled_block_is_identity(
+        make_qwen2, torch.device("cpu"), "model.layers.0", 0
+    )
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda not available")
+def test_qwen2_disabled_block0_is_identity_gpu() -> None:
+    helpers.check_disabled_block_is_identity(
+        make_qwen2, torch.device("cuda"), "model.layers.0", 0
+    )
+
+
+def test_qwen2_disabled_block5_is_identity_cpu() -> None:
+    helpers.check_disabled_block_is_identity(
+        make_qwen2, torch.device("cpu"), "model.layers.5", 5
+    )
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda not available")
+def test_qwen2_disabled_block5_is_identity_gpu() -> None:
+    helpers.check_disabled_block_is_identity(
+        make_qwen2, torch.device("cuda"), "model.layers.5", 5
+    )
