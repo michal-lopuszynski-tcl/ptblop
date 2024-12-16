@@ -1,5 +1,3 @@
-from typing import TYPE_CHECKING
-
 import timm  # type: ignore
 import torch
 
@@ -51,21 +49,7 @@ class PrunableVisionTransformerBlock(torch.nn.Module, prunable_block.PrunableBlo
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.use_attention:
-            if TYPE_CHECKING:
-                assert (
-                    self.drop_path1 is not None
-                    and self.ls1 is not None
-                    and self.attn is not None
-                    and self.norm1 is not None
-                )
             x = x + self.drop_path1(self.ls1(self.attn(self.norm1(x))))
         if self.use_mlp:
-            if TYPE_CHECKING:
-                assert (
-                    self.drop_path2 is not None
-                    and self.ls2 is not None
-                    and self.mlp is not None
-                    and self.norm2 is not None
-                )
             x = x + self.drop_path2(self.ls2(self.mlp(self.norm2(x))))
         return x

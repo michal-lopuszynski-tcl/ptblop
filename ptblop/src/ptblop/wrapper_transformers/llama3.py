@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 
 import torch
 import transformers  # type: ignore
@@ -18,9 +18,11 @@ class PrunableLlamaBlock(torch.nn.Module, prunable_block.PrunableBlock):
     def get_unused_layer_names(self) -> set[str]:
         unused_layer_names = set()
         if not self.use_attention:
+            unused_layer_names.add("input_layernorm")
             unused_layer_names.add("self_attn")
         if not self.use_mlp:
             unused_layer_names.add("mlp")
+            unused_layer_names.add("post_attention_layernorm")
         return unused_layer_names
 
     @classmethod
@@ -66,8 +68,6 @@ class PrunableLlamaBlock(torch.nn.Module, prunable_block.PrunableBlock):
     ) -> _FORWARD_OUTPUT_TYPE:
 
         if self.use_attention:
-            if TYPE_CHECKING:
-                assert self.self_attn is not None
             out = self.input_layernorm(hidden_states)
             out, self_attn_weights, present_key_value = self.self_attn(
                 hidden_states=out,
@@ -84,8 +84,6 @@ class PrunableLlamaBlock(torch.nn.Module, prunable_block.PrunableBlock):
             present_key_value = past_key_value
 
         if self.use_mlp:
-            if TYPE_CHECKING:
-                assert self.mlp is not None
             out = self.post_attention_layernorm(hidden_states)
             out = self.mlp(out)
             hidden_states = hidden_states + out

@@ -1,5 +1,5 @@
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 
 import torch
 import transformers  # type: ignore
@@ -24,6 +24,8 @@ class PrunablePhi2BLock(torch.nn.Module, prunable_block.PrunableBlock):
             unused_layer_names.add("self_attn")
         if not self.use_mlp:
             unused_layer_names.add("mlp")
+        if not self.use_attention and not self.use_mlp:
+            unused_layer_names.add("resid_dropout")
         return unused_layer_names
 
     @classmethod
@@ -68,8 +70,6 @@ class PrunablePhi2BLock(torch.nn.Module, prunable_block.PrunableBlock):
         hidden_states = self.input_layernorm(hidden_states)
 
         if self.use_attention:
-            if TYPE_CHECKING:
-                assert self.self_attn is not None
             attn_outputs, self_attn_weights, present_key_value = self.self_attn(
                 hidden_states=hidden_states,
                 attention_mask=attention_mask,
@@ -85,8 +85,6 @@ class PrunablePhi2BLock(torch.nn.Module, prunable_block.PrunableBlock):
             present_key_value = past_key_value
 
         if self.use_mlp:
-            if TYPE_CHECKING:
-                assert self.mlp is not None
             feed_forward_hidden_states = self.mlp(hidden_states)
             feed_forward_hidden_states = self.resid_dropout(feed_forward_hidden_states)
 
