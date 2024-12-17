@@ -22,7 +22,9 @@ sampler:
   cost_metric: "parameters"
   random_bp_config_rng_seed: 314159
   max_num_changes_factor: 0.5
+
   actl_num_scored_candidates: 1000
+  parf_min_quality_evaluator_metric: 0.7
 
   n_val_rand: 128
   trn_schedule:
@@ -34,4 +36,4 @@ sampler:
     - n_trn_onel: 0
       n_trn_rand: 16
       n_trn_actl: 32
-      n_trn_parf: 0
+      n_trn_parf: 32
