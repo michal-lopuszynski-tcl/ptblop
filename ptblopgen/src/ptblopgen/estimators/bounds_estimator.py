@@ -10,7 +10,7 @@ import sklearn.ensemble
 import sklearn.linear_model
 import skops.io
 
-from .. import _version
+from .. import utils
 
 
 def _get_name_from_object(o: Any) -> str:
@@ -164,12 +164,14 @@ class QuantileGradientBoostingBoundsEstimator(BoundsEstimator):
         return y, y_min, y_max
 
     def to_dict(self):
+        v_ptblop, v_ptblopgen = utils.get_versions()
         return {
             "type": type(self).__name__,
             "regressor_median": _sklearn_to_str(self.regressor_median),
             "regressor_min": _sklearn_to_str(self.regressor_min),
             "regressor_max": _sklearn_to_str(self.regressor_max),
-            "blockprunekit_version": _version.__version__,
+            "ptblop_version": v_ptblop,
+            "ptblopgen_version": v_ptblopgen,
         }
 
     @classmethod

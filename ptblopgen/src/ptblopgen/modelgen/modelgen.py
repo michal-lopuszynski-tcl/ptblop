@@ -1,6 +1,5 @@
 import collections.abc
 import copy
-import datetime
 import json
 import logging
 import pathlib
@@ -11,7 +10,7 @@ import numpy as np
 import ptblop
 import torch
 
-from .. import _version, builders, estimators
+from .. import builders, estimators, utils
 from . import configurator, estimator_helpers, pareto_optimization
 
 BPCONFIG_DB_FNAME = "bp_configs.json"
@@ -30,19 +29,6 @@ logger = logging.getLogger(__name__)
 
 
 # Helpers
-
-
-def get_timestamp() -> str:
-    current_utc = datetime.datetime.now(datetime.timezone.utc)
-    return current_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def get_num_params(m: torch.nn.Module, only_trainable: bool = False) -> int:
-    parameters = list(m.parameters())
-    if only_trainable:
-        parameters = [p for p in parameters if p.requires_grad]
-    unique = {p.data_ptr(): p for p in parameters}.values()
-    return sum(p.numel() for p in unique)
 
 
 def update_db(db_path, db_entry, mode="append"):
@@ -80,13 +66,13 @@ def get_bp_config_signature(bp_config):
 
 
 def apply_bp_config_changes(bp_config_unpruned, bp_config_changes):
-    blockprune_cfg = copy.deepcopy(bp_config_unpruned)
+    bp_config = copy.deepcopy(bp_config_unpruned)
 
     for c in bp_config_changes:
         for k, v in c.items():
-            blockprune_cfg[k] |= v
+            bp_config[k] |= v
 
-    return blockprune_cfg
+    return bp_config
 
 
 def are_all_bp_configs_processed(bp_configs, bp_config_id_fmt, bp_config_db_path):
@@ -120,13 +106,14 @@ def process_single_bp_config(*, model, device, bp_config_data, evaluator_fn):
     res["evaluation"] = evaluator_fn(model, device)
     res["bp_config_score"] = bp_config_score
     res["bp_config"] = bp_config
-    res["timestamp"] = get_timestamp()
+    res["timestamp"] = utils.get_timestamp()
     device_str = str(device)
     if "cuda" in device_str:
         device_str += " @ " + torch.cuda.get_device_name(device)
     res["device"] = device_str
-    res["ptblop_version"] = ptblop.__version__
-    res["ptblopgen_version"] = _version.__version__
+    v_ptblop, v_ptblopgen = utils.get_versions()
+    res["ptblop_version"] = v_ptblop
+    res["ptblopgen_version"] = v_ptblopgen
     return res
 
 
@@ -371,6 +358,9 @@ def make_scoring_fn(regressor_id, bp_config_db_path, regressor_db_path):
     logger.info(f"{reg_metrics=}")
 
     scoring_fn = conv_quality_estimator_to_scoring_fn(reg)
+
+    v_ptblop, v_ptblopben = utils.get_versions()
+
     db_entry = {
         "regressor_id": regressor_id,
         "n_examples_trn": n_examples_trn,
@@ -380,7 +370,9 @@ def make_scoring_fn(regressor_id, bp_config_db_path, regressor_db_path):
         "regressor_type": reg_type,
         "regressor_kwargs": reg_kwargs,
         "regressor_metrics": reg_metrics,
-        "blockprunekit_version": _version.__version__,
+        "timestamp": utils.get_timestamp(),
+        "ptblop_version": v_ptblop,
+        "ptblopgen_version": v_ptblopben,
     }
     update_db(regressor_db_path, db_entry)
     return scoring_fn

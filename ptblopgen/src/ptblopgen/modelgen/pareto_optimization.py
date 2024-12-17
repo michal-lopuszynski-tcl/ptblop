@@ -11,6 +11,7 @@ import pymoo.operators.sampling.rnd
 import pymoo.optimize
 import pymoo.termination
 
+from .. import utils
 from . import configurator
 
 logger = logging.getLogger(__name__)
@@ -163,6 +164,8 @@ def find_pareto_front(
     m, _ = pareto_front.shape
 
     pareto_data = []
+    ts = utils.get_timestamp()
+    v_ptblop, v_ptblopgen = utils.get_versions()
     for i in range(m):
         features = res.X[i, :]
         bp_config = get_bp_config_from_features(bp_config_unpruned, features)
@@ -177,6 +180,9 @@ def find_pareto_front(
             f"{quality_metric_name}_pred": q.item(),
             f"{quality_metric_name}_pred_min": qmin.item(),
             f"{quality_metric_name}_pred_max": qmax.item(),
+            "timestamp": ts,
+            "ptblop_version": v_ptblop,
+            "ptblopgen_version": v_ptblopgen,
             "bp_config": bp_config,
         }
         pareto_data.append(d)

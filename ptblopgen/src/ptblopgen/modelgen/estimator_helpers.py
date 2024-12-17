@@ -3,10 +3,9 @@ import logging
 
 import matplotlib.pyplot as plt
 import numpy as np
-import ptblop
 import sklearn.metrics
 
-from .. import _version, estimators
+from .. import estimators, utils
 
 logger = logging.getLogger(__name__)
 
@@ -331,6 +330,7 @@ def train_quality_estimator(
     #     plot_fname="tmp.png",
     # )
     # logger.info(f"{reg_metrics1=}")
+    v_ptblop, v_ptblopgen = utils.get_versions()
 
     reg_data = {
         "n_examples_trn": n_examples_trn,
@@ -340,8 +340,9 @@ def train_quality_estimator(
         "regressor_type": reg_type,
         "regressor_kwargs": reg_kwargs,
         "regressor_metrics": reg_metrics,
-        "ptblop_version": ptblop.__version__,
-        "ptblopgen_version": _version.__version__,
+        "timestamp": utils.get_timestamp(),
+        "ptblop_version": v_ptblop,
+        "ptblopgen_version": v_ptblopgen,
     }
     logger.info(f"{reg_data=}")
     return reg, reg_data
@@ -371,6 +372,7 @@ def train_param_estimator(bp_config_db_path):
         X_val=X_val,
         y_val=y_val,
     )
+    v_ptblop, v_ptblopgen = utils.get_versions()
 
     reg_data = {
         "n_examples_trn": n_examples_trn,
@@ -380,8 +382,9 @@ def train_param_estimator(bp_config_db_path):
         "regressor_type": reg_type,
         "regressor_kwargs": reg_kwargs,
         "regressor_metrics": reg_metrics,
-        "ptblop_version": ptblop.__version__,
-        "ptblopgen_version": _version.__version__,
+        "timestamp": utils.get_timestamp(),
+        "ptblop_version": v_ptblop,
+        "ptblopgen_version": v_ptblopgen,
     }
     logger.info(f"{reg_data=}")
     return reg, reg_data
