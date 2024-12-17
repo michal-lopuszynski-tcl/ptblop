@@ -14,6 +14,7 @@ class SamplerConfig(pydantic.BaseModel):
     cost_metric: str
     max_num_changes_factor: float
     actl_num_scored_candidates: int
+    parf_min_quality_evaluator_metric: float
     n_val_rand: int
     trn_schedule: list[TrnSchedulerEntryConfig]
 

@@ -536,6 +536,66 @@ def sample_active_learning_bp_configs(
     logger.info(f"Finished active learning sampling {n=}")
 
 
+def make_pareto_bp_configs(
+    pareto_front_path,
+    n,
+    rng,
+    quality_metric,
+    min_quality,
+    min_num_changes,
+    max_num_changes,
+    processed_bp_bconfig_signatures,
+):
+    quality_str = f"{quality_metric}_pred"
+
+    def __is_not_proc(d):
+        return (
+            get_bp_config_signature(d["bp_config"])
+            not in processed_bp_bconfig_signatures
+        )
+
+    with open(pareto_front_path, "rt") as f:
+        pf_data_raw = [json.loads(line) for line in f]
+
+    pf_data_filtered1 = []
+
+    # Filter configs satisying min/max_num_changes + min_quality criteria
+    for d in pf_data_raw:
+        num_changes = 2 * d["n"] - d["n_attention"] - d["n_mlp"]
+        if (
+            d[quality_str] > min_quality
+            and num_changes >= min_num_changes
+            and num_changes <= max_num_changes
+        ):
+            pf_data_filtered1.append(d)
+    logger.info(
+        f"Filtered  {len(pf_data_filtered1)} ouf {len(pf_data_raw)}"
+        f"bp_configs from {pareto_front_path}"
+    )
+
+    # Filter already processed signatures !!!!
+    pf_data_filtered2 = [d for d in pf_data_filtered1 if __is_not_proc(d)]
+    if len(pf_data_filtered1) < len(pf_data_filtered2):
+        logger.info(
+            f"Keept {len(pf_data_filtered2)} unprocessed configs "
+            f"out of {len(pf_data_filtered1)}"
+        )
+
+    n_tot = len(pf_data_filtered2)
+
+    if n_tot <= n:
+        bp_configs = [d["bp_config"] for d in pf_data_filtered2]
+        bp_config_scores = [d[f"{quality_metric}_pred"] for d in pf_data_filtered2]
+        return bp_configs, bp_config_scores
+    else:
+        # Sampling indices to keep the order of the configs
+        indices = list(range(len(pf_data_filtered2)))
+        indices_selected = sorted(rng.sample(indices, k=2))
+        bp_configs = [pf_data_filtered2[i]["bp_config"] for i in indices_selected]
+        bp_config_scores = [pf_data_filtered2[i][quality_str] for i in indices_selected]
+        return bp_configs, bp_config_scores
+
+
 def sample_pareto_front_bp_configs(
     *,
     model,
@@ -546,10 +606,36 @@ def sample_pareto_front_bp_configs(
     bp_config_id_prefix,
     processed_bp_config_signatures,
     rng,
-    bp_config_db_path,
-    stop_path,
+    bp_config_db_path: pathlib.Path,
+    stop_path: pathlib.Path,
+    pareto_front_path: pathlib.Path,
+    quality_metric: str,
+    min_quality: float,
 ):
-    pass
+    logger.info(f"Started Pareto front sampling {n=}")
+    bp_configs, bp_config_scores = make_pareto_bp_configs(
+        pareto_front_path=pareto_front_path,
+        n=n,
+        rng=rng,
+        quality_metric=quality_metric,
+        min_quality=min_quality,
+        min_num_changes=2,
+        max_num_changes=max_num_changes,
+        processed_bp_bconfig_signatures=processed_bp_config_signatures,
+    )
+
+    process_bp_configs(
+        bp_configs=bp_configs,
+        bp_config_scores=bp_config_scores,
+        bp_config_id_prefix=bp_config_id_prefix,
+        bp_config_db_path=bp_config_db_path,
+        model=model,
+        evaluator_fn=evaluator_fn,
+        device=device,
+        processed_bp_config_signatures=processed_bp_config_signatures,
+        stop_path=stop_path,
+    )
+    logger.info(f"Finished pareto front sampling {n=}")
 
 
 def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
@@ -597,16 +683,16 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
         processed_bp_config_signatures=processed_bp_config_signatures,
     )
 
-    # VALIDATION DATASET
+    # Validation dataset
 
     sample_random_bp_configs(
         n=config_sampler.n_val_rand,
-        bp_config_id_prefix="val.rndl.001.",
+        bp_config_id_prefix="val.rndl.0001.",
         max_num_changes=max_num_changes,
         **fixed_kwargs,
     )
 
-    # TRAINING DATASET - UNPRUNED MODEL
+    # Training dataset - unpruned model
 
     process_bp_configs(
         bp_configs=[bp_config_unpruned],
@@ -620,13 +706,16 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
         stop_path=stop_path,
     )
 
-    # TRAINING DATASET - ITERATIONS AS DEFINED IN CONFIG
-    quality_estimator, cost_estimator = None, None
+    # Training dataset - iterations as defined in config
+
+    quality_estimator, cost_estimator, pareto_front_path = None, None, None
 
     for i, n_tuple in enumerate(
         gen_sample_configs(config_sampler.trn_schedule), start=1
     ):
         n_onel, n_rand, n_actl, n_parf = n_tuple
+
+        # Sample - single layer configs
 
         sample_one_layer_bp_configs(
             n=n_onel,
@@ -634,12 +723,17 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
             **fixed_kwargs,
         )
 
+        # Sample - random configs
+
         sample_random_bp_configs(
             n=n_rand,
             max_num_changes=max_num_changes,
             bp_config_id_prefix=f"trn.rand.{i:04d}.",
             **fixed_kwargs,
         )
+
+        # Sample - active learning
+
         if quality_estimator is not None:
             sample_active_learning_bp_configs(
                 n=n_actl,
@@ -649,12 +743,27 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
                 bp_config_id_prefix=f"trn.actl.{i:04d}.",
                 **fixed_kwargs,
             )
+        else:
+            msg = "No quality predictor, but active learning sampling requested"
+            logger.warning(msg)
 
-        # sample_pareto_front_bp_configs(
-        #     n=n_parf,
-        #     bp_config_id_prefix=f"trn.parf.{i:04d}.",
-        #     **fixed_kwargs,
-        # )
+        # Sample - Pareto front
+
+        if pareto_front_path is not None:
+            sample_pareto_front_bp_configs(
+                n=n_parf,
+                max_num_changes=max_num_changes,
+                pareto_front_path=pareto_front_path,
+                quality_metric=config_sampler.quality_evaluator_metric,
+                min_quality=config_sampler.parf_min_quality_evaluator_metric,
+                bp_config_id_prefix=f"trn.parf.{i:04d}.",
+                **fixed_kwargs,
+            )
+        else:
+            msg = "No pareto fron, but pareto front sampling"
+            logger.warning(msg)
+
+        # Train predictors
 
         if cost_estimator is None:
             cost_estimator_id = "estimator_quality_%04d" % i
@@ -676,6 +785,9 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
         qeid = {"estimator_id": quality_estimator_id}
         update_db(quality_estimators_db_path, qeid | quality_estimator_metrics)
         n_features = quality_estimator_metrics["n_features_trn"]
+
+        # Generate pareto front
+
         pareto_front_path = (
             output_path / PARETO_FRONT_DIR / (PARETO_FRONT_FNAME_TEMPLATE % i)
         )
