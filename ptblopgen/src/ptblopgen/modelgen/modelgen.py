@@ -562,6 +562,7 @@ def make_pareto_bp_configs(
     # Filter configs satisying min/max_num_changes + min_quality criteria
     for d in pf_data_raw:
         num_changes = 2 * d["n"] - d["n_attention"] - d["n_mlp"]
+        logger.info(f"{num_changes=} {min_num_changes=} {max_num_changes=}")
         if (
             d[quality_str] > min_quality
             and num_changes >= min_num_changes
@@ -569,7 +570,7 @@ def make_pareto_bp_configs(
         ):
             pf_data_filtered1.append(d)
     logger.info(
-        f"Filtered  {len(pf_data_filtered1)} ouf {len(pf_data_raw)}"
+        f"Filtered  {len(pf_data_filtered1)} ouf {len(pf_data_raw)} "
         f"bp_configs from {pareto_front_path}"
     )
 
@@ -663,8 +664,9 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
 
     rng = random.Random(config_sampler.random_bp_config_rng_seed)
 
+    # Two because each block is two possible changes (mlp and attention)
     max_num_changes = round(
-        config_sampler.max_num_changes_factor * len(bp_config_unpruned)
+        2 * config_sampler.max_num_changes_factor * len(bp_config_unpruned)
     )
     logger.info(
         f"{max_num_changes=} num_blocks={len(bp_config_unpruned)} "
@@ -760,8 +762,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
                 **fixed_kwargs,
             )
         else:
-            msg = "No pareto fron, but pareto front sampling"
-            logger.warning(msg)
+            logger.warning("No Pareto fron, but Pareto front sampling requested")
 
         # Train predictors
 
