@@ -1,3 +1,4 @@
+build
 make.black.log
 make.flake8.log
 make.mypy.log
