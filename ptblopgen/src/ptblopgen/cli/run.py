@@ -6,12 +6,10 @@ import sys
 from typing import Any
 
 import yaml
-from ptblop import __version__ as ptblop_version
 
-from .. import modelgen
-from .._version import __version__ as ptblopgen_version
+from .. import modelgen, utils
 
-REPRO_SUBDIR = "repro"
+REPRO_SUBDIR_PREFIX = "repro"
 
 
 def parse_args() -> tuple[argparse.Namespace, str]:
@@ -28,8 +26,9 @@ def parse_args() -> tuple[argparse.Namespace, str]:
 
 
 def print_versions() -> None:
-    print(f"ptblop version: {ptblop_version}")
-    print(f"ptblopgen version: {ptblopgen_version}")
+    v_ptblop, v_ptblopgen = utils.get_versions()
+    print(f"ptblop version: {v_ptblop}")
+    print(f"ptblopgen version: {v_ptblopgen}")
 
 
 def setup_logging() -> None:
@@ -58,14 +57,16 @@ def read_config(fname: str) -> dict[str, Any]:
 
 
 def copy_config(config_path: pathlib.Path, output_path: pathlib.Path) -> None:
-    config_copy_path = output_path / REPRO_SUBDIR / "config.yaml"
+    v_ptblop, v_ptblopgen = utils.get_versions()
+    repro_subdir = REPRO_SUBDIR_PREFIX + "." + utils.get_timestamp_for_fname()
+    config_copy_path = output_path / repro_subdir / "config.yaml"
     if config_copy_path.exists():
         msg = f"Config copy already exists, please delete it first, {config_copy_path}"
         raise FileExistsError(msg)
     config_copy_path.parent.mkdir(exist_ok=True, parents=True)
     with open(config_path, "rt") as f_in, open(config_copy_path, "wt") as f_out:
-        f_out.write(f'ptblop_version: "{ptblop_version}"\n')
-        f_out.write(f'ptblopgen_version: "{ptblopgen_version}"\n\n')
+        f_out.write(f'ptblop_version: "{v_ptblop}"\n')
+        f_out.write(f'ptblopgen_version: "{v_ptblopgen}"\n\n')
         for line in f_in:
             if not line.startswith("ptblop_version:") and not line.startswith(
                 "ptblopgen_version:"
@@ -119,8 +120,8 @@ def main() -> int:
             output_path.mkdir(exist_ok=True, parents=True)
             copy_config(args.config, output_path)
             save_requirements(
-                output_path / REPRO_SUBDIR / "requirements.txt",
-                output_path / REPRO_SUBDIR / "requirements_unsafe.txt",
+                output_path / REPRO_SUBDIR_PREFIX / "requirements.txt",
+                output_path / REPRO_SUBDIR_PREFIX / "requirements_unsafe.txt",
             )
             config = read_config(args.config)
             modelgen.main_modelgen(config, output_path)
