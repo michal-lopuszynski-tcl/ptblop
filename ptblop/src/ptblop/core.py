@@ -101,7 +101,7 @@ def get_unused_parameters(
     return res
 
 
-def get_num_params(module: torch.nn.Module, only_trainable: bool = False) -> int:
+def get_num_active_params(module: torch.nn.Module, only_trainable: bool = False) -> int:
     unused_parameters = []
     for _, submodule in module.named_modules():
         if isinstance(submodule, prunable_block.PrunableBlock):

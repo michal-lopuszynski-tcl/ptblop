@@ -302,11 +302,11 @@ def check_num_params(
     ptblop.apply_bp_config_in_place(model, bp_config, set_unused_layers_to_none=False)
 
     params_orig1 = get_num_params(model)
-    params_prun1 = ptblop.get_num_params(model)
+    params_prun1 = ptblop.get_num_active_params(model)
 
     ptblop.apply_bp_config_in_place(model, bp_config, set_unused_layers_to_none=True)
     params_prun2 = get_num_params(model)
-    params_prun3 = ptblop.get_num_params(model)
+    params_prun3 = ptblop.get_num_active_params(model)
 
     msg = f"{params_orig=}, {params_orig1=},"
     assert params_orig1 == params_orig
