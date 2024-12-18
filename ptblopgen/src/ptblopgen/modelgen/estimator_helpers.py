@@ -253,16 +253,16 @@ def train_quality_estimator(
     n_examples_val, n_features_val = X_val.shape
 
     # GBM Estimator
-    reg_type = "QuantileGradientBoostingBoundsEstimator"
-    reg_kwargs = dict(
-        learning_rate=0.03,
-        n_estimators=200,
-        max_depth=6,
-        min_samples_leaf=9,
-        min_samples_split=9,
-    )
-    reg = estimators.QuantileGradientBoostingBoundsEstimator(**reg_kwargs)
-    reg.fit(X_trn, y_trn)
+    # reg_type = "QuantileGradientBoostingBoundsEstimator"
+    # reg_kwargs = dict(
+    #     learning_rate=0.03,
+    #     n_estimators=200,
+    #     max_depth=6,
+    #     min_samples_leaf=9,
+    #     min_samples_split=9,
+    # )
+    # reg = estimators.QuantileGradientBoostingBoundsEstimator(**reg_kwargs)
+    # reg.fit(X_trn, y_trn)
 
     # Linear Estimator
     # reg_type = "QuantileLinearEstimator"
@@ -270,15 +270,15 @@ def train_quality_estimator(
     # reg = blockprunekit.regressors.QuantileLinearEstimator(**reg_kwargs)
 
     # Random forest regressor
-    # reg_type = "EnsembleRandomForestBoundsEstimator"
+    reg_type = "EnsembleRandomForestBoundsEstimator"
+    if reg_kwargs is None:
+        reg_kwargs = dict(n_regressors=20, n_estimators=300)
     # if reg_kwargs is None:
-    #     reg_kwargs = dict(n_regressors=20, n_estimators=300)
-    # # if reg_kwargs is None:
-    # #     reg_kwargs = dict(
-    # #         n_regressors=20, n_estimators=300, max_features=0.8, min_samples_leaf=2
-    # #     )
-    # reg = blockprunekit.regressors.EnsembleRandomForestBoundsEstimator(**reg_kwargs)
-    # reg.fit(X_trn, y_trn)
+    #     reg_kwargs = dict(
+    #         n_regressors=20, n_estimators=300, max_features=0.8, min_samples_leaf=2
+    #     )
+    reg = estimators.EnsembleRandomForestBoundsEstimator(**reg_kwargs)
+    reg.fit(X_trn, y_trn)
 
     # Extra trees regressor
     # reg_type = "EnsembleExtraTreesBoundsEstimator"
