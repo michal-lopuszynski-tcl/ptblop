@@ -26,14 +26,17 @@ sampler:
   actl_num_scored_candidates: 1000
   parf_min_quality_evaluator_metric: 0.7
 
+  n_data_iter: -1
   n_val_rand: 128
-  trn_schedule:
-    - n_trn_onel: -1
+  trn_data_iter_configs:
+    - n_trn_zerl: 1
+      n_trn_onel: -1
       n_trn_rand: 128
       n_trn_actl: 0
       n_trn_parf: 0
 
-    - n_trn_onel: 0
+    - n_trn_zerl: 0
+      n_trn_onel: 0
       n_trn_rand: 16
       n_trn_actl: 32
       n_trn_parf: 32
