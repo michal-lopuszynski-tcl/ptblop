@@ -663,25 +663,25 @@ def make_iteration_bp_config_spec_generator(i, n_val_rand, trn_schedule, max_one
     if i == 1:
         # i == 1 is validation iter !
         for j in range(1, n_val_rand + 1):
-            yield "val.randl0001.{j:04d}", "rand"
+            yield "rand", f"val.rand.0001.{j:04d}"
     else:
         i_trn = i - 1
         dblc = __get_trn_iter_config(trn_schedule, i_trn)
 
         for j in range(1, dblc.n_trn_zerl + 1):
-            yield "zerl", f"trn.zerl{i_trn:04d}.{j:04d}"
+            yield "zerl", f"trn.zerl.{i_trn:04d}.{j:04d}"
 
-        for j in range(1, __get_num_onel(dblc.n_trn_onel) + 1):
-            yield "onel", f"trn.onel{i_trn:04d}.{j:04d}"
+        for j in range(1, __get_num_onel(dblc.n_trn_onel, max_onel) + 1):
+            yield "onel", f"trn.onel.{i_trn:04d}.{j:04d}"
 
         for j in range(1, dblc.n_trn_rand + 1):
-            yield "rand", f"trn.rand{i_trn:04d}.{j:04d}"
+            yield "rand", f"trn.rand.{i_trn:04d}.{j:04d}"
 
         for j in range(1, dblc.n_trn_actl + 1):
-            yield "actl", f"trn.actl{i_trn:04d}.{j:04d}"
+            yield "actl", f"trn.actl.{i_trn:04d}.{j:04d}"
 
         for j in range(1, dblc.n_trn_actl + 1):
-            yield "parf", f"trn.parf{i_trn:04d}.{j:04d}"
+            yield "parf", f"trn.parf.{i_trn:04d}.{j:04d}"
 
 
 def iter_range(num_iter):
@@ -717,19 +717,19 @@ def sample_bp_config(
         )
     elif bp_config_type == "actl":
         bp_config, bp_config_score = None, None
-        msg = "{bp_config_type=} for {bp_config_id=} not implemented"
+        msg = f"{bp_config_type=} for {bp_config_id=} not implemented"
         logger.warning(msg)
     elif bp_config_type == "parf":
         bp_config, bp_config_score = None, None
-        msg = "{bp_config_type=} for {bp_config_id=} not implemented"
+        msg = f"{bp_config_type=} for {bp_config_id=} not implemented"
         logger.warning(msg)
     elif bp_config_type == "onel":
         bp_config, bp_config_score = None, None
-        msg = "{bp_config_type=} for {bp_config_id=} not implemented"
+        msg = f"{bp_config_type=} for {bp_config_id=} not implemented"
         logger.warning(msg)
     elif bp_config_type == "zerl":
         bp_config, bp_config_score = None, None
-        msg = "{bp_config_type=} for {bp_config_id=} not implemented"
+        msg = f"{bp_config_type=} for {bp_config_id=} not implemented"
         logger.warning(msg)
     else:
         raise ValueError(f"Unknown {bp_config_type=}")
@@ -750,7 +750,7 @@ def sample_bp_config(
         )
         return exit_code
     else:
-        msg = "Generation for {bp_config_id=}, {bp_config_type=} unsuccessful"
+        msg = f"Generation for {bp_config_id=}, {bp_config_type=} unsuccessful"
         logger.warning(msg)
         return 0
 
@@ -830,7 +830,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
             len(bp_config_unpruned),
         )
 
-        for bp_config_id, bp_config_type in iter_spec_gen:
+        for bp_config_type, bp_config_id in iter_spec_gen:
             bp_config_id_cfg, bp_config_type_cfg, bp_config_signature = next(
                 bp_config_db_spec_gen
             )
@@ -859,47 +859,50 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
                 msg += f"vs {bp_config_id_cfg=}, {bp_config_type_cfg=}"
                 raise ValueError(msg)
 
-        pareto_front_path = (
-            output_path / PARETO_FRONT_DIR / (PARETO_FRONT_FNAME_TEMPLATE % data_iter)
-        )
+        # data_iter == 1 -> validation, we cannot compute predictors + pareto fronts
 
-        if pareto_front_path.exists():
-            logger.info("Pareto front {pareto_front_path} exists, skipping generation")
-        else:
-            # Train predictors
+        if data_iter != 1:
+            pf_basename = PARETO_FRONT_FNAME_TEMPLATE % data_iter
+            pareto_front_path = output_path / PARETO_FRONT_DIR / pf_basename
 
-            if cost_estimator is None:
-                cost_estimator_id = "estimator_quality_%04d" % data_iter
-                cost_estimator, cost_estimator_metrics = (
-                    estimator_helpers.train_param_estimator(bp_config_db_path)
+            if pareto_front_path.exists():
+                msg = "Pareto front {pareto_front_path} exists, skipping generation"
+                logger.info(msg)
+            else:
+                # Train predictors
+
+                if cost_estimator is None:
+                    cost_estimator_id = "estimator_quality_%04d" % data_iter
+                    cost_estimator, cost_estimator_metrics = (
+                        estimator_helpers.train_param_estimator(bp_config_db_path)
+                    )
+                    ceid = {"estimator_id": cost_estimator_id}
+                    update_db(cost_estimators_db_path, ceid | cost_estimator_metrics)
+
+                quality_estimator_id = "estimator_quality_%04d" % data_iter
+                quality_estimator, quality_estimator_metrics = (
+                    estimator_helpers.train_quality_estimator(
+                        bp_config_db_path=bp_config_db_path,
+                        quality_metric=config_sampler.quality_evaluator_metric,
+                        quality_estimator_id=quality_estimator_id,
+                        quality_estimator_report_path=quality_estimators_report_path,
+                    )
                 )
-                ceid = {"estimator_id": cost_estimator_id}
-                update_db(cost_estimators_db_path, ceid | cost_estimator_metrics)
+                qeid = {"estimator_id": quality_estimator_id}
+                update_db(quality_estimators_db_path, qeid | quality_estimator_metrics)
+                n_features = quality_estimator_metrics["n_features_trn"]
 
-            quality_estimator_id = "estimator_quality_%04d" % data_iter
-            quality_estimator, quality_estimator_metrics = (
-                estimator_helpers.train_quality_estimator(
-                    bp_config_db_path=bp_config_db_path,
-                    quality_metric=config_sampler.quality_evaluator_metric,
-                    quality_estimator_id=quality_estimator_id,
-                    quality_estimator_report_path=quality_estimators_report_path,
+                # Generate Pareto front
+
+                pareto_optimization.find_pareto_front(
+                    quality_estimator=quality_estimator,
+                    quality_metric_name=config_sampler.quality_evaluator_metric,
+                    cost_estimator=cost_estimator,
+                    n_features=n_features,
+                    bp_config_unpruned=bp_config_unpruned,
+                    pareto_path=pareto_front_path,
+                    config_pareto_optimization=config_pareto_optimization,
                 )
-            )
-            qeid = {"estimator_id": quality_estimator_id}
-            update_db(quality_estimators_db_path, qeid | quality_estimator_metrics)
-            n_features = quality_estimator_metrics["n_features_trn"]
-
-            # Generate Pareto front
-
-            pareto_optimization.find_pareto_front(
-                quality_estimator=quality_estimator,
-                quality_metric_name=config_sampler.quality_evaluator_metric,
-                cost_estimator=cost_estimator,
-                n_features=n_features,
-                bp_config_unpruned=bp_config_unpruned,
-                pareto_path=pareto_front_path,
-                config_pareto_optimization=config_pareto_optimization,
-            )
 
     # # Validation dataset
 
