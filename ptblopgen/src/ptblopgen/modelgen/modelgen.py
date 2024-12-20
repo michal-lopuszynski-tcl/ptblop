@@ -218,9 +218,9 @@ def make_random_bp_config(
     processed_bpbconfig_signatures_all = copy.deepcopy(processed_bp_bconfig_signatures)
     cfg_changes_all = genereate_bp_config_changes(bp_config_unpruned)
 
-    res_bp_config, res_bp_config_score = None, None
+    bp_config = None
 
-    while res_bp_config is None:
+    while bp_config is None:
         num_changes = rng.randint(min_num_changes, max_num_changes)
         bp_config, bp_config_signature = _make_random_bp_config(
             rng=rng,
@@ -231,10 +231,9 @@ def make_random_bp_config(
             max_random_config_trials=max_random_config_trials,
         )
         if bp_config is not None:
-            res_bp_config = bp_config
             processed_bpbconfig_signatures_all.add(bp_config_signature)
-    res_bp_config_score = -1  # For random configs scores are meaningless
-    return res_bp_config, res_bp_config_score
+    bp_config_score = -1  # For random configs scores are meaningless
+    return bp_config, bp_config_score
 
 
 # Bp configs - generation - with scoring
@@ -704,10 +703,12 @@ def sample_bp_config(
     parf_config_env,
     comm_config_env,
 ) -> int:
-    pbpcs = (comm_config_env["processed_bp_config_signatures"],)
-    if bp_config_type == "randl":
+    pbpcs = comm_config_env["processed_bp_config_signatures"]
+    model = comm_config_env["model"]
+    bp_config_unpruned = ptblop.get_unpruned_bp_config(model)
+    if bp_config_type == "rand":
         bp_config, bp_config_score = make_random_bp_config(
-            bp_config_unpruned=rand_config_env["bp_config_unpruned"],
+            bp_config_unpruned=bp_config_unpruned,
             rng=comm_config_env["rng"],
             min_num_changes=2,
             max_num_changes=rand_config_env["max_num_changes"],
@@ -737,11 +738,11 @@ def sample_bp_config(
         exit_code = process_bp_config(
             bp_config_id=bp_config_id,
             bp_config_type=bp_config_type,
-            bp_config=bp_config_score,
+            bp_config=bp_config,
             bp_config_score=bp_config_score,
             data_iter=data_iter,
-            bp_config_db_path=comm_config_env["bp_config_path"],
-            model=comm_config_env["model"],
+            bp_config_db_path=comm_config_env["bp_config_db_path"],
+            model=model,
             device=comm_config_env["device"],
             evaluator_fn=comm_config_env["evaluator_fn"],
             processed_bp_config_signatures=pbpcs,
@@ -838,7 +839,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
                 and bp_config_type_cfg == bp_config_type
             ):
                 processed_bp_config_signatures.add(bp_config_signature)
-            elif bp_config_id_cfg is None and bp_config_type_cfg is not None:
+            elif bp_config_id_cfg is None and bp_config_type_cfg is None:
                 if bp_config_type == "actl":
                     if quality_estimator is None:
                         quality_estimator = None  # TODO
