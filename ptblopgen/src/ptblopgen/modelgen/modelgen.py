@@ -615,28 +615,29 @@ def conv_quality_estimator_to_scoring_fn(quality_estimator):
 #     logger.info(f"Finished pareto front sampling {n=}")
 
 
-def read_ids_types_signatures(bp_config_db_path):
-
-    if bp_config_db_path.exists():
-        res = []
-        with open(bp_config_db_path, "rt") as f:
-            for line in f:
-                d = json.loads(line)
-                signature = get_bp_config_signature(d["bp_config"])
-                res_entry = d["id"], d["type"], get_bp_config_signature(signature)
-                res.append(res_entry)
-    else:
-        return []
-
-
 def make_old_bp_config_spec_generator(bp_config_db_path: pathlib.Path):
+
+    def __read_ids_types_signatures(bp_config_db_path):
+
+        if bp_config_db_path.exists():
+            res = []
+            with open(bp_config_db_path, "rt") as f:
+                for line in f:
+                    d = json.loads(line)
+                    signature = get_bp_config_signature(d["bp_config"])
+                    res_entry = d["id"], d["type"], signature
+                    res.append(res_entry)
+            return res
+        else:
+            return []
+
     def __gen_ids_types_singatures(ids_types_singatures):
         for id_type_singature in ids_types_singatures:
             yield id_type_singature
         while True:
             yield None, None, None
 
-    ids_types_singatures = read_ids_types_signatures(bp_config_db_path)
+    ids_types_singatures = __read_ids_types_signatures(bp_config_db_path)
     restart = len(ids_types_singatures) > 0
     return __gen_ids_types_singatures(ids_types_singatures), restart
 
