@@ -857,12 +857,14 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
                 bp_config_id_cfg == bp_config_id
                 and bp_config_type_cfg == bp_config_type
             ):
+                logger.info(f"SKIPPING {bp_config_id=} {bp_config_type=}")
                 processed_bp_config_signatures.add(bp_config_signature)
                 if bp_config_type == "onel":
                     _ = make_onel_bp_config()
                 elif bp_config_type == "zerl":
                     _ = make_zerl_bp_config()
             elif bp_config_id_cfg is None and bp_config_type_cfg is None:
+                logger.info(f"Processing {bp_config_id=} {bp_config_type=}")
                 if bp_config_type == "actl":
                     if quality_estimator is None:
                         quality_estimator = None  # TODO
@@ -891,7 +893,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
             pareto_front_path = output_path / PARETO_FRONT_DIR / pf_basename
 
             if pareto_front_path.exists():
-                msg = "Pareto front {pareto_front_path} exists, skipping generation"
+                msg = f"Pareto front {pareto_front_path} exists, skipping generation"
                 logger.info(msg)
             else:
                 # Train predictors
