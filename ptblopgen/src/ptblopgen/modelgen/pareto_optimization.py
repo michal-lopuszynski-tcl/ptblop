@@ -183,6 +183,7 @@ def find_pareto_front(
             "timestamp": ts,
             "ptblop_version": v_ptblop,
             "ptblopgen_version": v_ptblopgen,
+            "bp_config_signature": hex(utils.get_bp_config_signature(bp_config))[2:],
             "bp_config": bp_config,
         }
         pareto_data.append(d)

@@ -27,3 +27,13 @@ def get_timestamp_for_fname() -> str:
 
 def get_versions() -> tuple[str, str]:
     return ptblop.__version__, _version.__version__
+
+
+def get_bp_config_signature(bp_config):
+    singature_strs = []
+
+    for v in bp_config.values():
+        v_signature_str = str(int(not v["use_attention"])) + str(int(not v["use_mlp"]))
+        singature_strs.append(v_signature_str)
+    signature_str = "".join(singature_strs)
+    return int(signature_str, 2)
