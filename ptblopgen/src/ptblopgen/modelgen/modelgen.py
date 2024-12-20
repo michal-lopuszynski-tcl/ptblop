@@ -101,7 +101,7 @@ def process_bp_config(
     bp_config_type,
     bp_config,
     bp_config_score,
-    block_number,
+    data_iter,
     bp_config_db_path,
     model,
     device,
@@ -116,7 +116,7 @@ def process_bp_config(
     if bp_config_signature in processed_bp_config_signatures:
         logger.warning(f"Model already processed {bp_config_signature=}")
     else:
-        res = {"id": bp_config_id, "type": bp_config_type, "block_number": block_number}
+        res = {"id": bp_config_id, "type": bp_config_type, "data_iter": data_iter}
         ptblop.apply_bp_config_in_place(
             model, bp_config, set_unused_layers_to_none=False
         )
@@ -650,10 +650,10 @@ def make_iteration_bp_config_spec_generator(i, n_val_rand, trn_schedule, max_one
         else:
             return n
 
-    def __get_trn_block_config(trn_schedule, i_trn):
+    def __get_trn_iter_config(trn_schedule, i_trn):
         # Two times minus one -
-        # First - blocks are numbered 1..,
-        # Second - block one is for validation
+        # First - iter are numbered 1..,
+        # Second - iter one is for validation
         # Hence training is 2..
         index = i_trn - 1
         if index < len(trn_schedule):
@@ -662,12 +662,12 @@ def make_iteration_bp_config_spec_generator(i, n_val_rand, trn_schedule, max_one
             return trn_schedule[-1]
 
     if i == 1:
-        # i == 1 is validation block !
+        # i == 1 is validation iter !
         for j in range(1, n_val_rand + 1):
             yield "val.randl0001.{j:04d}", "rand"
     else:
         i_trn = i - 1
-        dblc = __get_trn_block_config(trn_schedule, i_trn)
+        dblc = __get_trn_iter_config(trn_schedule, i_trn)
 
         for j in range(1, dblc.n_trn_zerl + 1):
             yield "zerl", f"trn.zerl{i_trn:04d}.{j:04d}"
@@ -698,7 +698,7 @@ def iter_range(num_iter):
 def sample_bp_config(
     bp_config_id,
     bp_config_type,
-    block_number,
+    data_iter,
     rand_config_env,
     actl_config_env,
     parf_config_env,
@@ -739,7 +739,7 @@ def sample_bp_config(
             bp_config_type=bp_config_type,
             bp_config=bp_config_score,
             bp_config_score=bp_config_score,
-            block_number=block_number,
+            data_iter=data_iter,
             bp_config_db_path=comm_config_env["bp_config_path"],
             model=comm_config_env["model"],
             device=comm_config_env["device"],
@@ -768,7 +768,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
 
     quality_estimators_report_path.mkdir(exist_ok=True, parents=True)
     bp_config_db_spec_gen, restart = make_old_bp_config_spec_generator(
-        BP_CONFIG_DB_FNAME
+        bp_config_db_path
     )
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -820,12 +820,12 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
         "min_quality": config_sampler.parf_min_quality_evaluator_metric,
     }
 
-    for block_number in iter_range(config_sampler.max_trn_data_blocks):
+    for data_iter in iter_range(config_sampler.n_data_iter):
 
         iter_spec_gen = make_iteration_bp_config_spec_generator(
-            block_number,
+            data_iter,
             config_sampler.n_val_rand,
-            config_sampler.trn_data_block_configs,
+            config_sampler.trn_data_iter_configs,
             len(bp_config_unpruned),
         )
 
@@ -847,7 +847,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
                 sample_bp_config(
                     bp_config_id=bp_config_id,
                     bp_config_type=bp_config_type,
-                    block_number=block_number,
+                    data_iter=data_iter,
                     rand_config_env=rand_config_env,
                     actl_config_env=actl_config_env,
                     parf_config_env=parf_config_env,
@@ -859,9 +859,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
                 raise ValueError(msg)
 
         pareto_front_path = (
-            output_path
-            / PARETO_FRONT_DIR
-            / (PARETO_FRONT_FNAME_TEMPLATE % block_number)
+            output_path / PARETO_FRONT_DIR / (PARETO_FRONT_FNAME_TEMPLATE % data_iter)
         )
 
         if pareto_front_path.exists():
@@ -870,14 +868,14 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
             # Train predictors
 
             if cost_estimator is None:
-                cost_estimator_id = "estimator_quality_%04d" % block_number
+                cost_estimator_id = "estimator_quality_%04d" % data_iter
                 cost_estimator, cost_estimator_metrics = (
                     estimator_helpers.train_param_estimator(bp_config_db_path)
                 )
                 ceid = {"estimator_id": cost_estimator_id}
                 update_db(cost_estimators_db_path, ceid | cost_estimator_metrics)
 
-            quality_estimator_id = "estimator_quality_%04d" % block_number
+            quality_estimator_id = "estimator_quality_%04d" % data_iter
             quality_estimator, quality_estimator_metrics = (
                 estimator_helpers.train_quality_estimator(
                     bp_config_db_path=bp_config_db_path,

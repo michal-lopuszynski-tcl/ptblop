@@ -56,10 +56,9 @@ def read_config(fname: str) -> dict[str, Any]:
         return yaml.safe_load(f)
 
 
-def copy_config(config_path: pathlib.Path, output_path: pathlib.Path) -> None:
+def copy_config(config_path: pathlib.Path, repro_path: pathlib.Path) -> None:
     v_ptblop, v_ptblopgen = utils.get_versions()
-    repro_subdir = REPRO_SUBDIR_PREFIX + "." + utils.get_timestamp_for_fname()
-    config_copy_path = output_path / repro_subdir / "config.yaml"
+    config_copy_path = repro_path / "config.yaml"
     if config_copy_path.exists():
         msg = f"Config copy already exists, please delete it first, {config_copy_path}"
         raise FileExistsError(msg)
@@ -109,6 +108,15 @@ def save_requirements(
                 f.write(r + "\n")
 
 
+def make_repro_dir(args: argparse.Namespace, repro_subdir_prefix: str) -> None:
+    repro_subdir = repro_subdir_prefix + "." + utils.get_timestamp_for_fname()
+    repro_path = args.output_path / repro_subdir
+    copy_config(args.config, repro_path)
+    save_requirements(
+        repro_path / "requirements.txt", repro_path / "requirements_unsafe.txt"
+    )
+
+
 def main() -> int:
     setup_logging()
     args, help_msg = parse_args()
@@ -116,15 +124,10 @@ def main() -> int:
         print_versions()
     else:
         if args.command == "gen":
-            output_path = pathlib.Path(args.output_path)
-            output_path.mkdir(exist_ok=True, parents=True)
-            copy_config(args.config, output_path)
-            save_requirements(
-                output_path / REPRO_SUBDIR_PREFIX / "requirements.txt",
-                output_path / REPRO_SUBDIR_PREFIX / "requirements_unsafe.txt",
-            )
+            args.output_path.mkdir(exist_ok=True, parents=True)
+            make_repro_dir(args, REPRO_SUBDIR_PREFIX)
             config = read_config(args.config)
-            modelgen.main_modelgen(config, output_path)
+            modelgen.main_modelgen(config, args.output_path)
         else:
             if args.command is None:
                 print("No command given\n")

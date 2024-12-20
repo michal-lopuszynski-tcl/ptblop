@@ -16,9 +16,9 @@ class SamplerConfig(pydantic.BaseModel):
     max_num_changes_factor: float
     actl_num_scored_candidates: int
     parf_min_quality_evaluator_metric: float
+    n_data_iter: int
     n_val_rand: int
-    max_trn_data_blocks: int
-    trn_data_block_configs: list[TrnDataBlockConfig]
+    trn_data_iter_configs: list[TrnDataBlockConfig]
 
 
 class ParetoOptimizationConfig(pydantic.BaseModel):
