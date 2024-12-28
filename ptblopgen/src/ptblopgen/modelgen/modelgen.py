@@ -1,4 +1,3 @@
-import collections.abc
 import copy
 import json
 import logging
@@ -91,303 +90,7 @@ def apply_bp_config_changes(bp_config_unpruned, bp_config_changes):
     return bp_config
 
 
-# Bp configs - generation - with scoring
-
-
-# def make_random_bp_configs_with_scoring(
-#     *,
-#     bp_config_unpruned,
-#     n,
-#     rng,
-#     min_num_changes,
-#     max_num_changes,
-#     processed_bp_bconfig_signatures,
-#     max_random_config_trials,
-#     num_scored_candidates,
-#     scoring_fn,
-# ):
-#     processed_bpbconfig_signatures_all = copy.deepcopy(processed_bp_bconfig_signatures)
-#     cfg_changes_all = genereate_bp_config_changes(bp_config_unpruned)
-
-#     final_bp_configs = []
-#     final_scores = []
-#     while len(final_bp_configs) < n:
-
-#         num_changes = rng.randint(min_num_changes, max_num_changes)
-
-#         # Generate candidates
-
-#         candidate_bp_configs = []
-#         candidate_signatures = set()
-#         for _ in range(num_scored_candidates):
-#             tmp_singnatures = processed_bpbconfig_signatures_all | candidate_signatures
-#             bp_config, bp_config_signature = _make_random_bp_config(
-#                 rng=rng,
-#                 bp_config_unpruned=bp_config_unpruned,
-#                 num_changes=num_changes,
-#                 processed_bp_config_signatures=tmp_singnatures,
-#                 cfg_changes_all=cfg_changes_all,
-#                 max_random_config_trials=max_random_config_trials,
-#             )
-#             if bp_config is not None:
-#                 candidate_bp_configs.append(bp_config)
-#                 candidate_signatures.add(bp_config_signature)
-
-#         # Select highest scored candidate
-
-#         if len(candidate_bp_configs) > 0:
-#             n_c = len(candidate_bp_configs)
-#             logger.info(f"Generated {n_c} config candidates, selecting one config")
-#             scores = np.array([scoring_fn(bpc) for bpc in candidate_bp_configs])
-#             imax = np.argmax(scores)
-#             bp_config = candidate_bp_configs[imax]
-#             max_score = scores[imax]
-#             min_score = np.min(scores)
-#             mean_score = np.mean(scores)
-#             assert max_score == scoring_fn(bp_config)
-
-#             logger.info(f"Score stats: {max_score=} {min_score=} {mean_score=}")
-#             # scores = [scoring_fn(bpc) for bpc in candidate_bp_configs]
-#             # scores.sort(reverse=True)
-
-#             # for i, r in enumerate(scores, start=1):
-#             #     logger.info(f"Scoring {i} - {r}")
-
-#             bp_config_signature = get_bp_config_signature(bp_config)
-#             final_bp_configs.append(bp_config)
-#             final_scores.append(max_score)
-#             processed_bpbconfig_signatures_all.add(bp_config_signature)
-#         else:
-#             logger.info(f"Failed to generate any configs for {num_changes=}")
-
-#     return final_bp_configs, final_scores
-
-
-# Bpconfigs - predictor based scoring
-
-
-# def make_scoring_fn(regressor_id, bp_config_db_path, regressor_db_path):
-#     data_trn, data_val = estimator_helpers.read_data(bp_config_db_path)
-
-#     X_trn = estimator_helpers.get_quality_features([d["bp_config"] for d in data_trn])
-#     y_trn = estimator_helpers.get_target(data_trn, "arc_challenge_acc")
-#     logger.info(f"{X_trn.shape=} {X_trn.dtype=} {y_trn.shape=} {y_trn.dtype=}")
-
-#     X_val = estimator_helpers.get_quality_features([d["bp_config"] for d in data_val])
-#     y_val = estimator_helpers.get_target(data_val, "arc_challenge_acc")
-#     logger.info(f"{X_val.shape=} {X_val.dtype=} {y_val.shape=} {y_val.dtype=}")
-
-#     n_examples_trn, n_features_trn = X_trn.shape
-#     n_examples_val, n_features_val = X_val.shape
-
-#     reg_type = "QuantileGradientBoostingBoundsRegressor"
-#     reg_kwargs = dict(
-#         learning_rate=0.03,
-#         n_estimators=200,
-#         max_depth=4,
-#         min_samples_leaf=9,
-#         min_samples_split=9,
-#     )
-
-#     reg = estimators.QuantileGradientBoostingBoundsEstimator(**reg_kwargs)
-#     reg.fit(X_trn, y_trn)
-#     reg_metrics = estimator_helpers.evaluate_bounds_estimator(
-#         bounds_regressor=reg, X_trn=X_trn, y_trn=y_trn, X_val=X_val, y_val=y_val
-#     )
-#     logger.info(f"{reg_metrics=}")
-
-#     scoring_fn = conv_quality_estimator_to_scoring_fn(reg)
-
-#     v_ptblop, v_ptblopben = utils.get_versions()
-
-#     db_entry = {
-#         "regressor_id": regressor_id,
-#         "n_examples_trn": n_examples_trn,
-#         "n_features_trn": n_features_trn,
-#         "n_examples_val": n_examples_val,
-#         "n_features_val": n_features_val,
-#         "regressor_type": reg_type,
-#         "regressor_kwargs": reg_kwargs,
-#         "regressor_metrics": reg_metrics,
-#         "timestamp": utils.get_timestamp(),
-#         "ptblop_version": v_ptblop,
-#         "ptblopgen_version": v_ptblopben,
-#     }
-#     update_db(regressor_db_path, db_entry)
-#     return scoring_fn
-
-
-def gen_sample_configs(
-    trn_schedule: list[configurator.TrnDataBlockConfig],
-) -> collections.abc.Generator[tuple[int, int, int, int], None, None]:
-
-    for t in trn_schedule:
-        yield t.n_trn_onel, t.n_trn_rand, t.n_trn_actl, t.n_trn_parf
-
-    t = trn_schedule[-1]
-
-    while True:
-        yield t.n_trn_onel, t.n_trn_rand, t.n_trn_actl, t.n_trn_parf
-
-
-def conv_quality_estimator_to_scoring_fn(quality_estimator):
-
-    def __scoring_fn(bp_config):
-        X = estimator_helpers.get_quality_features([bp_config])
-        _, ypred_min, ypred_max = quality_estimator.predict_with_bounds(X)
-        return np.abs(ypred_max - ypred_min).item()
-
-    return __scoring_fn
-
-
-# def sample_active_learning_bp_configs(
-#     *,
-#     max_num_changes,
-#     quality_estimator,
-#     num_scored_candidates,
-#     n,
-#     bp_config_id_prefix,
-#     model,
-#     device,
-#     evaluator_fn,
-#     bp_config_db_path,
-#     stop_path,
-#     rng,
-#     processed_bp_config_signatures,
-# ):
-#     logger.info(f"Started active learning sampling {n=}")
-#     bp_config_unpruned = ptblop.get_unpruned_bp_config(model)
-#     scoring_fn = conv_quality_estimator_to_scoring_fn(quality_estimator)
-#     bp_configs, bp_config_scores = make_random_bp_configs_with_scoring(
-#         bp_config_unpruned=bp_config_unpruned,
-#         n=n,
-#         rng=rng,
-#         min_num_changes=2,
-#         max_num_changes=max_num_changes,
-#         processed_bp_bconfig_signatures=processed_bp_config_signatures,
-#         max_random_config_trials=MAX_RANDOM_CONFIG_TRIALS,
-#         scoring_fn=scoring_fn,
-#         num_scored_candidates=num_scored_candidates,
-#     )
-
-#     process_bp_configs(
-#         bp_configs=bp_configs,
-#         bp_config_scores=bp_config_scores,
-#         bp_config_id_prefix=bp_config_id_prefix,
-#         bp_config_db_path=bp_config_db_path,
-#         model=model,
-#         evaluator_fn=evaluator_fn,
-#         device=device,
-#         processed_bp_config_signatures=processed_bp_config_signatures,
-#         stop_path=stop_path,
-#     )
-#     logger.info(f"Finished active learning sampling {n=}")
-
-
-# def make_pareto_bp_configs(
-#     pareto_front_path,
-#     n,
-#     rng,
-#     quality_metric,
-#     min_quality,
-#     min_num_changes,
-#     max_num_changes,
-#     processed_bp_bconfig_signatures,
-# ):
-#     quality_str = f"{quality_metric}_pred"
-
-#     def __is_not_proc(d):
-#         return (
-#             get_bp_config_signature(d["bp_config"])
-#             not in processed_bp_bconfig_signatures
-#         )
-
-#     with open(pareto_front_path, "rt") as f:
-#         pf_data_raw = [json.loads(line) for line in f]
-
-#     pf_data_filtered1 = []
-
-#     # Filter configs satisying min/max_num_changes + min_quality criteria
-#     for d in pf_data_raw:
-#         num_changes = 2 * d["n"] - d["n_attention"] - d["n_mlp"]
-#         logger.info(f"{num_changes=} {min_num_changes=} {max_num_changes=}")
-#         if (
-#             d[quality_str] > min_quality
-#             and num_changes >= min_num_changes
-#             and num_changes <= max_num_changes
-#         ):
-#             pf_data_filtered1.append(d)
-#     logger.info(
-#         f"Filtered  {len(pf_data_filtered1)} ouf {len(pf_data_raw)} "
-#         f"bp_configs from {pareto_front_path}"
-#     )
-
-#     # Filter already processed signatures !!!!
-#     pf_data_filtered2 = [d for d in pf_data_filtered1 if __is_not_proc(d)]
-#     if len(pf_data_filtered1) < len(pf_data_filtered2):
-#         logger.info(
-#             f"Keept {len(pf_data_filtered2)} unprocessed configs "
-#             f"out of {len(pf_data_filtered1)}"
-#         )
-
-#     n_tot = len(pf_data_filtered2)
-
-#     if n_tot <= n:
-#         bp_configs = [d["bp_config"] for d in pf_data_filtered2]
-#         bp_config_scores = [d[f"{quality_metric}_pred"] for d in pf_data_filtered2]
-#         return bp_configs, bp_config_scores
-#     else:
-#         # Sampling indices to keep the order of the configs
-#         indices = list(range(len(pf_data_filtered2)))
-#         indices_selected = sorted(rng.sample(indices, k=2))
-#         bp_configs = [pf_data_filtered2[i]["bp_config"] for i in indices_selected]
-#         bp_config_scores = [pf_data_filtered2[i][quality_str] for i in indices_selected]
-#         return bp_configs, bp_config_scores
-
-
-# def sample_pareto_front_bp_configs(
-#     *,
-#     max_num_changes: int,
-#     pareto_front_path: pathlib.Path,
-#     quality_metric: str,
-#     min_quality: float,
-#     n,
-#     bp_config_id_prefix,
-#     model,
-#     device,
-#     evaluator_fn,
-#     bp_config_db_path: pathlib.Path,
-#     stop_path: pathlib.Path,
-#     rng,
-#     processed_bp_config_signatures,
-# ):
-#     logger.info(f"Started Pareto front sampling {n=}")
-#     bp_configs, bp_config_scores = make_pareto_bp_configs(
-#         pareto_front_path=pareto_front_path,
-#         n=n,
-#         rng=rng,
-#         quality_metric=quality_metric,
-#         min_quality=min_quality,
-#         min_num_changes=2,
-#         max_num_changes=max_num_changes,
-#         processed_bp_bconfig_signatures=processed_bp_config_signatures,
-#     )
-
-#     process_bp_configs(
-#         bp_configs=bp_configs,
-#         bp_config_scores=bp_config_scores,
-#         bp_config_id_prefix=bp_config_id_prefix,
-#         bp_config_db_path=bp_config_db_path,
-#         model=model,
-#         evaluator_fn=evaluator_fn,
-#         device=device,
-#         processed_bp_config_signatures=processed_bp_config_signatures,
-#         stop_path=stop_path,
-#     )
-#     logger.info(f"Finished pareto front sampling {n=}")
-
-
-def make_old_bp_config_generator(bp_config_db_path: pathlib.Path):
+def make_old_iter_generator(bp_config_db_path: pathlib.Path):
 
     def __read_ids_types_signatures(bp_config_db_path):
 
@@ -468,6 +171,11 @@ def iter_range(num_iter):
 
 
 ## Generators
+
+
+def make_mock_bp_config_generator():
+    while True:
+        yield None, None
 
 
 def make_zerl_bp_config_generator(bp_config_unpruned):
@@ -559,6 +267,36 @@ def make_parf_bp_config_generator(
         yield None, None
 
 
+def make_rand_bp_config(
+    *,
+    cfg_changes_all,
+    bp_config_unpruned,
+    num_changes,
+    max_random_config_trials,
+    rng,
+    processed_bp_config_signatures,
+):
+
+    bp_config, bp_config_signature = None, None
+
+    for j in range(1, max_random_config_trials + 1):
+        cfg_changes = rng.sample(cfg_changes_all, k=num_changes)
+        bp_config = apply_bp_config_changes(bp_config_unpruned, cfg_changes)
+        bp_config_signature = utils.get_bp_config_signature(bp_config)
+
+        if bp_config_signature not in processed_bp_config_signatures:
+            break
+        else:
+            msg = f"Try {j=}, {num_changes=},  drew signature={bp_config_signature}"
+            msg += " that is already processed, repeating"
+            logger.info(msg)
+    if bp_config is not None:
+        return bp_config, -1.0
+    else:
+        msg = "After {j=} tries, failed to generate bp_config for {num_changes=}"
+        return None, None
+
+
 def make_rand_bp_config_generator(
     *,
     bp_config_unpruned,
@@ -572,29 +310,89 @@ def make_rand_bp_config_generator(
 
     while True:
         num_changes = rng.randint(min_num_changes, max_num_changes)
-        bp_config, bp_config_signature = None, None
-
-        for j in range(1, max_random_config_trials + 1):
-            cfg_changes = rng.sample(cfg_changes_all, k=num_changes)
-            bp_config = apply_bp_config_changes(bp_config_unpruned, cfg_changes)
-            bp_config_signature = utils.get_bp_config_signature(bp_config)
-
-            if bp_config_signature not in processed_bp_config_signatures:
-                break
-            else:
-                msg = f"Try {j=}, {num_changes=},  drew signature={bp_config_signature}"
-                msg += " that is already processed, repeating"
-                logger.info(msg)
+        bp_config, bp_config_score = make_rand_bp_config(
+            num_changes=num_changes,
+            cfg_changes_all=cfg_changes_all,
+            bp_config_unpruned=bp_config_unpruned,
+            max_random_config_trials=max_random_config_trials,
+            rng=rng,
+            processed_bp_config_signatures=processed_bp_config_signatures,
+        )
         if bp_config is not None:
-            yield bp_config, -1.0
-        else:
-            msg = "After {j=} tries, failed to generate bp_config for {num_changes=}"
-            logger.info(msg)
+            yield bp_config, bp_config_score
 
 
-def make_mock_bp_config_generator():
+def conv_quality_estimator_to_scoring_fn(quality_estimator):
+
+    def __scoring_fn(bp_config):
+        X = estimator_helpers.get_quality_features([bp_config])
+        _, ypred_min, ypred_max = quality_estimator.predict_with_bounds(X)
+        return np.abs(ypred_max - ypred_min).item()
+
+    return __scoring_fn
+
+
+def make_actl_bp_config_generator(
+    *,
+    bp_config_unpruned,
+    min_num_changes,
+    max_num_changes,
+    max_random_config_trials,
+    rng,
+    processed_bp_bconfig_signatures,
+    num_scored_candidates,
+    quality_estimator,
+):
+    cfg_changes_all = genereate_bp_config_changes(bp_config_unpruned)
+    scoring_fn = conv_quality_estimator_to_scoring_fn(quality_estimator)
+
     while True:
-        yield None, None
+
+        # Generate pool of candidates with fixed num_chages
+
+        num_changes = rng.randint(min_num_changes, max_num_changes)
+        processed_bpbconfig_signatures_all = copy.deepcopy(
+            processed_bp_bconfig_signatures
+        )
+
+        candidate_bp_configs = []
+        candidate_signatures = set()
+        for _ in range(num_scored_candidates):
+            tmp_singnatures = processed_bpbconfig_signatures_all | candidate_signatures
+            max_bp_config, bp_config_signature = make_rand_bp_config(
+                num_changes=num_changes,
+                cfg_changes_all=cfg_changes_all,
+                bp_config_unpruned=bp_config_unpruned,
+                max_random_config_trials=max_random_config_trials,
+                rng=rng,
+                processed_bp_config_signatures=tmp_singnatures,
+            )
+            if max_bp_config is not None:
+                candidate_bp_configs.append(max_bp_config)
+                candidate_signatures.add(bp_config_signature)
+
+        # Select highest scored candidate
+
+        if len(candidate_bp_configs) > 0:
+            n_c = len(candidate_bp_configs)
+            logger.info(f"actl - {num_changes=}, generated {n_c=} config candidates")
+            scores = np.array([scoring_fn(bpc) for bpc in candidate_bp_configs])
+            imax = np.argmax(scores)
+            max_bp_config = candidate_bp_configs[imax]
+            max_score = scores[imax]
+            min_score = np.min(scores)
+            mean_score = np.mean(scores)
+            assert max_score == scoring_fn(max_bp_config)
+
+            logger.info(f"actl - {max_score=} {min_score=} {mean_score=}")
+            # scores = [scoring_fn(bpc) for bpc in candidate_bp_configs]
+            # scores.sort(reverse=True)
+
+            # for i, r in enumerate(scores, start=1):
+            #     logger.info(f"Scoring {i} - {r}")
+            yield max_bp_config, max_score
+        else:
+            logger.info(f"actl - {num_changes=}, failed to generate config candidates")
 
 
 def process_bp_config(
@@ -700,7 +498,12 @@ def make_bp_config_processing_env(
 
 
 def make_bp_config_generators(
-    *, bp_config_unpruned, min_num_changes, max_num_changes, processed_bp_config_singatures, rng
+    *,
+    bp_config_unpruned,
+    min_num_changes,
+    max_num_changes,
+    processed_bp_config_singatures,
+    rng,
 ) -> BPConfigGenerators:
     zerlg = make_zerl_bp_config_generator(bp_config_unpruned)
     onelg = make_onel_bp_config_generator(bp_config_unpruned)
@@ -710,7 +513,7 @@ def make_bp_config_generators(
         max_num_changes=max_num_changes,
         max_random_config_trials=MAX_RANDOM_CONFIG_TRIALS,
         rng=rng,
-        processed_bp_config_signatures=processed_bp_config_singatures
+        processed_bp_config_signatures=processed_bp_config_singatures,
     )
     parfg = None
     actlg = None
@@ -733,7 +536,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
 
     processing_env = make_bp_config_processing_env(config, output_path)
 
-    old_bp_config_generator, restart = make_old_bp_config_generator(
+    old_iter_generator, restart = make_old_iter_generator(
         processing_env.bp_config_db_path
     )
     if restart:
@@ -756,7 +559,9 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
 
     processed_bp_config_signatures = set()
     cost_estimator, quality_estimator = None, None
-    pareto_front_path, pareto_front_path_used_by_generator = None, None
+    pareto_front_path, is_new_pareto_front = None, False
+    quality_estimator, is_new_quality_estimator = None, False
+
     bp_config_gens = make_bp_config_generators(
         bp_config_unpruned=bp_config_unpruned,
         min_num_changes=2,
@@ -775,7 +580,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
         )
 
         for bp_config_type, bp_config_id in iter_generator:
-            tmp = next(old_bp_config_generator)
+            tmp = next(old_iter_generator)
             bp_config_id_old, bp_config_type_old, bp_config_signature = tmp
             if (
                 bp_config_id_old == bp_config_id
@@ -790,10 +595,21 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
                 if bp_config_type == "actl":
                     if quality_estimator is None:
                         quality_estimator = None  # TODO
-                elif (
-                    bp_config_type == "parf"
-                    and pareto_front_path != pareto_front_path_used_by_generator
-                ):
+                    if is_new_quality_estimator:
+                        pbcs = processed_bp_config_signatures
+                        nc = config_sampler.actl_num_scored_candidates
+                        bp_config_gens.actl = make_actl_bp_config_generator(
+                            bp_config_unpruned=bp_config_unpruned,
+                            min_num_changes=2,
+                            max_num_changes=max_num_changes,
+                            max_random_config_trials=MAX_RANDOM_CONFIG_TRIALS,
+                            processed_bp_bconfig_signatures=pbcs,
+                            rng=rng,
+                            quality_estimator=quality_estimator,
+                            num_scored_candidates=nc,
+                        )
+                        is_new_quality_estimator = False
+                elif bp_config_type == "parf" and is_new_pareto_front:
                     bp_config_gens.parf = make_parf_bp_config_generator(
                         pareto_front_path=pareto_front_path,
                         min_num_changes=2,
@@ -803,7 +619,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
                         processed_bp_bconfig_signatures=processed_bp_config_signatures,
                         rng=rng,
                     )
-                    pareto_front_path_used_by_generator = pareto_front_path
+                    is_new_pareto_front = False
                 sample_and_process_bp_config(
                     bp_config_id=bp_config_id,
                     bp_config_type=bp_config_type,
@@ -829,7 +645,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
             else:
                 # Train predictors
 
-                # TODO Put it in a separate function?
+                # TODO Put training predictors into in a separate function?
                 if cost_estimator is None:
                     cost_estimator_id = "estimator_quality_%04d" % data_iter
                     cost_estimator, cost_estimator_metrics = (
@@ -849,6 +665,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
                         quality_estimator_report_path=quality_estimators_report_path,
                     )
                 )
+                is_new_quality_estimator = True
                 qeid = {"estimator_id": quality_estimator_id}
                 update_db(quality_estimators_db_path, qeid | quality_estimator_metrics)
                 n_features = quality_estimator_metrics["n_features_trn"]
@@ -864,120 +681,4 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
                     pareto_path=pareto_front_path,
                     config_pareto_optimization=config_pareto_optimization,
                 )
-
-    # # Validation dataset
-
-    # sample_random_bp_configs(
-    #     n=config_sampler.n_val_rand,
-    #     bp_config_id_prefix="val.rndl.0001.",
-    #     max_num_changes=max_num_changes,
-    #     **fixed_kwargs,
-    # )
-
-    # # Training dataset - unpruned model
-
-    # process_bp_configs(
-    #     bp_configs=[bp_config_unpruned],
-    #     bp_config_scores=[-1],
-    #     bp_config_id_prefix="trn.zerl.0001.",
-    #     bp_config_db_path=bp_config_db_path,
-    #     model=model,
-    #     evaluator_fn=evaluator_fn,
-    #     device=device,
-    #     processed_bp_config_signatures=processed_bp_config_signatures,
-    #     stop_path=stop_path,
-    # )
-
-    # # Training dataset - iterations as defined in config
-
-    # quality_estimator, cost_estimator, pareto_front_path = None, None, None
-
-    # for i, n_tuple in enumerate(
-    #     gen_sample_configs(config_sampler.trn_schedule), start=1
-    # ):
-    #     n_onel, n_rand, n_actl, n_parf = n_tuple
-
-    #     # Sample - single layer configs
-
-    #     sample_one_layer_bp_configs(
-    #         n=n_onel,
-    #         bp_config_id_prefix=f"trn.onel.{i:04d}.",
-    #         **fixed_kwargs,
-    #     )
-
-    #     # Sample - random configs
-
-    #     sample_random_bp_configs(
-    #         n=n_rand,
-    #         max_num_changes=max_num_changes,
-    #         bp_config_id_prefix=f"trn.rand.{i:04d}.",
-    #         **fixed_kwargs,
-    #     )
-
-    #     # Sample - active learning
-
-    #     if quality_estimator is not None:
-    #         sample_active_learning_bp_configs(
-    #             n=n_actl,
-    #             quality_estimator=quality_estimator,
-    #             max_num_changes=max_num_changes,
-    #             num_scored_candidates=config_sampler.actl_num_scored_candidates,
-    #             bp_config_id_prefix=f"trn.actl.{i:04d}.",
-    #             **fixed_kwargs,
-    #         )
-    #     else:
-    #         msg = "No quality predictor, but active learning sampling requested"
-    #         logger.warning(msg)
-
-    #     # Sample - Pareto front
-
-    #     if pareto_front_path is not None:
-    #         sample_pareto_front_bp_configs(
-    #             n=n_parf,
-    #             max_num_changes=max_num_changes,
-    #             pareto_front_path=pareto_front_path,
-    #             quality_metric=config_sampler.quality_evaluator_metric,
-    #             min_quality=config_sampler.parf_min_quality_evaluator_metric,
-    #             bp_config_id_prefix=f"trn.parf.{i:04d}.",
-    #             **fixed_kwargs,
-    #         )
-    #     else:
-    #         logger.warning("No Pareto fron, but Pareto front sampling requested")
-
-    #     # Train predictors
-
-    #     if cost_estimator is None:
-    #         cost_estimator_id = "estimator_quality_%04d" % i
-    #         cost_estimator, cost_estimator_metrics = (
-    #             estimator_helpers.train_param_estimator(bp_config_db_path)
-    #         )
-    #         ceid = {"estimator_id": cost_estimator_id}
-    #         update_db(cost_estimators_db_path, ceid | cost_estimator_metrics)
-
-    #     quality_estimator_id = "estimator_quality_%04d" % i
-    #     quality_estimator, quality_estimator_metrics = (
-    #         estimator_helpers.train_quality_estimator(
-    #             bp_config_db_path=bp_config_db_path,
-    #             quality_metric=config_sampler.quality_evaluator_metric,
-    #             quality_estimator_id=quality_estimator_id,
-    #             quality_estimator_report_path=quality_estimators_report_path,
-    #         )
-    #     )
-    #     qeid = {"estimator_id": quality_estimator_id}
-    #     update_db(quality_estimators_db_path, qeid | quality_estimator_metrics)
-    #     n_features = quality_estimator_metrics["n_features_trn"]
-
-    #     # Generate pareto front
-
-    #     pareto_front_path = (
-    #         output_path / PARETO_FRONT_DIR / (PARETO_FRONT_FNAME_TEMPLATE % i)
-    #     )
-    #     pareto_optimization.find_pareto_front(
-    #         quality_estimator=quality_estimator,
-    #         quality_metric_name=config_sampler.quality_evaluator_metric,
-    #         cost_estimator=cost_estimator,
-    #         n_features=n_features,
-    #         bp_config_unpruned=bp_config_unpruned,
-    #         pareto_path=pareto_front_path,
-    #         config_pareto_optimization=config_pareto_optimization,
-    #     )
+                is_new_pareto_front = True
