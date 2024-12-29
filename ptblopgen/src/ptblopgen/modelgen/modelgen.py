@@ -3,6 +3,7 @@ import json
 import logging
 import pathlib
 import random
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -10,7 +11,7 @@ import numpy as np
 import ptblop
 import torch
 
-from .. import builders, estimators, utils
+from .. import builders, utils
 from . import configurator, estimator_helpers, pareto_optimization
 
 BP_CONFIG_DB_FNAME = "bp_configs.json"
@@ -28,22 +29,6 @@ MAX_RANDOM_CONFIG_TRIALS = 20
 logger = logging.getLogger(__name__)
 
 
-# TODO Make it not a dataclass
-@dataclass
-class BPConfigGenerators:
-    zerl: Any
-    onel: Any
-    rand: Any
-    parf: Any
-    actl: Any
-
-    def get_gen(self, gen_name: str) -> Any:
-        if hasattr(self, gen_name):
-            return getattr(self, gen_name)
-        else:
-            raise ValueError("Unknow generator type {gen_name}")
-
-
 @dataclass
 class BPConfigProcsessingEnvironment:
     model: torch.nn.Module
@@ -51,6 +36,21 @@ class BPConfigProcsessingEnvironment:
     evaluator_fn: Any
     stop_path: pathlib.Path
     bp_config_db_path: pathlib.Path
+
+
+class BPConfigGenerators:
+    def __init__(self, zerl, onel, rand, parf, actl):
+        self.zerl = zerl
+        self.onel = onel
+        self.rand = rand
+        self.parf = parf
+        self.actl = actl
+
+    def get_gen(self, gen_name: str) -> Any:
+        if hasattr(self, gen_name):
+            return getattr(self, gen_name)
+        else:
+            raise ValueError("Unknow generator type {gen_name}")
 
 
 # Helpers
@@ -170,7 +170,7 @@ def iter_range(num_iter):
         yield from range(1, num_iter + 1)
 
 
-## Generators
+# Generators
 
 
 def make_mock_bp_config_generator():
@@ -324,10 +324,10 @@ def make_rand_bp_config_generator(
 
 def conv_quality_estimator_to_scoring_fn(quality_estimator):
 
-    def __scoring_fn(bp_config):
-        X = estimator_helpers.get_quality_features([bp_config])
+    def __scoring_fn(bp_configs):
+        X = estimator_helpers.get_quality_features(bp_configs)
         _, ypred_min, ypred_max = quality_estimator.predict_with_bounds(X)
-        return np.abs(ypred_max - ypred_min).item()
+        return np.abs(ypred_max - ypred_min)
 
     return __scoring_fn
 
@@ -376,15 +376,18 @@ def make_actl_bp_config_generator(
         if len(candidate_bp_configs) > 0:
             n_c = len(candidate_bp_configs)
             logger.info(f"actl - {num_changes=}, generated {n_c=} config candidates")
-            scores = np.array([scoring_fn(bpc) for bpc in candidate_bp_configs])
+            t1 = time.perf_counter()
+            scores = scoring_fn(candidate_bp_configs)
+            scoring_duration = time.perf_counter() - t1
+            logger.info(f"actl - scoring candidates took {scoring_duration:.2f} sec.")
             imax = np.argmax(scores)
             max_bp_config = candidate_bp_configs[imax]
-            max_score = scores[imax]
-            min_score = np.min(scores)
-            mean_score = np.mean(scores)
-            assert max_score == scoring_fn(max_bp_config)
+            max_score = float(scores[imax])
+            min_score = float(np.min(scores))
+            mean_score = float(np.mean(scores))
+            assert max_score == scoring_fn([max_bp_config]).item()
 
-            logger.info(f"actl - {max_score=} {min_score=} {mean_score=}")
+            logger.info(f"actl - {max_score=:.4f} {min_score=:.4f} {mean_score=:.4f}")
             # scores = [scoring_fn(bpc) for bpc in candidate_bp_configs]
             # scores.sort(reverse=True)
 
