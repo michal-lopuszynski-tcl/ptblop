@@ -1,5 +1,6 @@
 import json
 import logging
+import pathlib
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -229,12 +230,15 @@ def get_params_features(bp_configs):
 
 def train_quality_estimator(
     *,
-    bp_config_db_path,
-    data_iter,
-    quality_metric,
-    quality_estimator_report_path,
-    estimator_kwargs=None,
+    bp_config_db_path: pathlib.Path,
+    quality_estimator_report_path: pathlib.Path,
+    quality_estimators_db_path: pathlib.Path,
+    data_iter: int,
+    quality_metric: str,
+    run_id: str,
 ):
+    estimator_kwargs = None  # TODO: make it a parameter
+
     suffix = f"{utils.get_timestamp_for_fname()}_{utils.get_random_str(6)}"
     estimator_id = f"qual{data_iter:04d}_{suffix}"
 
@@ -331,6 +335,8 @@ def train_quality_estimator(
     v_ptblop, v_ptblopgen = utils.get_versions()
 
     estimator_data = {
+        "run_id": run_id,
+        "estimator_id": estimator_id,
         "n_examples_trn": n_examples_trn,
         "n_features_trn": n_features_trn,
         "n_examples_val": n_examples_val,
@@ -343,10 +349,17 @@ def train_quality_estimator(
         "ptblopgen_version": v_ptblopgen,
     }
     logger.info(f"{estimator_data=}")
+    utils.update_db(quality_estimators_db_path, estimator_data)
     return estimator, estimator_data, estimator_id
 
 
-def train_param_estimator(bp_config_db_path, data_iter):
+def train_param_estimator(
+    *,
+    bp_config_db_path: pathlib.Path,
+    cost_estimators_db_path: pathlib.Path,
+    data_iter: int,
+    run_id: str,
+):
     suffix = f"{utils.get_timestamp_for_fname()}_{utils.get_random_str(6)}"
     estimator_id = f"cost{data_iter:04d}_{suffix}"
 
@@ -376,6 +389,8 @@ def train_param_estimator(bp_config_db_path, data_iter):
     v_ptblop, v_ptblopgen = utils.get_versions()
 
     estimator_data = {
+        "run_id": run_id,
+        "estimator_id": estimator_id,
         "n_examples_trn": n_examples_trn,
         "n_features_trn": n_features_trn,
         "n_examples_val": n_examples_val,
@@ -388,4 +403,6 @@ def train_param_estimator(bp_config_db_path, data_iter):
         "ptblopgen_version": v_ptblopgen,
     }
     logger.info(f"{estimator_data=}")
+    utils.update_db(cost_estimators_db_path, estimator_data)
+
     return estimator, estimator_data, estimator_id

@@ -1,6 +1,9 @@
 import datetime
+import json
+import pathlib
 import random
 import string
+from typing import Any
 
 import ptblop
 
@@ -43,3 +46,17 @@ def get_bp_config_signature(bp_config):
         singature_strs.append(v_signature_str)
     signature_str = "".join(singature_strs)
     return int(signature_str, 2)
+
+
+def update_db(
+    db_path: pathlib.Path, db_entry: dict[str, Any], mode: str = "append"
+) -> None:
+    if mode == "append":
+        flag = "at"
+    elif mode == "reset":
+        flag = "wt"
+    else:
+        raise ValueError(f"Unknown mode {mode}")
+
+    with open(db_path, flag) as f:
+        f.write(json.dumps(db_entry) + "\n")

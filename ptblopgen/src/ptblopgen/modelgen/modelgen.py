@@ -54,21 +54,6 @@ class BPConfigGenerators:
             raise ValueError("Unknow generator type {gen_name}")
 
 
-# Helpers
-
-
-def update_db(db_path, db_entry, mode="append"):
-    if mode == "append":
-        flag = "at"
-    elif mode == "reset":
-        flag = "wt"
-    else:
-        raise ValueError(f"Unknown mode {mode}")
-
-    with open(db_path, flag) as f:
-        f.write(json.dumps(db_entry) + "\n")
-
-
 # Bpconfigs - helper functions
 
 
@@ -451,7 +436,7 @@ def process_bp_config(
 
         assert bp_config_signature not in processed_bp_config_signatures
         processed_bp_config_signatures.add(bp_config_signature)
-        update_db(bp_config_db_path, res)
+        utils.update_db(bp_config_db_path, res)
 
 
 def sample_and_process_bp_config(
@@ -658,26 +643,26 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
                 # Train predictors
 
                 if cost_estimator is None:
-                    cost_estimator, cost_estimator_metrics, cost_estimator_id = (
+                    cost_estimator, _, cost_estimator_id = (
                         estimator_helpers.train_param_estimator(
-                            processing_env.bp_config_db_path, data_iter
+                            bp_config_db_path=processing_env.bp_config_db_path,
+                            cost_estimators_db_path=cost_estimators_db_path,
+                            data_iter=data_iter,
+                            run_id=run_id,
                         )
                     )
-                    ceid = {"run_id": run_id, "estimator_id": cost_estimator_id}
-                    update_db(cost_estimators_db_path, ceid | cost_estimator_metrics)
 
                 quality_estimator, quality_estimator_metrics, quality_estimator_id = (
                     estimator_helpers.train_quality_estimator(
                         bp_config_db_path=processing_env.bp_config_db_path,
+                        quality_estimator_report_path=quality_estimators_report_path,
+                        quality_estimators_db_path=quality_estimators_db_path,
                         data_iter=data_iter,
                         quality_metric=config_sampler.quality_evaluator_metric,
-                        quality_estimator_report_path=quality_estimators_report_path,
+                        run_id=run_id,
                     )
                 )
                 is_new_quality_estimator = True
-                qeid = {"run_id": run_id, "estimator_id": quality_estimator_id}
-                update_db(quality_estimators_db_path, qeid | quality_estimator_metrics)
-                n_features = quality_estimator_metrics["n_features_trn"]
 
                 # Generate Pareto front
 
@@ -688,7 +673,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
                     quality_metric_name=config_sampler.quality_evaluator_metric,
                     cost_estimator=cost_estimator,
                     cost_estimator_id=cost_estimator_id,
-                    n_features=n_features,
+                    n_features=quality_estimator_metrics["n_features_trn"],
                     bp_config_unpruned=bp_config_unpruned,
                     pareto_path=pareto_front_path,
                     config_pareto_optimization=config_pareto_optimization,
