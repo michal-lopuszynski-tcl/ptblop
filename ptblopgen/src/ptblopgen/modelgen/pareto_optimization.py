@@ -123,9 +123,12 @@ def get_bp_config_stats(bp_config):
 
 def find_pareto_front(
     *,
+    run_id,
     quality_estimator,
+    quality_estimator_id,
     quality_metric_name,
     cost_estimator,
+    cost_estimator_id,
     bp_config_unpruned,
     n_features,
     pareto_path,
@@ -173,6 +176,7 @@ def find_pareto_front(
         q, qmin, qmax = quality_estimator.predict_with_bounds([features])
         params = cost_estimator.predict([features])
         d = {
+            "run_id": run_id,
             "mparams_pred": params.item(),
             "n": n,
             "n_attention": n_attention,
@@ -180,6 +184,8 @@ def find_pareto_front(
             f"{quality_metric_name}_pred": q.item(),
             f"{quality_metric_name}_pred_min": qmin.item(),
             f"{quality_metric_name}_pred_max": qmax.item(),
+            "cost_estimator_id": cost_estimator_id,
+            "quality_estimator_id": quality_estimator_id,
             "timestamp": ts,
             "ptblop_version": v_ptblop,
             "ptblopgen_version": v_ptblopgen,

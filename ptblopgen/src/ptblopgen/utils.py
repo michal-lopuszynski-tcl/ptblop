@@ -1,4 +1,6 @@
 import datetime
+import random
+import string
 
 import ptblop
 
@@ -21,8 +23,12 @@ def get_timestamp_for_fname() -> str:
         now = now + datetime.timedelta(seconds=1)
         hundredths = 0
 
-    now_str = f"{now:%Y-%m-%d_%H%M-%S}{hundredths:02d}"
+    now_str = f"{now:%Y-%m-%d-%H%M-%S}{hundredths:02d}"
     return now_str
+
+
+def get_random_str(n: int) -> str:
+    return "".join(random.choices(string.ascii_letters + string.digits, k=n))
 
 
 def get_versions() -> tuple[str, str]:

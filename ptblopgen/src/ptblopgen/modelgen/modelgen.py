@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class BPConfigProcsessingEnvironment:
+    run_id: str
     model: torch.nn.Module
     device: torch.device
     evaluator_fn: Any
@@ -126,9 +127,9 @@ def make_generator_for_data_iter(i, n_val_rand, trn_schedule, max_onel):
             return n
 
     def __get_trn_iter_config(trn_schedule, i_trn):
-        # Two times minus one -
-        # First - iter are numbered 1..,
-        # Second - iter one is for validation
+        # Two times minus one:
+        # First "minus one" - iter are numbered 1..,
+        # Second "minus one" - iter one is for validation
         # Hence training is 2..
         index = i_trn - 1
         if index < len(trn_schedule):
@@ -217,7 +218,7 @@ def make_parf_bp_config_generator(
     rng,
     processed_bp_bconfig_signatures,
 ):
-    # Read, filter and shuffle Pareto Front data
+    # This function reads, filters and shuffles Pareto Front data
     quality_str = f"{quality_metric}_pred"
 
     def __is_not_proc(d):
@@ -246,7 +247,7 @@ def make_parf_bp_config_generator(
         f"bp_configs from {pareto_front_path}"
     )
 
-    # Filter already processed signatures !!!!
+    # Filter already processed signatures
     pf_data_filtered2 = [d for d in pf_data_filtered1 if __is_not_proc(d)]
     if len(pf_data_filtered1) < len(pf_data_filtered2):
         logger.info(
@@ -400,6 +401,7 @@ def make_actl_bp_config_generator(
 
 def process_bp_config(
     *,
+    run_id,
     bp_config_id,
     bp_config_type,
     bp_config,
@@ -421,7 +423,12 @@ def process_bp_config(
     if bp_config_signature in processed_bp_config_signatures:
         logger.warning(f"Model already processed {bp_config_signature=}")
     else:
-        res = {"id": bp_config_id, "type": bp_config_type, "data_iter": data_iter}
+        res = {
+            "run_id": run_id,
+            "id": bp_config_id,
+            "type": bp_config_type,
+            "data_iter": data_iter,
+        }
         ptblop.apply_bp_config_in_place(
             model, bp_config, set_unused_layers_to_none=False
         )
@@ -460,6 +467,7 @@ def sample_and_process_bp_config(
     bp_config, bp_config_score = next(bp_config_gens.get_gen(bp_config_type))
     if bp_config is not None and bp_config_score is not None:
         exit_code = process_bp_config(
+            run_id=processing_env.run_id,
             bp_config_id=bp_config_id,
             bp_config_type=bp_config_type,
             bp_config=bp_config,
@@ -480,7 +488,7 @@ def sample_and_process_bp_config(
 
 
 def make_bp_config_processing_env(
-    config: dict[str, Any], output_path: pathlib.Path
+    config: dict[str, Any], output_path: pathlib.Path, run_id: str
 ) -> BPConfigProcsessingEnvironment:
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model, evaluator_fn = builders.make_model_and_evaluator(
@@ -492,6 +500,7 @@ def make_bp_config_processing_env(
     stop_path = output_path / STOP_FNAME
 
     return BPConfigProcsessingEnvironment(
+        run_id=run_id,
         model=model,
         device=device,
         evaluator_fn=evaluator_fn,
@@ -526,7 +535,7 @@ def make_bp_config_generators(
 
 
 def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
-
+    run_id = f"{utils.get_timestamp_for_fname()}_{utils.get_random_str(6)}"
     config_sampler = configurator.SamplerConfig(**config["sampler"])
     config_pareto_optimization = configurator.ParetoOptimizationConfig(
         **config["pareto_optimization"]
@@ -537,7 +546,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
 
     quality_estimators_report_path.mkdir(exist_ok=True, parents=True)
 
-    processing_env = make_bp_config_processing_env(config, output_path)
+    processing_env = make_bp_config_processing_env(config, output_path, run_id)
 
     old_iter_generator, restart = make_old_iter_generator(
         processing_env.bp_config_db_path
@@ -650,16 +659,18 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
 
                 # TODO Put training predictors into in a separate function?
                 if cost_estimator is None:
-                    cost_estimator_id = "estimator_quality_%04d" % data_iter
+                    s = f"{utils.get_timestamp_for_fname()}_{utils.get_random_str(6)}"
+                    cost_estimator_id = f"cost{data_iter:04d}_{s}"
                     cost_estimator, cost_estimator_metrics = (
                         estimator_helpers.train_param_estimator(
                             processing_env.bp_config_db_path
                         )
                     )
-                    ceid = {"estimator_id": cost_estimator_id}
+                    ceid = {"run_id": run_id, "estimator_id": cost_estimator_id}
                     update_db(cost_estimators_db_path, ceid | cost_estimator_metrics)
 
-                quality_estimator_id = "estimator_quality_%04d" % data_iter
+                s = f"{utils.get_timestamp_for_fname()}_{utils.get_random_str(6)}"
+                quality_estimator_id = f"qual{data_iter:04d}_{s}"
                 quality_estimator, quality_estimator_metrics = (
                     estimator_helpers.train_quality_estimator(
                         bp_config_db_path=processing_env.bp_config_db_path,
@@ -669,16 +680,19 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
                     )
                 )
                 is_new_quality_estimator = True
-                qeid = {"estimator_id": quality_estimator_id}
+                qeid = {"run_id": run_id, "estimator_id": quality_estimator_id}
                 update_db(quality_estimators_db_path, qeid | quality_estimator_metrics)
                 n_features = quality_estimator_metrics["n_features_trn"]
 
                 # Generate Pareto front
 
                 pareto_optimization.find_pareto_front(
+                    run_id=run_id,
                     quality_estimator=quality_estimator,
+                    quality_estimator_id=quality_estimator_id,
                     quality_metric_name=config_sampler.quality_evaluator_metric,
                     cost_estimator=cost_estimator,
+                    cost_estimator_id=cost_estimator_id,
                     n_features=n_features,
                     bp_config_unpruned=bp_config_unpruned,
                     pareto_path=pareto_front_path,
