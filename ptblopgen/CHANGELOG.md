@@ -1,11 +1,11 @@
 # TODO
-+ **!..** Add versioning zips
 + **!..** Add support for vision transformers
 + **!..** Add num-layers as cost metric
 + **!..** Refactor the output so the metrics are in a subfield
 
 
 # DONE
++ Add versioning zips
 + Add handling of restarts
 + Refactor all `bpconfigs` to `bp_configs`
 + In modelgen refactor `fixed_kwargs` dict
