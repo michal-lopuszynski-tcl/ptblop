@@ -1,6 +1,8 @@
 import argparse
+import gzip
 import logging
 import pathlib
+import shutil
 import subprocess
 import sys
 from typing import Any
@@ -115,6 +117,13 @@ def make_repro_dir(args: argparse.Namespace, repro_subdir_prefix: str) -> None:
     save_requirements(
         repro_path / "requirements.txt", repro_path / "requirements_unsafe.txt"
     )
+    bp_config_path = args.output_path / modelgen.BP_CONFIG_DB_FNAME
+
+    if bp_config_path.exists():
+        bp_config_bak_path = repro_path / (modelgen.BP_CONFIG_DB_FNAME + ".gz")
+        with open(bp_config_path, "rb") as f_in:
+            with gzip.open(bp_config_bak_path, "wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
 
 
 def main() -> int:
