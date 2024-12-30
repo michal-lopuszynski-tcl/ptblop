@@ -1,6 +1,8 @@
 
 VER_FILE=src/$(MODULE_NAME)/_version.py
 
+ZIP_DIR=build_zip
+
 F=set_it_to_reformated_file_from_cli
 
 all: build
@@ -8,6 +10,18 @@ all: build
 build:
 	python3 -mbuild
 
+build_zip:
+	ZIP_SUFFIX="-mod"; \
+	git diff --exit-code && ZIP_SUFFIX=""; \
+	ZIP_NAME="ptblopgen-$$(git rev-list --count HEAD)-$$(git rev-parse --short HEAD)$${ZIP_SUFFIX}.zip"; \
+    rm -rf $(ZIP_DIR) && \
+	mkdir $(ZIP_DIR) && \
+	cd $(ZIP_DIR) && \
+	cp -rp ../src/ptblopgen . && \
+	cp -rp ../../ptblop/src/ptblop . && \
+	printf "import sys\nimport ptblopgen.cli\n\nsys.exit(ptblopgen.cli.main())\n" > __main__.py && \
+	zip -r $${ZIP_NAME} ptblop ptblopgen __main__.py && \
+	rm -rf ptblop ptblopgen __main__.py
 
 check: -check_black -check_isort -check_flake8 -check_mypy
 
@@ -71,7 +85,7 @@ manualvercommit:
 -%:
 	-@$(MAKE) --no-print-directory $*
 
-.PHONY: all build test clean fix fixall show_version\
+.PHONY: all build build_zip test clean fix fixall show_version\
 	check  check_black check_isort check_flake8 check_mypy \
 	commit vercommit manualvercommit
 
