@@ -85,7 +85,10 @@ def make_old_iter_generator(bp_config_db_path: pathlib.Path):
             with open(bp_config_db_path, "rt") as f:
                 for line in f:
                     d = json.loads(line)
-                    signature = utils.get_bp_config_signature(d["bp_config"])
+                    if d["status"] == "ok":
+                        signature = utils.get_bp_config_signature(d["bp_config"])
+                    else:
+                        signature = None
                     res_entry = d["id"], d["type"], signature
                     res.append(res_entry)
             return res
@@ -413,6 +416,7 @@ def process_bp_config(
             "id": bp_config_id,
             "type": bp_config_type,
             "data_iter": data_iter,
+            "status": "ok",
         }
         ptblop.apply_bp_config_in_place(
             model, bp_config, set_unused_layers_to_none=False
@@ -446,12 +450,12 @@ def sample_and_process_bp_config(
     bp_config_gens,
     processing_env: BPConfigProcsessingEnvironment,
     processed_bp_config_signatures,
-) -> int:
+):
     # TODO: Merge this with process_bp_config
 
     bp_config, bp_config_score = next(bp_config_gens.get_gen(bp_config_type))
     if bp_config is not None and bp_config_score is not None:
-        exit_code = process_bp_config(
+        process_bp_config(
             run_id=processing_env.run_id,
             bp_config_id=bp_config_id,
             bp_config_type=bp_config_type,
@@ -465,11 +469,17 @@ def sample_and_process_bp_config(
             stop_path=processing_env.stop_path,
             processed_bp_config_signatures=processed_bp_config_signatures,
         )
-        return exit_code
     else:
+        res = {
+            "run_id": processing_env.run_id,
+            "id": bp_config_id,
+            "type": bp_config_type,
+            "data_iter": data_iter,
+            "status": "failed_gen",
+        }
+        utils.update_db(processing_env.bp_config_db_path, res)
         msg = f"Generation for {bp_config_id=}, {bp_config_type=} unsuccessful"
         logger.warning(msg)
-        return 0
 
 
 def make_bp_config_processing_env(
@@ -584,7 +594,8 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
                 and bp_config_type_old == bp_config_type
             ):
                 logger.info(f"SKIPPING {bp_config_id=} {bp_config_type=}")
-                processed_bp_config_signatures.add(bp_config_signature)
+                if bp_config_signature is not None:
+                    processed_bp_config_signatures.add(bp_config_signature)
                 if bp_config_type in {"zerl", "onel"}:
                     next(bp_config_gens.get_gen(bp_config_type))
             elif bp_config_id_old is None and bp_config_type_old is None:
@@ -651,6 +662,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
 
             if pareto_front_path.exists():
                 msg = f"Pareto front {pareto_front_path} exists, skipping generation"
+                is_new_pareto_front = True
                 logger.info(msg)
             else:
                 # Train predictors

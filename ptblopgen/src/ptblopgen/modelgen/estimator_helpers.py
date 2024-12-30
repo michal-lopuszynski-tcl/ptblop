@@ -19,8 +19,13 @@ def read_data(db_path, data_iter):
     def __is_val(d):
         return d["id"].startswith("val.")
 
+    data_raw = []
+
     with open(db_path, "rt") as f:
-        data_raw = [json.loads(line) for line in f]
+        for line in f:
+            d = json.loads(line)
+            if d["status"] == "ok":
+                data_raw.append(d)
 
     data = [d for d in data_raw if d["data_iter"] <= data_iter]
     if len(data) < len(data_raw):
