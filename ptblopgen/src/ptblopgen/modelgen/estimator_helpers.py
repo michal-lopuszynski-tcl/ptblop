@@ -18,17 +18,11 @@ def read_data(db_path):
     def __is_val(d):
         return d["id"].startswith("val.")
 
-    # signatures = set()
     data = []
     with open(db_path, "rt") as f:
         for line in f:
             d = json.loads(line)
-            # bp_config = d["bp_config"]
-            # sig = get_bp_config_signature(bp_config)
-            # signatures.add(sig)
             data.append(d)
-
-    # logger.info(f"Read {len(signatures)} configurations and stored their signatures")
 
     data_val = [d for d in data if __is_val(d)]
     data_trn = [d for d in data if not __is_val(d)]
@@ -234,12 +228,16 @@ def get_params_features(bp_configs):
 
 
 def train_quality_estimator(
+    *,
     bp_config_db_path,
+    data_iter,
     quality_metric,
-    quality_estimator_id,
     quality_estimator_report_path,
-    reg_kwargs=None,
+    estimator_kwargs=None,
 ):
+    suffix = f"{utils.get_timestamp_for_fname()}_{utils.get_random_str(6)}"
+    estimator_id = f"qual{data_iter:04d}_{suffix}"
+
     data_trn, data_val = read_data(bp_config_db_path)
     X_trn = get_quality_features([d["bp_config"] for d in data_trn])
     y_trn = get_target(data_trn, "evaluation." + quality_metric)
@@ -270,15 +268,15 @@ def train_quality_estimator(
     # reg = blockprunekit.regressors.QuantileLinearEstimator(**reg_kwargs)
 
     # Random forest regressor
-    reg_type = "EnsembleRandomForestBoundsEstimator"
-    if reg_kwargs is None:
-        reg_kwargs = dict(n_regressors=20, n_estimators=300)
+    estimator_type = "EnsembleRandomForestBoundsEstimator"
+    if estimator_kwargs is None:
+        estimator_kwargs = dict(n_regressors=20, n_estimators=300)
     # if reg_kwargs is None:
     #     reg_kwargs = dict(
     #         n_regressors=20, n_estimators=300, max_features=0.8, min_samples_leaf=2
     #     )
-    reg = estimators.EnsembleRandomForestBoundsEstimator(**reg_kwargs)
-    reg.fit(X_trn, y_trn)
+    estimator = estimators.EnsembleRandomForestBoundsEstimator(**estimator_kwargs)
+    estimator.fit(X_trn, y_trn)
 
     # Extra trees regressor
     # reg_type = "EnsembleExtraTreesBoundsEstimator"
@@ -309,16 +307,16 @@ def train_quality_estimator(
     # regressor_path = regressor_dir / "quality_regressor.json.gz"
     # blockprunekit.regressors.save_regressor(regressor_path, reg)
 
-    plot_fname = quality_estimator_report_path / f"{quality_estimator_id}.png"
-    reg_metrics = evaluate_bounds_estimator(
-        bounds_regressor=reg,
+    plot_fname = quality_estimator_report_path / f"{estimator_id}.png"
+    estimator_metrics = evaluate_bounds_estimator(
+        bounds_regressor=estimator,
         X_trn=X_trn,
         y_trn=y_trn,
         X_val=X_val,
         y_val=y_val,
         plot_fname=plot_fname,
     )
-    logger.info(f"{reg_metrics=}")
+    logger.info(f"{estimator_metrics=}")
 
     # reg1 = blockprunekit.regressors.load_regressor("quality_regressor.json.gz")
     # reg_metrics1 = estimator_helpers.evaluate_bounds_regressor(
@@ -332,23 +330,26 @@ def train_quality_estimator(
     # logger.info(f"{reg_metrics1=}")
     v_ptblop, v_ptblopgen = utils.get_versions()
 
-    reg_data = {
+    estimator_data = {
         "n_examples_trn": n_examples_trn,
         "n_features_trn": n_features_trn,
         "n_examples_val": n_examples_val,
         "n_features_val": n_features_val,
-        "regressor_type": reg_type,
-        "regressor_kwargs": reg_kwargs,
-        "regressor_metrics": reg_metrics,
+        "estimator_type": estimator_type,
+        "estimator_kwargs": estimator_kwargs,
+        "estimator_metrics": estimator_metrics,
         "timestamp": utils.get_timestamp(),
         "ptblop_version": v_ptblop,
         "ptblopgen_version": v_ptblopgen,
     }
-    logger.info(f"{reg_data=}")
-    return reg, reg_data
+    logger.info(f"{estimator_data=}")
+    return estimator, estimator_data, estimator_id
 
 
-def train_param_estimator(bp_config_db_path):
+def train_param_estimator(bp_config_db_path, data_iter):
+    suffix = f"{utils.get_timestamp_for_fname()}_{utils.get_random_str(6)}"
+    estimator_id = f"cost{data_iter:04d}_{suffix}"
+
     data_trn, data_val = read_data(bp_config_db_path)
     X_trn = get_quality_features([d["bp_config"] for d in data_trn])
     y_trn = get_target(data_trn, "mparams")
@@ -362,11 +363,11 @@ def train_param_estimator(bp_config_db_path):
 
     reg_type = "LinearRegression"
     reg_kwargs = dict(fit_intercept=True)
-    reg = sklearn.linear_model.LinearRegression(**reg_kwargs)
-    reg.fit(X_trn, y_trn)
+    estimator = sklearn.linear_model.LinearRegression(**reg_kwargs)
+    estimator.fit(X_trn, y_trn)
 
-    reg_metrics = evaluate_estimator(
-        bounds_regressor=reg,
+    estimator_metrics = evaluate_estimator(
+        bounds_regressor=estimator,
         X_trn=X_trn,
         y_trn=y_trn,
         X_val=X_val,
@@ -374,17 +375,17 @@ def train_param_estimator(bp_config_db_path):
     )
     v_ptblop, v_ptblopgen = utils.get_versions()
 
-    reg_data = {
+    estimator_data = {
         "n_examples_trn": n_examples_trn,
         "n_features_trn": n_features_trn,
         "n_examples_val": n_examples_val,
         "n_features_val": n_features_val,
-        "regressor_type": reg_type,
-        "regressor_kwargs": reg_kwargs,
-        "regressor_metrics": reg_metrics,
+        "estimator_type": reg_type,
+        "estimator_kwargs": reg_kwargs,
+        "estimator_metrics": estimator_metrics,
         "timestamp": utils.get_timestamp(),
         "ptblop_version": v_ptblop,
         "ptblopgen_version": v_ptblopgen,
     }
-    logger.info(f"{reg_data=}")
-    return reg, reg_data
+    logger.info(f"{estimator_data=}")
+    return estimator, estimator_data, estimator_id

@@ -657,25 +657,20 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
             else:
                 # Train predictors
 
-                # TODO Put training predictors into in a separate function?
                 if cost_estimator is None:
-                    s = f"{utils.get_timestamp_for_fname()}_{utils.get_random_str(6)}"
-                    cost_estimator_id = f"cost{data_iter:04d}_{s}"
-                    cost_estimator, cost_estimator_metrics = (
+                    cost_estimator, cost_estimator_metrics, cost_estimator_id = (
                         estimator_helpers.train_param_estimator(
-                            processing_env.bp_config_db_path
+                            processing_env.bp_config_db_path, data_iter
                         )
                     )
                     ceid = {"run_id": run_id, "estimator_id": cost_estimator_id}
                     update_db(cost_estimators_db_path, ceid | cost_estimator_metrics)
 
-                s = f"{utils.get_timestamp_for_fname()}_{utils.get_random_str(6)}"
-                quality_estimator_id = f"qual{data_iter:04d}_{s}"
-                quality_estimator, quality_estimator_metrics = (
+                quality_estimator, quality_estimator_metrics, quality_estimator_id = (
                     estimator_helpers.train_quality_estimator(
                         bp_config_db_path=processing_env.bp_config_db_path,
+                        data_iter=data_iter,
                         quality_metric=config_sampler.quality_evaluator_metric,
-                        quality_estimator_id=quality_estimator_id,
                         quality_estimator_report_path=quality_estimators_report_path,
                     )
                 )
