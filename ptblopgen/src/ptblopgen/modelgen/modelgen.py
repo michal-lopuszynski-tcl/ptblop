@@ -231,7 +231,7 @@ def make_parf_bp_config_generator(
         ):
             pf_data_filtered1.append(d)
     logger.info(
-        f"Filtered {len(pf_data_filtered1)} ouf {len(pf_data_raw)} "
+        f"parf - filtered {len(pf_data_filtered1)} ouf {len(pf_data_raw)} "
         f"bp_configs from {pareto_front_path}"
     )
 
@@ -239,7 +239,7 @@ def make_parf_bp_config_generator(
     pf_data_filtered2 = [d for d in pf_data_filtered1 if __is_not_proc(d)]
     if len(pf_data_filtered1) < len(pf_data_filtered2):
         logger.info(
-            f"Keept {len(pf_data_filtered2)} unprocessed configs "
+            f"parf - kept {len(pf_data_filtered2)} unprocessed configs "
             f"out of {len(pf_data_filtered1)}"
         )
 
@@ -276,13 +276,13 @@ def make_rand_bp_config(
         if bp_config_signature not in processed_bp_config_signatures:
             break
         else:
-            msg = f"Try {j=}, {num_changes=},  drew signature={bp_config_signature}"
-            msg += " that is already processed, repeating"
+            msg = f"rand - Try {j=}, {num_changes=}, drew signature = "
+            msg += "{bp_config_signature} that is already processed, repeating"
             logger.info(msg)
     if bp_config is not None:
         return bp_config, -1.0
     else:
-        msg = "After {j=} tries, failed to generate bp_config for {num_changes=}"
+        msg = "rand - After {j=} tries, failed to generate bp_config for {num_changes=}"
         return None, None
 
 
