@@ -14,16 +14,21 @@ logger = logging.getLogger(__name__)
 # Universal functions
 
 
-def read_data(db_path):
+def read_data(db_path, data_iter):
 
     def __is_val(d):
         return d["id"].startswith("val.")
 
-    data = []
     with open(db_path, "rt") as f:
-        for line in f:
-            d = json.loads(line)
-            data.append(d)
+        data_raw = [json.loads(line) for line in f]
+
+    data = [d for d in data_raw if d["data_iter"] <= data_iter]
+    if len(data) < len(data_raw):
+        max_data_iter = max(d["data_iter"] for d in data)
+        n_raw, n = len(data_raw), len(data)
+        msg = f"Estimator data loader: using {n=} instead of {n_raw=}"
+        msg += f" available configs - {max_data_iter=} vs. used {data_iter=} "
+        logger.warning(msg)
 
     data_val = [d for d in data if __is_val(d)]
     data_trn = [d for d in data if not __is_val(d)]
@@ -242,7 +247,7 @@ def train_quality_estimator(
     suffix = f"{utils.get_timestamp_for_fname()}_{utils.get_random_str(6)}"
     estimator_id = f"qual{data_iter:04d}_{suffix}"
 
-    data_trn, data_val = read_data(bp_config_db_path)
+    data_trn, data_val = read_data(bp_config_db_path, data_iter)
     X_trn = get_quality_features([d["bp_config"] for d in data_trn])
     y_trn = get_target(data_trn, "evaluation." + quality_metric)
     logger.info(f"{X_trn.shape=} {X_trn.dtype=} {y_trn.shape=} {y_trn.dtype=}")
@@ -363,7 +368,7 @@ def train_param_estimator(
     suffix = f"{utils.get_timestamp_for_fname()}_{utils.get_random_str(6)}"
     estimator_id = f"cost{data_iter:04d}_{suffix}"
 
-    data_trn, data_val = read_data(bp_config_db_path)
+    data_trn, data_val = read_data(bp_config_db_path, data_iter)
     X_trn = get_quality_features([d["bp_config"] for d in data_trn])
     y_trn = get_target(data_trn, "mparams")
     logger.info(f"{X_trn.shape=} {X_trn.dtype=} {y_trn.shape=} {y_trn.dtype=}")

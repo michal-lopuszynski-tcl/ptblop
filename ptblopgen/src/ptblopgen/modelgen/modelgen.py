@@ -156,7 +156,7 @@ def iter_range(num_iter):
         yield from range(1, num_iter + 1)
 
 
-# Generators
+# BP config generators
 
 
 def make_mock_bp_config_generator():
@@ -527,9 +527,9 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
     )
     quality_estimators_db_path = output_path / QUALITY_ESTIMATOR_DB_FNAME
     cost_estimators_db_path = output_path / COST_ESTIMATOR_DB_FNAME
-    quality_estimators_report_path = output_path / QUALITY_ESTIMATOR_REPORT_DIR
+    quality_estimator_report_path = output_path / QUALITY_ESTIMATOR_REPORT_DIR
 
-    quality_estimators_report_path.mkdir(exist_ok=True, parents=True)
+    quality_estimator_report_path.mkdir(exist_ok=True, parents=True)
 
     processing_env = make_bp_config_processing_env(config, output_path, run_id)
 
@@ -591,7 +591,20 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
                 logger.info(f"Processing {bp_config_id=} {bp_config_type=}")
                 if bp_config_type == "actl":
                     if quality_estimator is None:
-                        quality_estimator = None  # TODO
+                        (
+                            quality_estimator,
+                            quality_estimator_metrics,
+                            quality_estimator_id,
+                        ) = estimator_helpers.train_quality_estimator(
+                            bp_config_db_path=processing_env.bp_config_db_path,
+                            quality_estimator_report_path=quality_estimator_report_path,
+                            quality_estimators_db_path=quality_estimators_db_path,
+                            data_iter=data_iter - 1,
+                            quality_metric=config_sampler.quality_evaluator_metric,
+                            run_id=run_id,
+                        )
+                        is_new_quality_estimator = True
+
                     if is_new_quality_estimator:
                         pbcs = processed_bp_config_signatures
                         nc = config_sampler.actl_num_scored_candidates
@@ -655,7 +668,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
                 quality_estimator, quality_estimator_metrics, quality_estimator_id = (
                     estimator_helpers.train_quality_estimator(
                         bp_config_db_path=processing_env.bp_config_db_path,
-                        quality_estimator_report_path=quality_estimators_report_path,
+                        quality_estimator_report_path=quality_estimator_report_path,
                         quality_estimators_db_path=quality_estimators_db_path,
                         data_iter=data_iter,
                         quality_metric=config_sampler.quality_evaluator_metric,
