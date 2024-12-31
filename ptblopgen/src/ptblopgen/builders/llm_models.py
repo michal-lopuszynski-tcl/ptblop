@@ -31,6 +31,7 @@ def _add_pad_token(
         or model_name.startswith("meta-llama/Meta-Llama-3.1-")
         or model_name.startswith("Qwen/Qwen1.5-")
         or model_name.startswith("Qwen/Qwen2-")
+        or model_name.startswith("Qwen/Qwen2.5-")
     ):
         tokenizer.pad_token = (
             tokenizer.eos_token
