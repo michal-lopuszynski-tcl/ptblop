@@ -124,6 +124,7 @@ def get_bp_config_stats(bp_config):
 def find_pareto_front(
     *,
     run_id,
+    model_metadata,
     quality_estimator,
     quality_estimator_id,
     quality_metric_name,
@@ -190,6 +191,7 @@ def find_pareto_front(
             "ptblop_version": v_ptblop,
             "ptblopgen_version": v_ptblopgen,
             "bp_config_signature": hex(utils.get_bp_config_signature(bp_config))[2:],
+            "model_metadata": model_metadata,
             "bp_config": bp_config,
         }
         pareto_data.append(d)

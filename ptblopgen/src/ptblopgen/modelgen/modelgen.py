@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 class BPConfigProcsessingEnvironment:
     run_id: str
     model: torch.nn.Module
+    model_metadata: dict[str, Any]
     device: torch.device
     evaluator_fn: Any
     stop_path: pathlib.Path
@@ -397,6 +398,7 @@ def process_bp_config(
     data_iter,
     bp_config_db_path,
     model,
+    model_metadata,
     device,
     evaluator_fn,
     processed_bp_config_signatures,
@@ -428,6 +430,7 @@ def process_bp_config(
         res["evaluation"] = evaluator_fn(model, device)
         res["bp_config_signature"] = hex(bp_config_signature)[2:]
         res["bp_config_score"] = bp_config_score
+        res["model_metadata"] = model_metadata
         res["bp_config"] = bp_config
         res["timestamp"] = utils.get_timestamp()
         device_str = str(device)
@@ -463,6 +466,7 @@ def sample_and_process_bp_config(
             bp_config_score=bp_config_score,
             data_iter=data_iter,
             model=processing_env.model,
+            model_metadata=processing_env.model_metadata,
             device=processing_env.device,
             evaluator_fn=processing_env.evaluator_fn,
             bp_config_db_path=processing_env.bp_config_db_path,
@@ -497,6 +501,7 @@ def make_bp_config_processing_env(
     return BPConfigProcsessingEnvironment(
         run_id=run_id,
         model=model,
+        model_metadata=config["model"],
         device=device,
         evaluator_fn=evaluator_fn,
         stop_path=stop_path,
@@ -693,6 +698,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
 
                 pareto_optimization.find_pareto_front(
                     run_id=run_id,
+                    model_metadata=processing_env.model_metadata,
                     quality_estimator=quality_estimator,
                     quality_estimator_id=quality_estimator_id,
                     quality_metric_name=config_sampler.quality_evaluator_metric,
