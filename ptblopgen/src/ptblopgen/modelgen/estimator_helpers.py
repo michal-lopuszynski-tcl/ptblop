@@ -99,8 +99,9 @@ def evaluate_bounds_estimator(
         CTRN = "#1f77b4"
         CVAL = "#2ca02c"
 
-        axs[0, 0].set_title("y_trn vs y_trn_pred")
+        axs[0, 0].set_title("y_trn_true vs y_trn_pred")
         axs[0, 0].axline((y_trn[0], y_trn[0]), slope=1, c="black")
+        axs[0, 0].set_ylabel("y_pred")
 
         # # Errorbars
         # x = np.vstack((y_trn, y_trn))
@@ -110,13 +111,16 @@ def evaluate_bounds_estimator(
         axs[0, 0].scatter(y_trn, y_trn_pred, alpha=ALPHA, c=CTRN)
         axs[0, 0].grid()
 
-        axs[0, 1].set_title("err_trn vs err_trn_pred")
+        axs[0, 1].set_title("err_trn_true vs err_trn_pred")
         axs[0, 1].scatter(err_trn, err_trn_pred, alpha=ALPHA, c=CTRN)
         axs[0, 1].grid()
+        axs[0, 1].set_ylabel("err_pred")
 
-        axs[1, 0].set_title("y_val vs y_val_pred")
+        axs[1, 0].set_title("y_val_true vs y_val_pred")
         axs[1, 0].axline((y_val[0], y_val[0]), slope=1, c="black")
         axs[1, 0].scatter(y_val, y_val_pred, alpha=ALPHA, c=CVAL)
+        axs[1, 0].set_xlabel("y_true")
+        axs[1, 0].set_ylabel("y_pred")
 
         # # Errorbars
         # x = np.vstack((y_val, y_val))
@@ -125,9 +129,11 @@ def evaluate_bounds_estimator(
 
         axs[1, 0].grid()
 
-        axs[1, 1].set_title("err_val vs err_val_pred")
+        axs[1, 1].set_title("err_val_true vs err_val_pred")
         axs[1, 1].scatter(err_val, err_val_pred, alpha=ALPHA, c=CVAL)
         axs[1, 1].grid()
+        axs[1, 1].set_xlabel("err_true")
+        axs[1, 1].set_ylabel("err_pred")
         axs[0, 2].set_axis_off()
         num = r_trn["trn_n"]
         rms = r_trn["trn_rms"]

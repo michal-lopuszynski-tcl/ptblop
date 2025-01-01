@@ -2,6 +2,7 @@ import argparse
 import gzip
 import logging
 import pathlib
+import platform
 import shutil
 import subprocess
 import sys
@@ -12,6 +13,8 @@ import yaml
 from .. import modelgen, utils
 
 REPRO_SUBDIR_PREFIX = "repro"
+
+logger = logging.getLogger(__name__)
 
 
 def parse_args() -> tuple[argparse.Namespace, str]:
@@ -132,6 +135,7 @@ def main() -> int:
     if args.version:
         print_versions()
     else:
+        logger.info(f"Running on node {platform.node()}")
         if args.command == "gen":
             args.output_path.mkdir(exist_ok=True, parents=True)
             make_repro_dir(args, REPRO_SUBDIR_PREFIX)
