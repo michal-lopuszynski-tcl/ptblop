@@ -25,8 +25,14 @@ def parse_args() -> tuple[argparse.Namespace, str]:
     parser_gen = subparsers.add_parser("gen")
     parser_gen.add_argument("--output-path", type=pathlib.Path, required=True)
     parser_gen.add_argument("--config", type=pathlib.Path, required=True)
-    help_msg = parser.format_help()
 
+    parser_gen = subparsers.add_parser("paretoeval")
+    parser_gen.add_argument("--output-path", type=pathlib.Path, required=True)
+    parser_gen.add_argument("--pareto-path", type=pathlib.Path, required=True)
+    parser_gen.add_argument("--min-metric", type=float, required=True)
+    parser_gen.add_argument("--config", type=pathlib.Path, required=True)
+
+    help_msg = parser.format_help()
     return parser.parse_args(), help_msg
 
 
@@ -141,6 +147,11 @@ def main() -> int:
             make_repro_dir(args, REPRO_SUBDIR_PREFIX)
             config = read_config(args.config)
             modelgen.main_modelgen(config, args.output_path)
+        elif args.command == "paretoeval":
+            config = read_config(args.config)
+            modelgen.main_pareto_eval(
+                config, args.output_path, args.pareto_path, args.min_metric
+            )
         else:
             if args.command is None:
                 print("No command given\n")

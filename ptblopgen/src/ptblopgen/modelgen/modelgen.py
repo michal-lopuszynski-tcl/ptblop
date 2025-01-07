@@ -391,60 +391,61 @@ def make_actl_bp_config_generator(
 
 def process_bp_config(
     *,
-    run_id,
     bp_config_id,
     bp_config_type,
     bp_config,
     bp_config_score,
     data_iter,
-    bp_config_db_path,
-    model,
-    model_metadata,
-    device,
-    evaluator_fn,
+    processing_env: BPConfigProcsessingEnvironment,
+    # model,
+    # model_metadata,
+    # device,
+    # evaluator_fn,
+    # stop_path,
     processed_bp_config_signatures,
-    stop_path,
 ):
     # TODO Merge this with sample_and_process_bp_config
 
-    if stop_path.exists():
-        logger.warning(f"Stop file found {stop_path}, exiting...")
+    if processing_env.stop_path.exists():
+        logger.warning(f"Stop file found {processing_env.stop_path}, exiting...")
         return
     bp_config_signature = utils.get_bp_config_signature(bp_config)
     if bp_config_signature in processed_bp_config_signatures:
         logger.warning(f"Model already processed {bp_config_signature=}")
+        res = None
     else:
         res = {
-            "run_id": run_id,
+            "run_id": processing_env.run_id,
             "id": bp_config_id,
             "type": bp_config_type,
             "data_iter": data_iter,
             "status": "ok",
         }
         ptblop.apply_bp_config_in_place(
-            model, bp_config, set_unused_layers_to_none=False
+            processing_env.model, bp_config, set_unused_layers_to_none=False
         )
-        res["n_attention"] = ptblop.get_num_attention_blocks(model)
-        res["n_mlp"] = ptblop.get_num_mlp_blocks(model)
-        res["n"] = ptblop.get_num_prunable_blocks(model)
-        res["mparams"] = ptblop.get_num_active_params(model) / 1.0e6
-        res["evaluation"] = evaluator_fn(model, device)
-        res["bp_config_signature"] = hex(bp_config_signature)[2:]
+        res["n_attention"] = ptblop.get_num_attention_blocks(processing_env.model)
+        res["n_mlp"] = ptblop.get_num_mlp_blocks(processing_env.model)
+        res["n"] = ptblop.get_num_prunable_blocks(processing_env.model)
+        res["mparams"] = ptblop.get_num_active_params(processing_env.model) / 1.0e6
+        res["evaluation"] = processing_env.evaluator_fn(
+            processing_env.model, processing_env.device
+        )
+        res["bp_config_signature"] = utils.bp_config_signature_to_str(
+            bp_config_signature
+        )
         res["bp_config_score"] = bp_config_score
-        res["model_metadata"] = model_metadata
+        res["model_metadata"] = processing_env.model_metadata
         res["bp_config"] = bp_config
         res["timestamp"] = utils.get_timestamp()
-        device_str = str(device)
+        device_str = str(processing_env.device)
         if "cuda" in device_str:
-            device_str += " @ " + torch.cuda.get_device_name(device)
+            device_str += " @ " + torch.cuda.get_device_name(processing_env.device)
         res["device"] = device_str
         v_ptblop, v_ptblopgen = utils.get_versions()
         res["ptblop_version"] = v_ptblop
         res["ptblopgen_version"] = v_ptblopgen
-
-        assert bp_config_signature not in processed_bp_config_signatures
-        processed_bp_config_signatures.add(bp_config_signature)
-        utils.update_db(bp_config_db_path, res)
+    return res, bp_config_signature
 
 
 def sample_and_process_bp_config(
@@ -455,25 +456,21 @@ def sample_and_process_bp_config(
     processing_env: BPConfigProcsessingEnvironment,
     processed_bp_config_signatures,
 ):
-    # TODO: Merge this with process_bp_config
-
     bp_config, bp_config_score = next(bp_config_gens.get_gen(bp_config_type))
     if bp_config is not None and bp_config_score is not None:
-        process_bp_config(
-            run_id=processing_env.run_id,
+        res, bp_config_signature = process_bp_config(
             bp_config_id=bp_config_id,
             bp_config_type=bp_config_type,
             bp_config=bp_config,
             bp_config_score=bp_config_score,
             data_iter=data_iter,
-            model=processing_env.model,
-            model_metadata=processing_env.model_metadata,
-            device=processing_env.device,
-            evaluator_fn=processing_env.evaluator_fn,
-            bp_config_db_path=processing_env.bp_config_db_path,
-            stop_path=processing_env.stop_path,
+            processing_env=processing_env,
             processed_bp_config_signatures=processed_bp_config_signatures,
         )
+        if res is not None:
+            assert bp_config_signature not in processed_bp_config_signatures
+            processed_bp_config_signatures.add(bp_config_signature)
+            utils.update_db(processing_env.bp_config_db_path, res)
     else:
         res = {
             "run_id": processing_env.run_id,
@@ -536,7 +533,7 @@ def make_bp_config_generators(
 
 
 def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
-    run_id = f"{utils.get_timestamp_for_fname()}_{utils.get_random_str(6)}"
+    run_id = utils.make_runid()
     config_sampler = configurator.SamplerConfig(**config["sampler"])
     config_pareto_optimization = configurator.ParetoOptimizationConfig(
         **config["pareto_optimization"]
@@ -711,3 +708,5 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
                     config_pareto_optimization=config_pareto_optimization,
                 )
                 is_new_pareto_front = True
+
+

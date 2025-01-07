@@ -34,6 +34,10 @@ def get_random_str(n: int) -> str:
     return "".join(random.choices(string.ascii_letters + string.digits, k=n))
 
 
+def make_runid():
+    return f"{get_timestamp_for_fname()}_{get_random_str(6)}"
+
+
 def get_versions() -> tuple[str, str]:
     return ptblop.__version__, _version.__version__
 
@@ -46,6 +50,18 @@ def get_bp_config_signature(bp_config):
         singature_strs.append(v_signature_str)
     signature_str = "".join(singature_strs)
     return int(signature_str, 2)
+
+
+def bp_config_signature_to_str(bp_config_signature: int) -> str:
+    return hex(bp_config_signature)[2:]
+
+
+def bp_config_signature_from_str(s: str) -> int:
+    return int(s, 16)
+
+
+def get_bp_config_signature_str(bp_config):
+    return bp_config_signature_to_str(get_bp_config_signature(bp_config))
 
 
 def update_db(
