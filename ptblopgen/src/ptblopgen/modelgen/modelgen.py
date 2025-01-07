@@ -278,12 +278,13 @@ def make_rand_bp_config(
             break
         else:
             msg = f"rand - Try {j=}, {num_changes=}, drew signature = "
-            msg += "{bp_config_signature} that is already processed, repeating"
+            msg += f"{bp_config_signature} that is already processed, repeating"
             logger.info(msg)
     if bp_config is not None:
         return bp_config, -1.0
     else:
-        msg = "rand - After {j=} tries, failed to generate bp_config for {num_changes=}"
+        msg = f"rand - After {j=} tries failed to generate bp_config for {num_changes=}"
+        logger.info(msg)
         return None, None
 
 
