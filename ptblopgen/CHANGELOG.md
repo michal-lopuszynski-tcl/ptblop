@@ -1,4 +1,5 @@
 # TODO
++ **!..** Consider moving to string bp_config singatures
 + **!..** Add support for vision transformers
 + **!..** Add num-layers as cost metric
 + **!..** Refactor the output so the metrics are in a subfield
