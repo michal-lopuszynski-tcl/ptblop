@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class BPConfigProcsessingEnvironment:
+class BPConfigProcsessingGenEnvironment:
     run_id: str
     model: torch.nn.Module
     model_metadata: dict[str, Any]
@@ -38,6 +38,22 @@ class BPConfigProcsessingEnvironment:
     evaluator_fn: Any
     stop_path: pathlib.Path
     bp_config_db_path: pathlib.Path
+
+    def __init__(self, config: dict[str, Any], output_path: pathlib.Path):
+        self.run_id = utils.make_runid()
+        self.device = (
+            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        )
+        model, evaluator_fn = builders.make_model_and_evaluator(
+            config["model"], config["evaluator"], self.device
+        )
+        ptblop.apply_bp_config_in_place(model, {})
+        self.model = model
+        self.model_metadata = config["model"]
+        self.evaluator_fn = evaluator_fn
+
+        self.bp_config_db_path = output_path / BP_CONFIG_DB_FNAME
+        self.stop_path = output_path / STOP_FNAME
 
 
 class BPConfigGenerators:
@@ -396,12 +412,7 @@ def process_bp_config(
     bp_config,
     bp_config_score,
     data_iter,
-    processing_env: BPConfigProcsessingEnvironment,
-    # model,
-    # model_metadata,
-    # device,
-    # evaluator_fn,
-    # stop_path,
+    processing_env: BPConfigProcsessingGenEnvironment,
     processed_bp_config_signatures,
 ):
     # TODO Merge this with sample_and_process_bp_config
@@ -453,7 +464,7 @@ def sample_and_process_bp_config(
     bp_config_type,
     data_iter,
     bp_config_gens,
-    processing_env: BPConfigProcsessingEnvironment,
+    processing_env: BPConfigProcsessingGenEnvironment,
     processed_bp_config_signatures,
 ):
     bp_config, bp_config_score = next(bp_config_gens.get_gen(bp_config_type))
@@ -484,29 +495,6 @@ def sample_and_process_bp_config(
         logger.warning(msg)
 
 
-def make_bp_config_processing_env(
-    config: dict[str, Any], output_path: pathlib.Path, run_id: str
-) -> BPConfigProcsessingEnvironment:
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    model, evaluator_fn = builders.make_model_and_evaluator(
-        config["model"], config["evaluator"], device
-    )
-    ptblop.apply_bp_config_in_place(model, {})
-
-    bp_config_db_path = output_path / BP_CONFIG_DB_FNAME
-    stop_path = output_path / STOP_FNAME
-
-    return BPConfigProcsessingEnvironment(
-        run_id=run_id,
-        model=model,
-        model_metadata=config["model"],
-        device=device,
-        evaluator_fn=evaluator_fn,
-        stop_path=stop_path,
-        bp_config_db_path=bp_config_db_path,
-    )
-
-
 def make_bp_config_generators(
     *,
     bp_config_unpruned,
@@ -533,7 +521,6 @@ def make_bp_config_generators(
 
 
 def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
-    run_id = utils.make_runid()
     config_sampler = configurator.SamplerConfig(**config["sampler"])
     config_pareto_optimization = configurator.ParetoOptimizationConfig(
         **config["pareto_optimization"]
@@ -544,7 +531,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
 
     quality_estimator_report_path.mkdir(exist_ok=True, parents=True)
 
-    processing_env = make_bp_config_processing_env(config, output_path, run_id)
+    processing_env = BPConfigProcsessingGenEnvironment(config, output_path)
 
     old_iter_generator, restart = make_old_iter_generator(
         processing_env.bp_config_db_path
@@ -615,7 +602,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
                             quality_estimators_db_path=quality_estimators_db_path,
                             data_iter=data_iter - 1,
                             quality_metric=config_sampler.quality_evaluator_metric,
-                            run_id=run_id,
+                            run_id=processing_env.run_id,
                         )
                         is_new_quality_estimator = True
 
@@ -676,7 +663,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
                             bp_config_db_path=processing_env.bp_config_db_path,
                             cost_estimators_db_path=cost_estimators_db_path,
                             data_iter=data_iter,
-                            run_id=run_id,
+                            run_id=processing_env.run_id,
                         )
                     )
 
@@ -687,7 +674,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
                         quality_estimators_db_path=quality_estimators_db_path,
                         data_iter=data_iter,
                         quality_metric=config_sampler.quality_evaluator_metric,
-                        run_id=run_id,
+                        run_id=processing_env.run_id,
                     )
                 )
                 is_new_quality_estimator = True
@@ -695,7 +682,7 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
                 # Generate Pareto front
 
                 pareto_optimization.find_pareto_front(
-                    run_id=run_id,
+                    run_id=processing_env.run_id,
                     model_metadata=processing_env.model_metadata,
                     quality_estimator=quality_estimator,
                     quality_estimator_id=quality_estimator_id,
@@ -708,5 +695,3 @@ def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
                     config_pareto_optimization=config_pareto_optimization,
                 )
                 is_new_pareto_front = True
-
-

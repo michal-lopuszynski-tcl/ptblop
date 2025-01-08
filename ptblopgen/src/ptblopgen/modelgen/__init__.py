@@ -1,3 +1,4 @@
-from .modelgen import BP_CONFIG_DB_FNAME, main_modelgen   # noqa: F401
-from .pareto_evaluation import main_pareto_eval
+from .modelgen import BP_CONFIG_DB_FNAME, main_modelgen  # noqa: F401
+from .pareto_evaluation import main_pareto_eval  # noqa: F401
+
 # from .sample import main_eval_pareto, main_sample_active_learn, main_sample_random
