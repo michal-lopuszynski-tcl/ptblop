@@ -15,12 +15,9 @@ logger = logging.getLogger(__name__)
 @dataclass
 class BPConfigProcsessingEvalEnvironment:
     run_id: str
-    model: torch.nn.Module
-    model_metadata: dict[str, Any]
     device: torch.device
+    model: torch.nn.Module
     evaluator_fn: Any
-    stop_path: pathlib.Path
-    bp_config_db_path: pathlib.Path
 
     def __init__(self, config: dict[str, Any]):
         self.run_id = utils.make_runid()
