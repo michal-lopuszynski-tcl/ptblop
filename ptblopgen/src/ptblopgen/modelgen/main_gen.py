@@ -520,7 +520,7 @@ def make_bp_config_generators(
     )
 
 
-def main_modelgen(config: dict[str, Any], output_path: pathlib.Path) -> None:
+def main_gen(config: dict[str, Any], output_path: pathlib.Path) -> None:
     config_sampler = configurator.SamplerConfig(**config["sampler"])
     config_pareto_optimization = configurator.ParetoOptimizationConfig(
         **config["pareto_optimization"]

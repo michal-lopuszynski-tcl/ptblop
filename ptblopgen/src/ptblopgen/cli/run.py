@@ -145,10 +145,10 @@ def main() -> int:
             args.output_path.mkdir(exist_ok=True, parents=True)
             make_repro_dir(args, REPRO_SUBDIR_PREFIX)
             config = read_config(args.config)
-            modelgen.main_modelgen(config, args.output_path)
+            modelgen.main_gen(config, args.output_path)
         elif args.command == "paretoeval":
             config = read_config(args.config)
-            modelgen.main_pareto_eval(config, args.pareto_path, args.min_metric)
+            modelgen.main_paretoeval(config, args.pareto_path, args.min_metric)
         else:
             if args.command is None:
                 print("No command given\n")

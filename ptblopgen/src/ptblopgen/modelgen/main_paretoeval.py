@@ -82,7 +82,7 @@ def process_bp_config(
     return res
 
 
-def main_pareto_eval(
+def main_paretoeval(
     config: dict[str, Any],
     pareto_path: pathlib.Path,
     min_metric: float,
