@@ -91,7 +91,7 @@ def main_paretoeval(
     processed_bp_config_signatures = read_processed_bp_config_signatures(
         pareto_evaluated_path
     )
-    for d in reversed(pareto_front_data):
+    for d in pareto_front_data:
         bpcs = utils.bp_config_signature_from_str(d["bp_config_signature"])
         if bpcs in processed_bp_config_signatures:
             logger.info(f"Skipping bp_config {bpcs}")
