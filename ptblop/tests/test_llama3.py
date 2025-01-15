@@ -89,25 +89,30 @@ def test_llama3_disabled_blocks_gpu() -> None:
     helpers.check_disabled_blocks(make_llama3, torch.device("cuda"))
 
 
+@pytest.mark.skipif(not IS_LLAMA3_ACCESS_CONFIGURED, reason="no HF_TOKEN for llama3")
 def test_llama3_enable_disable_cpu() -> None:
     helpers.check_enable_disable(make_llama3, torch.device("cpu"))
 
 
+@pytest.mark.skipif(not IS_LLAMA3_ACCESS_CONFIGURED, reason="no HF_TOKEN for llama3")
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda not available")
 def test_llama3_enable_disable_gpu() -> None:
     helpers.check_enable_disable(make_llama3, torch.device("cuda"))
 
 
+@pytest.mark.skipif(not IS_LLAMA3_ACCESS_CONFIGURED, reason="no HF_TOKEN for llama3")
 def test_llama3_num_params() -> None:
     helpers.check_num_params(make_llama3)
 
 
+@pytest.mark.skipif(not IS_LLAMA3_ACCESS_CONFIGURED, reason="no HF_TOKEN for llama3")
 def test_llama3_disabled_block0_is_identity_cpu() -> None:
     helpers.check_disabled_block_is_identity(
         make_llama3, torch.device("cpu"), "model.layers.0", 0
     )
 
 
+@pytest.mark.skipif(not IS_LLAMA3_ACCESS_CONFIGURED, reason="no HF_TOKEN for llama3")
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda not available")
 def test_llama3_disabled_block0_is_identity_gpu() -> None:
     helpers.check_disabled_block_is_identity(
@@ -115,12 +120,14 @@ def test_llama3_disabled_block0_is_identity_gpu() -> None:
     )
 
 
+@pytest.mark.skipif(not IS_LLAMA3_ACCESS_CONFIGURED, reason="no HF_TOKEN for llama3")
 def test_llama3_disabled_block5_is_identity_cpu() -> None:
     helpers.check_disabled_block_is_identity(
         make_llama3, torch.device("cpu"), "model.layers.5", 5
     )
 
 
+@pytest.mark.skipif(not IS_LLAMA3_ACCESS_CONFIGURED, reason="no HF_TOKEN for llama3")
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda not available")
 def test_llama3_disabled_block5_is_identity_gpu() -> None:
     helpers.check_disabled_block_is_identity(
