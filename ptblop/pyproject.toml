@@ -15,6 +15,8 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 dynamic = ["version", "dependencies"]
+[project.urls]
+homepage = "https://github.com/michal-lopuszynski-tcl/ptblop/tree/main/ptblop"
 
 [tool.setuptools.packages.find]
 where = ["src"]
