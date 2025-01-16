@@ -49,7 +49,7 @@ fixall:
 
 commit:
 	./aux/block_empty_commit.sh
-	git commit -m "[ptblop]" -e
+	git commit -m "[ptblop] $$(cat ./gitmessage)" -e
 
 show_version:
 	@./aux/get_version.py --version-file=$(VER_FILE)
@@ -60,13 +60,13 @@ vercommit:
 	./aux/block_empty_commit.sh
 	./aux/update_version.py --version-segment=2 --version-file=$(VER_FILE)
 	git add $(VER_FILE)
-	-VER=$$(./aux/get_version.py --version-file=$(VER_FILE)) && git commit -m "[ptblop] $${VER}" -e
+	-VER=$$(./aux/get_version.py --version-file=$(VER_FILE)) && git commit -m "[ptblop] $${VER} $$(cat ./gitmessage)" -e
 	git restore --staged  $(VER_FILE) && git checkout $(VER_FILE) # In case of failed commit
 
 manualvercommit:
 	./aux/block_empty_commit.sh
 	git add $(VER_FILE)
-	VER=$$(./aux/get_version.py --version-file=$(VER_FILE)) && git commit -m "[ptblop] $${VER}" -e
+	VER=$$(./aux/get_version.py --version-file=$(VER_FILE)) && git commit -m "[ptblop] $${VER} $$(cat ./gitmessage)" -e
 
 -%:
 	-@$(MAKE) --no-print-directory $*
