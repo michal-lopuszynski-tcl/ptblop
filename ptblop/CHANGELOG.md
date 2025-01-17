@@ -1,4 +1,5 @@
 # TODO
++ **!!!** Fix transformers 4.48 compatibility
 + **!..** Add `set_unused_layers_to_none` function to `ptblop`
 + **!..** Define type alias for `bp_config`
 + **...** Add raising value error if the `bp_config` on `apply_bp_config_in_place` is malformed
@@ -9,7 +10,7 @@
 + **...** Add some visualization of models with pruned blocks?
 
 # ptblop 0.1.0
-+ **[tests]** Add test if block with disabled both attention and mlps is equivallent to identity
++ **[tests]** Add test if block with disabled both attention and mlps is equivalent to identity
 + **[tests]** Add model.eval in tests
 + **[tests]** Add test_cpu target to Makefile.inc
 + **[tests]** Add full block tests
