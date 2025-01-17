@@ -2,6 +2,14 @@
 
 Package containing builders for block-pruned transformer models in PyTorch.
 
+## Installation
+
+You can install `ptblop` package via `pip`:
+
+```bash
+pip install ptblop
+```
+
 ## Creating a block-pruned model
 
 To create a block-pruned model, you need a `bp_config` usually serialized in a
