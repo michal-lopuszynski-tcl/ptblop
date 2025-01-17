@@ -13,8 +13,9 @@ pip install ptblop
 ## Creating a block-pruned model
 
 To create a block-pruned model, you need a `bp_config` usually serialized in a
-JSON file. Code sample for language model from `transformers` library is presented
-below:
+JSON file. A code sample for loading block pruned language model `Qwen/Qwen1.5-4B`
+from `transformers` library is included below. Sample `bp_configs` for `Qwen/Qwen1.5-4B`
+are [here](./examples/convert_old_configs/out/qwen15_4b).
 
 ```python
 import json
