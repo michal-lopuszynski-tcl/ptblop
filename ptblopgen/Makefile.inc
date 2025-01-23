@@ -74,13 +74,13 @@ vercommit:
 	./aux/block_empty_commit.sh
 	./aux/update_version.py --version-segment=2 --version-file=$(VER_FILE)
 	git add $(VER_FILE)
-	-VER=$$(./aux/get_version.py --version-file=$(VER_FILE)) && git commit -t ./gitmessage -m "[ptblopgen] $${VER} $$(cat ./gitmessage)" -e
+	-VER=$$(./aux/get_version.py --version-file=$(VER_FILE)) && git commit -m "[ptblopgen] $${VER} $$(cat ./gitmessage)" -e
 	git restore --staged  $(VER_FILE) && git checkout $(VER_FILE) # In case of failed commit
 
 manualvercommit:
 	./aux/block_empty_commit.sh
 	git add $(VER_FILE)
-	VER=$$(./aux/get_version.py --version-file=$(VER_FILE)) && git commit -m "[ptblopgen] $${VER}" -e
+	VER=$$(./aux/get_version.py --version-file=$(VER_FILE)) && git commit -m "[ptblopgen] $${VER} $$(cat ./gitmessage)" -e
 
 -%:
 	-@$(MAKE) --no-print-directory $*
