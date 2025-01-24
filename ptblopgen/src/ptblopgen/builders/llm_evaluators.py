@@ -312,6 +312,8 @@ class LMEvalWithPPLEvaluator:
     def __init__(self, tokenizer, evaluator_metrics):
         if "ppl" in evaluator_metrics:
             self.ppl_dl, _ = make_dataloader_perplexity(tokenizer)
+        else:
+            self.ppl_dl = None
         self.tokenizer = tokenizer
         self.lm_eval_tasks = [em for em in evaluator_metrics if em != "ppl"]
 
