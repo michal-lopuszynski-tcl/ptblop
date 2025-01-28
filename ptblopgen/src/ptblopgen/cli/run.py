@@ -29,6 +29,7 @@ def parse_args() -> tuple[argparse.Namespace, str]:
     parser_gen = subparsers.add_parser("paretoeval")
     parser_gen.add_argument("--pareto-path", type=pathlib.Path, required=True)
     parser_gen.add_argument("--min-metric", type=float, default=None)
+    parser_gen.add_argument("--no-shuffle", action="store_true")
     parser_gen.add_argument("--config", type=pathlib.Path, required=True)
 
     help_msg = parser.format_help()
@@ -148,7 +149,12 @@ def main() -> int:
             modelgen.main_gen(config, args.output_path)
         elif args.command == "paretoeval":
             config = read_config(args.config)
-            modelgen.main_paretoeval(config, args.pareto_path, args.min_metric)
+            modelgen.main_paretoeval(
+                config=config,
+                pareto_path=args.pareto_path,
+                min_metric=args.min_metric,
+                shuffle=not args.no_shuffle,
+            )
         else:
             if args.command is None:
                 print("No command given\n")

@@ -1,6 +1,8 @@
 import json
 import logging
 import pathlib
+import random
+import shutil
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -32,8 +34,12 @@ class BPConfigProcsessingEvalEnvironment:
         self.evaluator_fn = evaluator_fn
 
 
-def make_pareto_evaluated_path(pareto_path: pathlib.Path) -> pathlib.Path:
-    return pareto_path.parent / (pareto_path.stem + "_evaluated.json")
+def make_pareto_evaluated_paths(
+    pareto_path: pathlib.Path,
+) -> tuple[pathlib.Path, pathlib.Path]:
+    p1 = pareto_path.parent / (pareto_path.stem + "_evaluated.json")
+    p2 = pareto_path.parent / (pareto_path.stem + "_evaluated.json.bak")
+    return p1, p2
 
 
 def read_processed_bp_config_signatures(pareto_path: pathlib.Path) -> set[int]:
@@ -80,17 +86,32 @@ def process_bp_config(
 
 
 def update_pareto_front(
-    db_path: pathlib.Path, db_entry: dict[str, Any], mode: str = "append"
+    db_path: pathlib.Path,
+    db_path_bak: pathlib.Path,
+    db_entry: dict[str, Any],
 ) -> None:
-    if mode == "append":
-        flag = "at"
-    elif mode == "reset":
-        flag = "wt"
+    if not db_path.exists():
+        with open(db_path, "wt") as f:
+            f.write(json.dumps(db_entry) + "\n")
     else:
-        raise ValueError(f"Unknown mode {mode}")
+        # Read data
+        with open(db_path, "rt") as f:
+            pareto_data = [json.loads(line) for line in f]
 
-    with open(db_path, flag) as f:
-        f.write(json.dumps(db_entry) + "\n")
+        # Append new record
+        pareto_data.append(db_entry)
+
+        # Sort
+        pareto_data.sort(key=lambda d: -d["mparams_pred"])
+
+        # Copy old data to backup, in case job gets killed or exception occurs
+        shutil.copy2(db_path, db_path_bak)
+
+        # Save updated data
+
+        with open(db_path, "wt") as f:
+            for di in pareto_data:
+                f.write(json.dumps(di) + "\n")
 
 
 def filter_processed(pareto_front_data, processed_bp_config_signatures):
@@ -112,16 +133,20 @@ def filter_by_min_metric(pareto_front_data, config, min_metric):
 
 
 def main_paretoeval(
+    *,
     config: dict[str, Any],
     pareto_path: pathlib.Path,
     min_metric: Optional[float],
+    shuffle: bool,
 ) -> None:
 
     pareto_front_data = read_pareto_front_data(pareto_path)
     n_tot = len(pareto_front_data)
     logger.info(f"Read {n_tot=} configurations from {pareto_path}")
 
-    pareto_evaluated_path = make_pareto_evaluated_path(pareto_path)
+    pareto_evaluated_path, pareto_evaluated_path_bak = make_pareto_evaluated_paths(
+        pareto_path
+    )
     processed_bp_config_signatures = read_processed_bp_config_signatures(
         pareto_evaluated_path
     )
@@ -142,15 +167,22 @@ def main_paretoeval(
     else:
         logger.info(f"Filtering by {min_metric=} - skipped")
 
-    for d in pareto_front_data:
+    if shuffle:
+        logger.info("Shuffling pareto front data before processing")
+        random.shuffle(pareto_front_data)
+    else:
+        logger.info("Skipping shuffling pareto front data")
+
+    for i, d in enumerate(pareto_front_data, start=1):
         bpcs = utils.bp_config_signature_from_str(d["bp_config_signature"])
         if bpcs in processed_bp_config_signatures:
             logger.info(f"Skipping bp_config {bpcs}")
         else:
-            logger.info(f"Processing bp_config {bpcs}")
+            logger.info(f"Processing bp_config {i} out of {n_tot} - {bpcs=}")
             bp_config = d["bp_config"]
             res = process_bp_config(bp_config, processing_env)
             d["evaluation"] = res
-            update_pareto_front(pareto_evaluated_path, d)
+            update_pareto_front(pareto_evaluated_path, pareto_evaluated_path_bak, d)
             signature = utils.get_bp_config_signature(bp_config)
             processed_bp_config_signatures.add(signature)
+    pareto_evaluated_path_bak.unlink(missing_ok=True)
