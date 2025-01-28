@@ -2,7 +2,7 @@ import json
 import logging
 import pathlib
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
 
 import ptblop
 import torch
@@ -79,18 +79,69 @@ def process_bp_config(
     return res
 
 
+def update_pareto_front(
+    db_path: pathlib.Path, db_entry: dict[str, Any], mode: str = "append"
+) -> None:
+    if mode == "append":
+        flag = "at"
+    elif mode == "reset":
+        flag = "wt"
+    else:
+        raise ValueError(f"Unknown mode {mode}")
+
+    with open(db_path, flag) as f:
+        f.write(json.dumps(db_entry) + "\n")
+
+
+def filter_processed(pareto_front_data, processed_bp_config_signatures):
+    res = []
+    for d in pareto_front_data:
+        bpcs = utils.bp_config_signature_from_str(d["bp_config_signature"])
+        if bpcs not in processed_bp_config_signatures:
+            res.append(d)
+    return res
+
+
+def filter_by_min_metric(pareto_front_data, config, min_metric):
+    res = []
+    metric_key = config["sampler"]["quality_evaluator_metric"] + "_pred"
+    for d in pareto_front_data:
+        if d[metric_key] >= min_metric:
+            res.append(d)
+    return res
+
+
 def main_paretoeval(
     config: dict[str, Any],
     pareto_path: pathlib.Path,
-    min_metric: float,
+    min_metric: Optional[float],
 ) -> None:
-    pareto_evaluated_path = make_pareto_evaluated_path(pareto_path)
-    processing_env = BPConfigProcsessingEvalEnvironment(config)
 
     pareto_front_data = read_pareto_front_data(pareto_path)
+    n_tot = len(pareto_front_data)
+    logger.info(f"Read {n_tot=} configurations from {pareto_path}")
+
+    pareto_evaluated_path = make_pareto_evaluated_path(pareto_path)
     processed_bp_config_signatures = read_processed_bp_config_signatures(
         pareto_evaluated_path
     )
+    n_evaluated = len(processed_bp_config_signatures)
+    logger.info(f"Read {n_evaluated=} from {pareto_evaluated_path}")
+
+    processing_env = BPConfigProcsessingEvalEnvironment(config)
+    pareto_front_data = filter_processed(
+        pareto_front_data, processed_bp_config_signatures
+    )
+    n_tot = len(pareto_front_data)
+    logger.info(f"Filtering processed - {n_tot=} left")
+
+    if min_metric is not None:
+        pareto_front_data = filter_by_min_metric(pareto_front_data, config, min_metric)
+        n_tot = len(pareto_front_data)
+        logger.info(f"Filtering by {min_metric=} - {n_tot=} left")
+    else:
+        logger.info(f"Filtering by {min_metric=} - skipped")
+
     for d in pareto_front_data:
         bpcs = utils.bp_config_signature_from_str(d["bp_config_signature"])
         if bpcs in processed_bp_config_signatures:
@@ -100,6 +151,6 @@ def main_paretoeval(
             bp_config = d["bp_config"]
             res = process_bp_config(bp_config, processing_env)
             d["evaluation"] = res
-            utils.update_db(pareto_evaluated_path, d)
+            update_pareto_front(pareto_evaluated_path, d)
             signature = utils.get_bp_config_signature(bp_config)
             processed_bp_config_signatures.add(signature)

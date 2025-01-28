@@ -28,7 +28,7 @@ def parse_args() -> tuple[argparse.Namespace, str]:
 
     parser_gen = subparsers.add_parser("paretoeval")
     parser_gen.add_argument("--pareto-path", type=pathlib.Path, required=True)
-    parser_gen.add_argument("--min-metric", type=float, required=True)
+    parser_gen.add_argument("--min-metric", type=float, default=None)
     parser_gen.add_argument("--config", type=pathlib.Path, required=True)
 
     help_msg = parser.format_help()
