@@ -1,8 +1,11 @@
 import abc
+import logging
 
 import torch
 
 from . import utils
+
+logger = logging.getLogger(__name__)
 
 
 class PrunableBlock(abc.ABC):
@@ -24,6 +27,7 @@ class PrunableBlock(abc.ABC):
         for layer_name in self.get_unused_layer_names():
             if hasattr(self, layer_name):
                 setattr(self, layer_name, None)
+                logger.info(f"Setting {layer_name} to None")
             else:
                 msg = f"{utils.get_type_name(self)} has no atrr {layer_name}"
                 raise ValueError(msg)
