@@ -6,7 +6,7 @@ import platform
 import shutil
 import subprocess
 import sys
-from typing import Any
+from typing import Any, Optional
 
 import yaml
 
@@ -22,15 +22,20 @@ def parse_args() -> tuple[argparse.Namespace, str]:
     parser.add_argument("--version", action="store_true")
     subparsers = parser.add_subparsers(dest="command")
 
-    parser_gen = subparsers.add_parser("gen")
-    parser_gen.add_argument("--output-path", type=pathlib.Path, required=True)
+    parser_gen = subparsers.add_parser("sample")
     parser_gen.add_argument("--config", type=pathlib.Path, required=True)
+    parser_gen.add_argument("--output-path", type=pathlib.Path, required=True)
+
+    parser_gen = subparsers.add_parser("paretofind")
+    parser_gen.add_argument("--config", type=pathlib.Path, required=True)
+    parser_gen.add_argument("--output-path", type=pathlib.Path, required=True)
+    parser_gen.add_argument("--bp-configs-path", type=pathlib.Path, required=True)
 
     parser_gen = subparsers.add_parser("paretoeval")
+    parser_gen.add_argument("--config", type=pathlib.Path, required=True)
     parser_gen.add_argument("--pareto-path", type=pathlib.Path, required=True)
     parser_gen.add_argument("--min-metric", type=float, default=None)
     parser_gen.add_argument("--no-shuffle", action="store_true")
-    parser_gen.add_argument("--config", type=pathlib.Path, required=True)
 
     help_msg = parser.format_help()
     return parser.parse_args(), help_msg
@@ -119,18 +124,24 @@ def save_requirements(
                 f.write(r + "\n")
 
 
-def make_repro_dir(args: argparse.Namespace, repro_subdir_prefix: str) -> None:
+def make_repro_dir(
+    args: argparse.Namespace,
+    repro_subdir_prefix: str,
+    bp_configs_path: Optional[pathlib.Path] = None,
+) -> None:
     repro_subdir = repro_subdir_prefix + "." + utils.get_timestamp_for_fname()
     repro_path = args.output_path / repro_subdir
     copy_config(args.config, repro_path)
     save_requirements(
         repro_path / "requirements.txt", repro_path / "requirements_unsafe.txt"
     )
-    bp_config_path = args.output_path / modelgen.BP_CONFIG_DB_FNAME
 
-    if bp_config_path.exists():
+    if bp_configs_path is None:
+        bp_configs_path = args.output_path / modelgen.BP_CONFIG_DB_FNAME
+
+    if bp_configs_path.exists():
         bp_config_bak_path = repro_path / (modelgen.BP_CONFIG_DB_FNAME + ".gz")
-        with open(bp_config_path, "rb") as f_in:
+        with open(bp_configs_path, "rb") as f_in:
             with gzip.open(bp_config_bak_path, "wb") as f_out:
                 shutil.copyfileobj(f_in, f_out)
 
@@ -142,11 +153,22 @@ def main() -> int:
         print_versions()
     else:
         logger.info(f"Running on node {platform.node()}")
-        if args.command == "gen":
+        if args.command == "sample":
             args.output_path.mkdir(exist_ok=True, parents=True)
             make_repro_dir(args, REPRO_SUBDIR_PREFIX)
             config = read_config(args.config)
-            modelgen.main_gen(config, args.output_path)
+            modelgen.main_sample(config, args.output_path)
+        elif args.command == "paretofind":
+            args.output_path.mkdir(exist_ok=True, parents=True)
+            make_repro_dir(
+                args, REPRO_SUBDIR_PREFIX, bp_configs_path=args.bp_configs_path
+            )
+            config = read_config(args.config)
+            modelgen.main_paretofind(
+                config=config,
+                output_path=args.output_path,
+                bp_config_db_path=args.bp_configs_path,
+            )
         elif args.command == "paretoeval":
             config = read_config(args.config)
             modelgen.main_paretoeval(

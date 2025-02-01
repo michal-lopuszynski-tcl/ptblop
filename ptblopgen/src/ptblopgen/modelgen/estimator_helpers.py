@@ -26,8 +26,11 @@ def read_data(db_path, data_iter):
             d = json.loads(line)
             if d["status"] == "ok":
                 data_raw.append(d)
+    if data_iter > 0:
+        data = [d for d in data_raw if d["data_iter"] <= data_iter]
+    else:
+        data = data_raw
 
-    data = [d for d in data_raw if d["data_iter"] <= data_iter]
     if len(data) < len(data_raw):
         max_data_iter = max(d["data_iter"] for d in data)
         n_raw, n = len(data_raw), len(data)

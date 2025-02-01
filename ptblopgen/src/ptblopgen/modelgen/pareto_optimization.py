@@ -14,6 +14,13 @@ import pymoo.termination
 from .. import utils
 from . import configurator
 
+QUALITY_ESTIMATOR_REPORT_DIR = "estimators_quality"
+QUALITY_ESTIMATOR_DB_FNAME = "estimators_quality.json"
+COST_ESTIMATOR_DB_FNAME = "estimators_cost.json"
+PARETO_FRONT_DIR = "pareto_fronts"
+PARETO_FRONT_FNAME_TEMPLATE = f"pareto_front_%04d.json"
+
+
 logger = logging.getLogger(__name__)
 
 

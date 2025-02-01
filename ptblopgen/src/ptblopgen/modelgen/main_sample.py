@@ -15,13 +15,6 @@ from .. import builders, utils
 from . import configurator, estimator_helpers, pareto_optimization
 
 BP_CONFIG_DB_FNAME = "bp_configs.json"
-QUALITY_ESTIMATOR_REPORT_DIR = "estimators_quality"
-QUALITY_ESTIMATOR_DB_FNAME = "estimators_quality.json"
-COST_ESTIMATOR_DB_FNAME = "estimators_cost.json"
-QUALITY_ESTIMATOR_ID_TEMPLATE = "estimator_quality_%04d"
-
-PARETO_FRONT_DIR = "pareto_fronts"
-PARETO_FRONT_FNAME_TEMPLATE = "pareto_front_%04d.json"
 STOP_FNAME = "STOP"
 
 MAX_RANDOM_CONFIG_TRIALS = 20
@@ -30,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class BPConfigProcsessingGenEnvironment:
+class BPConfigProcsessingSampleEnvironment:
     run_id: str
     model: torch.nn.Module
     model_metadata: dict[str, Any]
@@ -412,7 +405,7 @@ def process_bp_config(
     bp_config,
     bp_config_score,
     data_iter,
-    processing_env: BPConfigProcsessingGenEnvironment,
+    processing_env: BPConfigProcsessingSampleEnvironment,
     processed_bp_config_signatures,
 ):
     # TODO Merge this with sample_and_process_bp_config
@@ -464,7 +457,7 @@ def sample_and_process_bp_config(
     bp_config_type,
     data_iter,
     bp_config_gens,
-    processing_env: BPConfigProcsessingGenEnvironment,
+    processing_env: BPConfigProcsessingSampleEnvironment,
     processed_bp_config_signatures,
 ):
     bp_config, bp_config_score = next(bp_config_gens.get_gen(bp_config_type))
@@ -520,18 +513,22 @@ def make_bp_config_generators(
     )
 
 
-def main_gen(config: dict[str, Any], output_path: pathlib.Path) -> None:
+def main_sample(config: dict[str, Any], output_path: pathlib.Path) -> None:
     config_sampler = configurator.SamplerConfig(**config["sampler"])
     config_pareto_optimization = configurator.ParetoOptimizationConfig(
         **config["pareto_optimization"]
     )
-    quality_estimators_db_path = output_path / QUALITY_ESTIMATOR_DB_FNAME
-    cost_estimators_db_path = output_path / COST_ESTIMATOR_DB_FNAME
-    quality_estimator_report_path = output_path / QUALITY_ESTIMATOR_REPORT_DIR
+    quality_estimators_db_path = (
+        output_path / pareto_optimization.QUALITY_ESTIMATOR_DB_FNAME
+    )
+    cost_estimators_db_path = output_path / pareto_optimization.COST_ESTIMATOR_DB_FNAME
+    quality_estimator_report_path = (
+        output_path / pareto_optimization.QUALITY_ESTIMATOR_REPORT_DIR
+    )
 
     quality_estimator_report_path.mkdir(exist_ok=True, parents=True)
 
-    processing_env = BPConfigProcsessingGenEnvironment(config, output_path)
+    processing_env = BPConfigProcsessingSampleEnvironment(config, output_path)
 
     old_iter_generator, restart = make_old_iter_generator(
         processing_env.bp_config_db_path
@@ -647,8 +644,10 @@ def main_gen(config: dict[str, Any], output_path: pathlib.Path) -> None:
         # data_iter == 1 -> validation, we cannot compute predictors + pareto fronts
 
         if data_iter != 1:
-            pf_basename = PARETO_FRONT_FNAME_TEMPLATE % data_iter
-            pareto_front_path = output_path / PARETO_FRONT_DIR / pf_basename
+            pf_basename = pareto_optimization.PARETO_FRONT_FNAME_TEMPLATE % data_iter
+            pareto_front_path = (
+                output_path / pareto_optimization.PARETO_FRONT_DIR / pf_basename
+            )
 
             if pareto_front_path.exists():
                 msg = f"Pareto front {pareto_front_path} exists, skipping generation"
