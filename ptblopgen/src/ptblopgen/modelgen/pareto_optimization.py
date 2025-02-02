@@ -5,6 +5,7 @@ import time
 import numpy as np
 import pymoo.algorithms.moo.nsga2
 import pymoo.core.problem
+import pymoo.core.sampling
 import pymoo.operators.crossover.pntx
 import pymoo.operators.mutation.bitflip
 import pymoo.operators.sampling.rnd
@@ -18,7 +19,7 @@ QUALITY_ESTIMATOR_REPORT_DIR = "estimators_quality"
 QUALITY_ESTIMATOR_DB_FNAME = "estimators_quality.json"
 COST_ESTIMATOR_DB_FNAME = "estimators_cost.json"
 PARETO_FRONT_DIR = "pareto_fronts"
-PARETO_FRONT_FNAME_TEMPLATE = f"pareto_front_%04d.json"
+PARETO_FRONT_FNAME_TEMPLATE = "pareto_front_%04d.json"
 
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,17 @@ def build_predict_cost(reg_param):
         return param
 
     return __predict_param
+
+
+class BinaryRandomSampling(pymoo.core.sampling.Sampling):
+
+    def __init__(self, p):
+        super().__init__()
+        self.p = p
+
+    def _do(self, problem, n_samples, **kwargs):
+        val = np.random.random((n_samples, problem.n_var))
+        return (val < self.p).astype(bool)
 
 
 class BinaryProblem(pymoo.core.problem.Problem):
@@ -147,10 +159,11 @@ def find_pareto_front(
     f_cost = build_predict_cost(cost_estimator)
 
     problem = BinaryProblem(f1=f_quality, f2=f_cost, n_var=n_features)
-
+    # sampling = pymoo.operators.sampling.rnd.BinaryRandomSampling()
+    sampling = BinaryRandomSampling(0.8)
     algorithm = pymoo.algorithms.moo.nsga2.NSGA2(
         pop_size=config_pareto_optimization.pop_size,
-        sampling=pymoo.operators.sampling.rnd.BinaryRandomSampling(),
+        sampling=sampling,
         crossover=pymoo.operators.crossover.pntx.TwoPointCrossover(),
         mutation=pymoo.operators.mutation.bitflip.BitflipMutation(prob=1 / n_features),
         eliminate_duplicates=True,

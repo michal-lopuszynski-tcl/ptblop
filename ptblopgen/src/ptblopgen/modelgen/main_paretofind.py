@@ -1,14 +1,12 @@
+import json
 import pathlib
 from dataclasses import dataclass
 from typing import Any
 
-import ptblop
 import torch
 
-from .. import builders, utils
-from . import configurator
-from . import estimator_helpers
-from . import pareto_optimization
+from .. import utils
+from . import configurator, estimator_helpers, pareto_optimization
 
 
 @dataclass
@@ -24,16 +22,18 @@ class BPConfigProcsessingFindEnvironment:
     def __init__(self, config: dict[str, Any], bp_config_db_path: pathlib.Path):
         self.bp_config_db_path = bp_config_db_path
         self.run_id = utils.make_runid()
-        self.device = (
-            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-        )
-        model, evaluator_fn = builders.make_model_and_evaluator(
-            config["model"], config["evaluator"], self.device
-        )
-        ptblop.apply_bp_config_in_place(model, {})
-        self.model = model
         self.model_metadata = config["model"]
-        self.evaluator_fn = evaluator_fn
+
+
+def get_unpruned_bp_config(bp_config_path: pathlib.Path):
+    with open(bp_config_path, "rt") as f:
+        d = json.loads(f.readline())
+    bp_config = d["bp_config"]
+
+    for k1 in bp_config:
+        for k2 in k1:
+            bp_config[k1][k2] = True
+    return bp_config
 
 
 def main_paretofind(
@@ -56,9 +56,10 @@ def main_paretofind(
     quality_estimator_report_path = (
         output_path / pareto_optimization.QUALITY_ESTIMATOR_REPORT_DIR
     )
-    processing_env = BPConfigProcsessingFindEnvironment(config, bp_config_db_path)
 
-    bp_config_unpruned = ptblop.get_unpruned_bp_config(processing_env.model)
+    bp_config_unpruned = get_unpruned_bp_config(bp_config_db_path)
+
+    processing_env = BPConfigProcsessingFindEnvironment(config, bp_config_db_path)
 
     quality_estimator_report_path.mkdir(exist_ok=False, parents=True)
 
