@@ -25,3 +25,4 @@ class ParetoOptimizationConfig(pydantic.BaseModel):
     n_gen: int
     pop_size: int
     optimizer_seed: int
+    binary_sampling_p: float

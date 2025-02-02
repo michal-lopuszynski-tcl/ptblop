@@ -49,7 +49,7 @@ def build_predict_cost(reg_param):
     return __predict_param
 
 
-class BinaryRandomSampling(pymoo.core.sampling.Sampling):
+class CustomBinaryRandomSampling(pymoo.core.sampling.Sampling):
 
     def __init__(self, p):
         super().__init__()
@@ -160,7 +160,8 @@ def find_pareto_front(
 
     problem = BinaryProblem(f1=f_quality, f2=f_cost, n_var=n_features)
     # sampling = pymoo.operators.sampling.rnd.BinaryRandomSampling()
-    sampling = BinaryRandomSampling(0.8)
+
+    sampling = CustomBinaryRandomSampling(config_pareto_optimization.binary_sampling_p)
     algorithm = pymoo.algorithms.moo.nsga2.NSGA2(
         pop_size=config_pareto_optimization.pop_size,
         sampling=sampling,
