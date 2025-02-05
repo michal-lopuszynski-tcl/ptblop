@@ -183,7 +183,7 @@ def make_zerl_bp_config_generator(bp_config_unpruned):
         yield None, None
 
 
-def make_onel_bp_config_generator(bp_config_unpruned):
+def make_onel_bp_config_generator(bp_config_unpruned, full_block_mode):
 
     # Generate all one point changes ans shuffle them
 
@@ -274,6 +274,7 @@ def make_rand_bp_config(
     max_random_config_trials,
     rng,
     processed_bp_config_signatures,
+    full_block_mode,
 ):
 
     bp_config, bp_config_signature = None, None
@@ -304,6 +305,7 @@ def make_rand_bp_config_generator(
     max_num_changes,
     max_random_config_trials,
     rng,
+    full_block_mode,
     processed_bp_config_signatures,
 ):
     cfg_changes_all = genereate_bp_config_changes(bp_config_unpruned)
@@ -316,6 +318,7 @@ def make_rand_bp_config_generator(
             bp_config_unpruned=bp_config_unpruned,
             max_random_config_trials=max_random_config_trials,
             rng=rng,
+            full_block_mode=full_block_mode,
             processed_bp_config_signatures=processed_bp_config_signatures,
         )
         if bp_config is not None:
@@ -342,6 +345,7 @@ def make_actl_bp_config_generator(
     processed_bp_bconfig_signatures,
     num_scored_candidates,
     quality_estimator,
+    full_block_mode,
 ):
     cfg_changes_all = genereate_bp_config_changes(bp_config_unpruned)
     scoring_fn = conv_quality_estimator_to_scoring_fn(quality_estimator)
@@ -366,6 +370,7 @@ def make_actl_bp_config_generator(
                 max_random_config_trials=max_random_config_trials,
                 rng=rng,
                 processed_bp_config_signatures=tmp_singnatures,
+                full_block_mode=full_block_mode,
             )
             if max_bp_config is not None:
                 candidate_bp_configs.append(max_bp_config)
@@ -494,10 +499,11 @@ def make_bp_config_generators(
     min_num_changes,
     max_num_changes,
     processed_bp_config_singatures,
+    full_block_mode,
     rng,
 ) -> BPConfigGenerators:
     zerlg = make_zerl_bp_config_generator(bp_config_unpruned)
-    onelg = make_onel_bp_config_generator(bp_config_unpruned)
+    onelg = make_onel_bp_config_generator(bp_config_unpruned, full_block_mode)
     randg = make_rand_bp_config_generator(
         bp_config_unpruned=bp_config_unpruned,
         min_num_changes=min_num_changes,
@@ -505,6 +511,7 @@ def make_bp_config_generators(
         max_random_config_trials=MAX_RANDOM_CONFIG_TRIALS,
         rng=rng,
         processed_bp_config_signatures=processed_bp_config_singatures,
+        full_block_mode=full_block_mode,
     )
     parfg = None
     actlg = None
@@ -561,6 +568,7 @@ def main_sample(config: dict[str, Any], output_path: pathlib.Path) -> None:
         min_num_changes=2,
         max_num_changes=max_num_changes,
         processed_bp_config_singatures=processed_bp_config_signatures,
+        full_block_mode=config_sampler.full_block_mode,
         rng=rng,
     )
 
@@ -600,6 +608,7 @@ def main_sample(config: dict[str, Any], output_path: pathlib.Path) -> None:
                             data_iter=data_iter - 1,
                             quality_metric=config_sampler.quality_evaluator_metric,
                             run_id=processing_env.run_id,
+                            full_block_mode=config_sampler.full_block_mode,
                         )
                         is_new_quality_estimator = True
 
@@ -615,6 +624,7 @@ def main_sample(config: dict[str, Any], output_path: pathlib.Path) -> None:
                             rng=rng,
                             quality_estimator=quality_estimator,
                             num_scored_candidates=nc,
+                            full_block_mode=config_sampler.full_block_mode,
                         )
                         is_new_quality_estimator = False
                 elif bp_config_type == "parf" and is_new_pareto_front:
@@ -663,6 +673,7 @@ def main_sample(config: dict[str, Any], output_path: pathlib.Path) -> None:
                             cost_estimators_db_path=cost_estimators_db_path,
                             data_iter=data_iter,
                             run_id=processing_env.run_id,
+                            full_block_mode=config_sampler.full_block_mode,
                         )
                     )
 
@@ -674,6 +685,7 @@ def main_sample(config: dict[str, Any], output_path: pathlib.Path) -> None:
                         data_iter=data_iter,
                         quality_metric=config_sampler.quality_evaluator_metric,
                         run_id=processing_env.run_id,
+                        full_block_mode=config_sampler.full_block_mode,
                     )
                 )
                 is_new_quality_estimator = True

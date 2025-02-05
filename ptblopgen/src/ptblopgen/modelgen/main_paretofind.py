@@ -68,6 +68,7 @@ def main_paretofind(
         cost_estimators_db_path=cost_estimators_db_path,
         data_iter=0,
         run_id=processing_env.run_id,
+        full_block_mode=config_sampler.full_block_mode,
     )
 
     quality_estimator, quality_estimator_metrics, quality_estimator_id = (
@@ -78,6 +79,7 @@ def main_paretofind(
             data_iter=0,
             quality_metric=config_sampler.quality_evaluator_metric,
             run_id=processing_env.run_id,
+            full_block_mode=config_sampler.full_block_mode,
         )
     )
 
