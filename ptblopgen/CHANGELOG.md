@@ -1,11 +1,15 @@
 # TODO
-+ **!..** Consider moving to string bp_config singatures
-+ **!..** Add support for vision transformers
++ **!!.** Add full block mode
++ **!!.** Add option to customize cost model
++ **!!.** Add simple id to saved PFs
++ **!..** Add support for vision transformers evaluation
++ **!..** Consider moving to string bp_config signatures
 + **!..** Add num-layers as cost metric
 + **!..** Refactor the output so the metrics are in a subfield
 
 
 # DONE
++ Add support for vision transformers blocks
 + Add versioning zips
 + Add handling of restarts
 + Refactor all `bpconfigs` to `bp_configs`
