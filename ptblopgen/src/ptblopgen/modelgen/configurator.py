@@ -1,3 +1,5 @@
+import typing
+
 import pydantic
 
 
@@ -25,4 +27,5 @@ class ParetoOptimizationConfig(pydantic.BaseModel):
     n_gen: int
     pop_size: int
     optimizer_seed: int
-    binary_sampling_p: float
+    sampling_mode: typing.Literal["binomial", "uniform"]
+    sampling_p: float

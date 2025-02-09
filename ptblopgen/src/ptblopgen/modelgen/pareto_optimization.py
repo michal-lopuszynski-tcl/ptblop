@@ -49,7 +49,7 @@ def build_predict_cost(reg_param):
     return __predict_param
 
 
-class CustomBinaryRandomSampling(pymoo.core.sampling.Sampling):
+class BinomialSampling(pymoo.core.sampling.Sampling):
 
     def __init__(self, p):
         super().__init__()
@@ -58,6 +58,23 @@ class CustomBinaryRandomSampling(pymoo.core.sampling.Sampling):
     def _do(self, problem, n_samples, **kwargs):
         val = np.random.random((n_samples, problem.n_var))
         return (val < self.p).astype(bool)
+
+
+class UniformSampling(pymoo.core.sampling.Sampling):
+
+    def __init__(self, p):
+        super().__init__()
+        self.p = p
+
+    def _do(self, problem, n_samples, **kwargs):
+        min_n_var = int(problem.n_var * self.p)
+        row_sequence = np.arange(problem.n_var, dtype=float)
+        mat_range = np.tile(row_sequence, (n_samples, 1))
+        r = np.random.randint(low=min_n_var, high=problem.n_var, size=(n_samples, 1))
+        mask = mat_range < r
+        idx = np.random.rand(*mask.shape).argsort(axis=1)
+        rows = np.arange(mask.shape[0])[:, None]
+        return mask[rows, idx]
 
 
 class BinaryProblem(pymoo.core.problem.Problem):
@@ -159,9 +176,16 @@ def find_pareto_front(
     f_cost = build_predict_cost(cost_estimator)
 
     problem = BinaryProblem(f1=f_quality, f2=f_cost, n_var=n_features)
-    # sampling = pymoo.operators.sampling.rnd.BinaryRandomSampling()
 
-    sampling = CustomBinaryRandomSampling(config_pareto_optimization.binary_sampling_p)
+    sampling_mode = config_pareto_optimization.sampling_mode
+    if sampling_mode == "binomial":
+        sampling = BinomialSampling(config_pareto_optimization.sampling_p)
+    elif sampling_mode == "uniform":
+        sampling = UniformSampling(config_pareto_optimization.sampling_p)
+    else:
+        msg = f"Unknown {sampling_mode=} only 'uniform' or 'binomial' are supported"
+        raise ValueError(msg)
+
     algorithm = pymoo.algorithms.moo.nsga2.NSGA2(
         pop_size=config_pareto_optimization.pop_size,
         sampling=sampling,
