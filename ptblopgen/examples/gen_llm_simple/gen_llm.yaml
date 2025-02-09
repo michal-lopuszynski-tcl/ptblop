@@ -16,7 +16,8 @@ pareto_optimization:
   optimizer_seed: 173205
   pop_size: 2000
   n_gen: 50
-  binary_sampling_p: 0.8
+  sampling_mode: "uniform"
+  sampling_p: 0.6
 
 sampler:
   quality_evaluator_metric: "arc_challenge"
