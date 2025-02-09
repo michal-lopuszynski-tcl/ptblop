@@ -178,6 +178,7 @@ def find_pareto_front(
     problem = BinaryProblem(f1=f_quality, f2=f_cost, n_var=n_features)
 
     sampling_mode = config_pareto_optimization.sampling_mode
+    logger.info(f"Using {sampling_mode=} in Pareto optimization")
     if sampling_mode == "binomial":
         sampling = BinomialSampling(config_pareto_optimization.sampling_p)
     elif sampling_mode == "uniform":
