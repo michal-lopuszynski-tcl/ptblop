@@ -8,6 +8,7 @@ import torch
 import ptblop
 import ptblop.utils
 
+
 MODEL_DATA_TYPE = tuple[
     torch.nn.Module, Callable[[], torch.Tensor], dict[str, dict[str, bool]]
 ]
@@ -36,6 +37,7 @@ def check_unpruned_forward(
     make_model_fn: Callable[[], MODEL_DATA_TYPE],
     device: torch.device,
 ) -> None:
+    delta_threshold = 1.0e-5
     model, gen_data, bp_config0 = make_model_fn()
     model.eval()
     assert len(bp_config0) > 0
@@ -51,9 +53,9 @@ def check_unpruned_forward(
 
     with torch.no_grad():
         output2 = _forward(model, idx)
-        delta = torch.max(torch.abs(output1 - output2))
+        delta = torch.max(torch.abs(output1 - output2)).item()
 
-    assert delta.item() < 1.0e-5
+    assert delta < delta_threshold, f"Failed test: {delta=} < {delta_threshold=}"
 
     bp_config_test = ptblop.get_bp_config(model)
     assert len(bp_config_test) > 0
@@ -232,6 +234,7 @@ def check_enable_disable(
     make_model_fn: Callable[[], MODEL_DATA_TYPE],
     device: torch.device,
 ) -> None:
+    delta_threshold = 1.0e-5
     model, gen_data, bp_config0 = make_model_fn()
     model.eval()
     assert len(bp_config0) > 0
@@ -254,8 +257,8 @@ def check_enable_disable(
 
     with torch.no_grad():
         output2 = _forward(model, idx)
-        delta2 = torch.max(torch.abs(output1 - output2))
-    assert delta2.item() > 1.0e-5
+        delta2 = torch.max(torch.abs(output1 - output2)).item()
+    assert delta2 > delta_threshold, f"Failed test: {delta2=} > {delta_threshold=}"
 
     # 3. Apply original config - this should give the same output as original model
 
@@ -263,8 +266,8 @@ def check_enable_disable(
 
     with torch.no_grad():
         output3 = _forward(model, idx)
-        delta3 = torch.max(torch.abs(output1 - output3))
-    assert delta3.item() < 1.0e-5
+        delta3 = torch.max(torch.abs(output1 - output3)).item()
+    assert delta3 < delta_threshold, f"Failed test: {delta3=} < {delta_threshold=}"
 
 
 def make_bp_config_num_params(
@@ -361,6 +364,8 @@ def check_disabled_block_is_identity(
     block_name: str,
     block_index: int,
 ) -> None:
+
+    delta_threshold = 1.0e-7
     model, gen_data, bp_config0 = make_model_fn()
     model.eval()
     assert len(bp_config0) > 0
@@ -390,8 +395,8 @@ def check_disabled_block_is_identity(
     x2 = m_new.get_last_output()
     assert x1 is not None
     assert x2 is not None
-    delta = torch.max(torch.abs(x1 - x2))
-    assert delta.item() < 1.0e-7
+    delta = torch.max(torch.abs(x1 - x2)).item()
+    assert delta < delta_threshold, f"Failed test: {delta=} < {delta_threshold=}"
 
     # Unwrap tested block from CapturingInputOutputModule
 
@@ -417,5 +422,5 @@ def check_disabled_block_is_identity(
     x2 = m_new.get_last_output()
     assert x1 is not None
     assert x2 is not None
-    delta = torch.max(torch.abs(x1 - x2))
-    assert delta.item() > 1.0e-7
+    delta = torch.max(torch.abs(x1 - x2)).item()
+    assert delta > delta_threshold, f"Failed test: {delta=} > {delta_threshold=}"
