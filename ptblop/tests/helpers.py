@@ -8,7 +8,6 @@ import torch
 import ptblop
 import ptblop.utils
 
-
 MODEL_DATA_TYPE = tuple[
     torch.nn.Module, Callable[[], torch.Tensor], dict[str, dict[str, bool]]
 ]
