@@ -11,13 +11,19 @@ logger = logging.getLogger(__name__)
 class PrunableBlock(abc.ABC):
 
     def __init__(
-        self, original_module: torch.nn.Module, use_attention: bool, use_mlp: bool
+        self,
+        original_module: torch.nn.Module,
+        use_attention: bool,
+        use_mlp: bool,
+        set_unused_layers_to_none: bool,
     ):
         self.original_layer_names = [
             name for name, _ in original_module.named_children()
         ]
         self.use_attention = use_attention
         self.use_mlp = use_mlp
+        if set_unused_layers_to_none:
+            self.set_unused_layers_to_none()
 
     @abc.abstractmethod
     def get_unused_layer_names(self) -> set[str]:

@@ -64,7 +64,7 @@ def check_unpruned_forward(
 
 
 def make_bp_config_with_disabled_test_attentions(
-    bp_config0: dict[str, dict[str, bool]]
+    bp_config0: dict[str, dict[str, bool]],
 ) -> dict[str, dict[str, bool]]:
     bp_config = copy.deepcopy(bp_config0)
     ki = iter(bp_config.keys())
@@ -115,7 +115,7 @@ def check_disabled_attentnions(
 
 
 def make_bp_config_with_disabled_test_mlps(
-    bp_config0: dict[str, dict[str, bool]]
+    bp_config0: dict[str, dict[str, bool]],
 ) -> dict[str, dict[str, bool]]:
     bp_config = copy.deepcopy(bp_config0)
     ki = iter(bp_config.keys())
@@ -164,7 +164,7 @@ def check_disabled_mlps(
 
 
 def make_bp_config_with_disabled_test_blocks(
-    bp_config0: dict[str, dict[str, bool]]
+    bp_config0: dict[str, dict[str, bool]],
 ) -> dict[str, dict[str, bool]]:
     bp_config = copy.deepcopy(bp_config0)
     ki = iter(bp_config.keys())
@@ -214,7 +214,7 @@ def check_disabled_blocks(
 
 
 def make_bp_config_pruning_enable_disable(
-    bp_config0: dict[str, dict[str, bool]]
+    bp_config0: dict[str, dict[str, bool]],
 ) -> dict[str, dict[str, bool]]:
     bp_config = copy.deepcopy(bp_config0)
     ki = iter(bp_config.keys())
@@ -268,7 +268,7 @@ def check_enable_disable(
 
 
 def make_bp_config_num_params(
-    bp_config0: dict[str, dict[str, bool]]
+    bp_config0: dict[str, dict[str, bool]],
 ) -> dict[str, dict[str, bool]]:
     bp_config = copy.deepcopy(bp_config0)
     ki = iter(bp_config.keys())

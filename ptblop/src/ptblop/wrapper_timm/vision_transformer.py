@@ -27,12 +27,6 @@ class PrunableVisionTransformerBlock(torch.nn.Module, prunable_block.PrunableBlo
         set_unused_layers_to_none: bool = True,
     ) -> None:
         torch.nn.Module.__init__(self)
-        prunable_block.PrunableBlock.__init__(
-            self,
-            original_module=original_module,
-            use_attention=use_attention,
-            use_mlp=use_mlp,
-        )
 
         self.norm1 = original_module.norm1
         self.attn = original_module.attn
@@ -44,8 +38,14 @@ class PrunableVisionTransformerBlock(torch.nn.Module, prunable_block.PrunableBlo
         self.ls2 = original_module.ls2
         self.drop_path2 = original_module.drop_path2
 
-        if set_unused_layers_to_none:
-            self.set_unused_layers_to_none()
+        # Called at the end sice it sets the unused layers to None automatically
+        prunable_block.PrunableBlock.__init__(
+            self,
+            original_module=original_module,
+            use_attention=use_attention,
+            use_mlp=use_mlp,
+            set_unused_layers_to_none=set_unused_layers_to_none,
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.use_attention:

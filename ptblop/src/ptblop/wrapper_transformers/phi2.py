@@ -40,18 +40,18 @@ class PrunablePhi2BLock(torch.nn.Module, prunable_block.PrunableBlock):
         set_unused_layers_to_none: bool = False,
     ):
         torch.nn.Module.__init__(self)
+        self.self_attn = original_module.self_attn
+        self.mlp = original_module.mlp
+        self.input_layernorm = original_module.input_layernorm
+        self.resid_dropout = original_module.resid_dropout
+        # Called at the end sice it sets the unused layers to None automatically
         prunable_block.PrunableBlock.__init__(
             self,
             original_module=original_module,
             use_attention=use_attention,
             use_mlp=use_mlp,
+            set_unused_layers_to_none=set_unused_layers_to_none,
         )
-        self.self_attn = original_module.self_attn
-        self.mlp = original_module.mlp
-        self.input_layernorm = original_module.input_layernorm
-        self.resid_dropout = original_module.resid_dropout
-        if set_unused_layers_to_none:
-            self.set_unused_layers_to_none()
 
     def forward(
         self,

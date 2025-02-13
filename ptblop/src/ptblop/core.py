@@ -1,5 +1,5 @@
 import logging
-from typing import cast
+from typing import Optional, cast
 
 import torch
 
@@ -7,7 +7,7 @@ from . import prunable_block, utils
 
 logger = logging.getLogger(__name__)
 
-_WRAPPER_DICT_TYPE = dict[type[torch.nn.Module], type[torch.nn.Module]]
+_WRAPPER_DICT_TYPE = dict[type[torch.nn.Module], type[prunable_block.PrunableBlock]]
 
 try:
     from transformers.models.llama.modeling_llama import (  # type: ignore
@@ -174,7 +174,7 @@ def apply_bp_config_in_place(
         unknown_entries_str = ", ".join(sorted(unknown_entries))
         raise ValueError(f"Unknown bp_config entries: {unknown_entries_str}")
 
-    last_prunable_submodule = None
+    last_prunable_submodule: Optional[prunable_block.PrunableBlock] = None
 
     for submodule_name, submodule in module.named_modules():
         module_config = bp_config.get(submodule_name)
@@ -187,7 +187,7 @@ def apply_bp_config_in_place(
                     submodule.set_unused_layers_to_none()
                 # Check if we did not enable layers previously set to None
                 submodule.check_used_layers_not_none()
-                last_prunable_submodule = cast(torch.nn.Module, submodule)
+                last_prunable_submodule = submodule
         else:
             submodule_type = type(submodule)
             if submodule_type in _BLOCK_TYPE_TO_WRAPPER_TYPE:
@@ -202,7 +202,9 @@ def apply_bp_config_in_place(
                     use_mlp=module_config["use_mlp"],
                     set_unused_layers_to_none=set_unused_layers_to_none,
                 )
-                utils.replace_submodule_in_place(module, submodule_name, new_submodule)
+                utils.replace_submodule_in_place(
+                    module, submodule_name, cast(torch.nn.Module, new_submodule)
+                )
                 last_prunable_submodule = new_submodule
 
     # Assumption - there should be only one type of modules
