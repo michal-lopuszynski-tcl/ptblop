@@ -1,7 +1,7 @@
 # TODO
 + **!..** Add `set_unused_layers_to_none` function to `ptblop`
 + **!..** Define type alias for `bp_config`
-+ **!..** Remove transformers < 4.48 at some point
++ **!..** Remove support for transformers < 4.48 at some point
 + **...** Add raising value error if the `bp_config` on `apply_bp_config_in_place` is malformed
 + **...** Add logging in deleting modules
 + **...** Rewrite everything in core.py using named_modules() (simplify)
@@ -9,8 +9,12 @@
 + **...** In `apply_bp_config_in_place`, how to call `fix_root_model` when multiple types of blocks are present? Should we care?
 + **...** Add some visualization of models with pruned blocks?
 
-# ptblop 0.1.0
-+ **!!!** Fix transformers 4.48 compatibility
+# DONE
+
+## ptblop 0.2.0
++ Fix transformers 4.48 compatibility
+
+## ptblop 0.1.0
 + **[tests]** Add test if block with disabled both attention and mlps is equivalent to identity
 + **[tests]** Add model.eval in tests
 + **[tests]** Add test_cpu target to Makefile.inc
