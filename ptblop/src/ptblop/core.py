@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 _WRAPPER_DICT_TYPE = dict[type[torch.nn.Module], type[prunable_block.PrunableBlock]]
 
 try:
+    import transformers  # type: ignore
     from transformers.models.llama.modeling_llama import (  # type: ignore
         LlamaDecoderLayer,
     )
@@ -18,11 +19,23 @@ try:
         Qwen2DecoderLayer,
     )
 
-    from .wrapper_transformers import (
-        PrunableLlamaBlock,
-        PrunablePhi2BLock,
-        PrunableQwen2Block,
-    )
+    def is_old_tranformers() -> bool:
+        version = transformers.__version__
+        major, minor = map(int, version.split(".")[:2])
+        return (major < 4) or (major == 4 and minor < 48)
+
+    if is_old_tranformers():
+        from .wrapper_transformers_pre448 import (
+            PrunableLlamaBlock,
+            PrunablePhi2BLock,
+            PrunableQwen2Block,
+        )
+    else:
+        from .wrapper_transformers import (  # type: ignore[assignment]
+            PrunableLlamaBlock,
+            PrunablePhi2BLock,
+            PrunableQwen2Block,
+        )
 
     _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS: _WRAPPER_DICT_TYPE = {
         Qwen2DecoderLayer: PrunableQwen2Block,
