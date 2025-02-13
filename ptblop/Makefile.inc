@@ -6,6 +6,7 @@ F=set_it_to_reformated_file_from_cli
 all: build
 
 build:
+	rm -rf dist
 	python3 -mbuild
 
 
