@@ -2,15 +2,14 @@ from typing import Any, Optional
 
 import torch
 import transformers  # type: ignore
+from transformers.cache_utils import Cache  # type: ignore
+from transformers.modeling_flash_attention_utils import (  # type: ignore
+    FlashAttentionKwargs,
+)
+from transformers.processing_utils import Unpack  # type: ignore
 
 from .. import prunable_block
 from . import common
-
-_FORWARD_OUTPUT_TYPE = (
-    tuple[torch.Tensor]
-    | tuple[torch.Tensor, Optional[torch.Tensor]]
-    | tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]
-)
 
 
 class PrunableLlamaBlock(torch.nn.Module, prunable_block.PrunableBlock):
@@ -56,17 +55,18 @@ class PrunableLlamaBlock(torch.nn.Module, prunable_block.PrunableBlock):
         hidden_states: torch.Tensor,
         attention_mask: Optional[torch.Tensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
-        past_key_value: Optional[transformers.Cache] = None,
+        past_key_value: Optional[Cache] = None,
         output_attentions: Optional[bool] = False,
         use_cache: Optional[bool] = False,
         cache_position: Optional[torch.LongTensor] = None,
+        # necessary, but kept here for BC
         position_embeddings: Optional[tuple[torch.Tensor, torch.Tensor]] = None,
-        **kwargs: Any,
-    ) -> _FORWARD_OUTPUT_TYPE:
+        **kwargs: Unpack[FlashAttentionKwargs],
+    ) -> tuple[torch.Tensor] | tuple[torch.Tensor, Any]:
 
         if self.use_attention:
             out = self.input_layernorm(hidden_states)
-            out, self_attn_weights, present_key_value = self.self_attn(
+            out, self_attn_weights = self.self_attn(
                 hidden_states=out,
                 attention_mask=attention_mask,
                 position_ids=position_ids,
@@ -74,23 +74,19 @@ class PrunableLlamaBlock(torch.nn.Module, prunable_block.PrunableBlock):
                 output_attentions=output_attentions,
                 use_cache=use_cache,
                 cache_position=cache_position,
+                position_embeddings=position_embeddings,
+                **kwargs,
             )
             hidden_states = hidden_states + out
         else:
             self_attn_weights = None
-            present_key_value = past_key_value
 
         if self.use_mlp:
             out = self.post_attention_layernorm(hidden_states)
             out = self.mlp(out)
             hidden_states = hidden_states + out
 
-        outputs: _FORWARD_OUTPUT_TYPE = (hidden_states,)
-
         if output_attentions:
-            outputs = (*outputs, self_attn_weights)
-
-        if use_cache:
-            outputs = (*outputs, present_key_value)
-
-        return outputs
+            return hidden_states, self_attn_weights
+        else:
+            return (hidden_states,)
