@@ -13,6 +13,8 @@ def _conv_str_to_dtype(s: str) -> torch.dtype:
         return torch.bfloat16
     elif s == "torch.float16":
         return torch.float16
+    elif s == "auto":
+        return s
     raise ValueError(f"Unknown dtype {s}")
 
 
@@ -66,6 +68,5 @@ def make_model(
         model_name, revision=model_revision, trust_remote_code=True
     )
     _add_pad_token(model=model, model_name=model_name, tokenizer=tokenizer)
-    model.to(model_dtype)
     model.to(device)
     return model, tokenizer
