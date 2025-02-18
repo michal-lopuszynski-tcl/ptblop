@@ -203,23 +203,30 @@ def get_quality_feature_names(bp_configs):
     return feature_names
 
 
-def get_quality_features(bp_configs):
+def get_quality_features(bp_configs, full_block_mode):
 
     def __cast(v):
         return float(v)
 
     feature_list = []
-
-    for bpc in bp_configs:
-        row = []
-        # bp_configs[0] just in case other configs have different keys order
-        for entry in bp_configs[0]:
-            f1 = __cast(bpc[entry]["use_attention"])
-            row.append(f1)
-            f2 = __cast(bpc[entry]["use_mlp"])
-            row.append(f2)
-        feature_list.append(row)
-
+    if not full_block_mode:
+        for bpc in bp_configs:
+            row = []
+            # bp_configs[0] just in case other configs have different keys order
+            for entry in bp_configs[0]:
+                f1 = __cast(bpc[entry]["use_attention"])
+                row.append(f1)
+                f2 = __cast(bpc[entry]["use_mlp"])
+                row.append(f2)
+            feature_list.append(row)
+    else:
+        for bpc in bp_configs:
+            row = []
+            # bp_configs[0] just in case other configs have different keys order
+            for entry in bp_configs[0]:
+                assert bpc[entry]["use_attention"] == bpc[entry]["use_mlp"]
+                row.append(__cast(bpc[entry]["use_attention"]))
+            feature_list.append(row)
     features = np.array(feature_list)
     return features
 
@@ -263,11 +270,11 @@ def train_quality_estimator(
     estimator_id = f"qual{data_iter:04d}_{suffix}"
 
     data_trn, data_val = read_data(bp_config_db_path, data_iter)
-    X_trn = get_quality_features([d["bp_config"] for d in data_trn])
+    X_trn = get_quality_features([d["bp_config"] for d in data_trn], full_block_mode)
     y_trn = get_target(data_trn, "evaluation." + quality_metric)
     logger.info(f"{X_trn.shape=} {X_trn.dtype=} {y_trn.shape=} {y_trn.dtype=}")
 
-    X_val = get_quality_features([d["bp_config"] for d in data_val])
+    X_val = get_quality_features([d["bp_config"] for d in data_val], full_block_mode)
     y_val = get_target(data_val, "evaluation." + quality_metric)
     logger.info(f"{X_val.shape=} {X_val.dtype=} {y_val.shape=} {y_val.dtype=}")
 
@@ -385,10 +392,10 @@ def train_param_estimator(
     estimator_id = f"cost{data_iter:04d}_{suffix}"
 
     data_trn, data_val = read_data(bp_config_db_path, data_iter)
-    X_trn = get_quality_features([d["bp_config"] for d in data_trn])
+    X_trn = get_quality_features([d["bp_config"] for d in data_trn], full_block_mode)
     y_trn = get_target(data_trn, "mparams")
     logger.info(f"{X_trn.shape=} {X_trn.dtype=} {y_trn.shape=} {y_trn.dtype=}")
-    X_val = get_quality_features([d["bp_config"] for d in data_val])
+    X_val = get_quality_features([d["bp_config"] for d in data_val], full_block_mode)
     y_val = get_target(data_val, "mparams")
     logger.info(f"{X_val.shape=} {X_val.dtype=} {y_val.shape=} {y_val.dtype=}")
 

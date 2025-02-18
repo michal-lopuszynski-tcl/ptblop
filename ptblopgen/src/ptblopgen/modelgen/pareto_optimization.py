@@ -99,14 +99,21 @@ class BinaryProblem(pymoo.core.problem.Problem):
         out["F"] = np.column_stack([f1, f2])
 
 
-def get_bp_config_from_features(sample_bp_config, features):
-    assert len(features) == 2 * len(sample_bp_config)
-    res = {}
+def get_bp_config_from_features(sample_bp_config, features, full_block_mode):
 
-    for i, k in enumerate(sample_bp_config):
-        use_attention = float(features[2 * i]) > 0.5
-        use_mlp = float(features[2 * i + 1]) > 0.5
-        res[k] = {"use_attention": use_attention, "use_mlp": use_mlp}
+    res = {}
+    if not full_block_mode:
+        assert len(features) == 2 * len(sample_bp_config)
+        for i, k in enumerate(sample_bp_config):
+            use_attention = float(features[2 * i]) > 0.5
+            use_mlp = float(features[2 * i + 1]) > 0.5
+            res[k] = {"use_attention": use_attention, "use_mlp": use_mlp}
+    else:
+        assert len(features) == len(sample_bp_config)
+        for i, k in enumerate(sample_bp_config):
+            is_block_on = float(features[i]) > 0.5
+            res[k] = {"use_attention": is_block_on, "use_mlp": is_block_on}
+
     return res
 
 
@@ -170,6 +177,7 @@ def find_pareto_front(
     n_features,
     pareto_path,
     config_pareto_optimization: configurator.ParetoOptimizationConfig,
+    full_block_mode,
 ):
     t1 = time.perf_counter()
     f_quality = build_predict_quality(quality_estimator)
@@ -218,7 +226,9 @@ def find_pareto_front(
     v_ptblop, v_ptblopgen = utils.get_versions()
     for i in range(m):
         features = res.X[i, :]
-        bp_config = get_bp_config_from_features(bp_config_unpruned, features)
+        bp_config = get_bp_config_from_features(
+            bp_config_unpruned, features, full_block_mode
+        )
         n, n_attention, n_mlp = get_bp_config_stats(bp_config)
         q, qmin, qmax = quality_estimator.predict_with_bounds([features])
         params = cost_estimator.predict([features])

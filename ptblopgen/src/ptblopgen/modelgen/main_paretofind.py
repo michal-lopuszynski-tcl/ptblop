@@ -95,4 +95,5 @@ def main_paretofind(
         bp_config_unpruned=bp_config_unpruned,
         pareto_path=pareto_front_path,
         config_pareto_optimization=config_pareto_optimization,
+        full_block_mode=config_sampler.full_block_mode,
     )

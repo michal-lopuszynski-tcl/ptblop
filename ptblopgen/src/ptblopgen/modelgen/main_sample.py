@@ -67,12 +67,15 @@ class BPConfigGenerators:
 # Bpconfigs - helper functions
 
 
-def genereate_bp_config_changes(bp_config_unpruned):
+def genereate_bp_config_changes(bp_config_unpruned, full_block_mode):
     config_changes = []
-
-    for k, v in bp_config_unpruned.items():
-        for k1 in v:
-            config_changes.append({k: {k1: False}})
+    if not full_block_mode:
+        for k, v in bp_config_unpruned.items():
+            for k1 in v:
+                config_changes.append({k: {k1: False}})
+    else:
+        for k, v in bp_config_unpruned.items():
+            config_changes.append({k: {k1: False for k1 in v}})
     return config_changes
 
 
@@ -187,7 +190,7 @@ def make_onel_bp_config_generator(bp_config_unpruned, full_block_mode):
 
     # Generate all one point changes ans shuffle them
 
-    cfg_changes_all = genereate_bp_config_changes(bp_config_unpruned)
+    cfg_changes_all = genereate_bp_config_changes(bp_config_unpruned, full_block_mode)
     bp_configs = []
 
     for cfg_change in cfg_changes_all:
@@ -274,7 +277,6 @@ def make_rand_bp_config(
     max_random_config_trials,
     rng,
     processed_bp_config_signatures,
-    full_block_mode,
 ):
 
     bp_config, bp_config_signature = None, None
@@ -308,7 +310,7 @@ def make_rand_bp_config_generator(
     full_block_mode,
     processed_bp_config_signatures,
 ):
-    cfg_changes_all = genereate_bp_config_changes(bp_config_unpruned)
+    cfg_changes_all = genereate_bp_config_changes(bp_config_unpruned, full_block_mode)
 
     while True:
         num_changes = rng.randint(min_num_changes, max_num_changes)
@@ -318,17 +320,16 @@ def make_rand_bp_config_generator(
             bp_config_unpruned=bp_config_unpruned,
             max_random_config_trials=max_random_config_trials,
             rng=rng,
-            full_block_mode=full_block_mode,
             processed_bp_config_signatures=processed_bp_config_signatures,
         )
         if bp_config is not None:
             yield bp_config, bp_config_score
 
 
-def conv_quality_estimator_to_scoring_fn(quality_estimator):
+def conv_quality_estimator_to_scoring_fn(quality_estimator, full_block_mode):
 
     def __scoring_fn(bp_configs):
-        X = estimator_helpers.get_quality_features(bp_configs)
+        X = estimator_helpers.get_quality_features(bp_configs, full_block_mode)
         _, ypred_min, ypred_max = quality_estimator.predict_with_bounds(X)
         return np.abs(ypred_max - ypred_min)
 
@@ -347,8 +348,10 @@ def make_actl_bp_config_generator(
     quality_estimator,
     full_block_mode,
 ):
-    cfg_changes_all = genereate_bp_config_changes(bp_config_unpruned)
-    scoring_fn = conv_quality_estimator_to_scoring_fn(quality_estimator)
+    cfg_changes_all = genereate_bp_config_changes(bp_config_unpruned, full_block_mode)
+    scoring_fn = conv_quality_estimator_to_scoring_fn(
+        quality_estimator, full_block_mode
+    )
 
     while True:
 
@@ -370,7 +373,6 @@ def make_actl_bp_config_generator(
                 max_random_config_trials=max_random_config_trials,
                 rng=rng,
                 processed_bp_config_signatures=tmp_singnatures,
-                full_block_mode=full_block_mode,
             )
             if max_bp_config is not None:
                 candidate_bp_configs.append(max_bp_config)
@@ -520,6 +522,20 @@ def make_bp_config_generators(
     )
 
 
+def get_max_num_changes(factor, bp_config_unpruned, full_block_mode):
+    if not full_block_mode:
+        return round(2 * factor * len(bp_config_unpruned))
+    else:
+        return round(factor * len(bp_config_unpruned))
+
+
+def get_max_onel(bp_config_unpruned, full_block_mode):
+    if not full_block_mode:
+        return 2 * len(bp_config_unpruned)
+    else:
+        return len(bp_config_unpruned)
+
+
 def main_sample(config: dict[str, Any], output_path: pathlib.Path) -> None:
     config_sampler = configurator.SamplerConfig(**config["sampler"])
     config_pareto_optimization = configurator.ParetoOptimizationConfig(
@@ -550,9 +566,12 @@ def main_sample(config: dict[str, Any], output_path: pathlib.Path) -> None:
     bp_config_unpruned = ptblop.get_unpruned_bp_config(processing_env.model)
 
     # Two because each block is two possible changes (mlp and attention)
-    max_num_changes = round(
-        2 * config_sampler.max_num_changes_factor * len(bp_config_unpruned)
+    max_num_changes = get_max_num_changes(
+        config_sampler.max_num_changes_factor,
+        bp_config_unpruned,
+        config_sampler.full_block_mode,
     )
+    max_onel = get_max_onel(bp_config_unpruned, config_sampler.full_block_mode)
     logger.info(
         f"{max_num_changes=} num_blocks={len(bp_config_unpruned)} "
         f"max_num_changes_factor={config_sampler.max_num_changes_factor}"
@@ -578,7 +597,7 @@ def main_sample(config: dict[str, Any], output_path: pathlib.Path) -> None:
             data_iter,
             config_sampler.n_val_rand,
             config_sampler.trn_data_iter_configs,
-            2 * len(bp_config_unpruned),
+            max_onel,
         )
 
         for bp_config_type, bp_config_id in iter_generator:
@@ -704,5 +723,6 @@ def main_sample(config: dict[str, Any], output_path: pathlib.Path) -> None:
                     bp_config_unpruned=bp_config_unpruned,
                     pareto_path=pareto_front_path,
                     config_pareto_optimization=config_pareto_optimization,
+                    full_block_mode=config_sampler.full_block_mode,
                 )
                 is_new_pareto_front = True
