@@ -255,6 +255,7 @@ def train_quality_estimator(
     data_iter: int,
     quality_metric: str,
     run_id: str,
+    full_block_mode: bool,
 ):
     estimator_kwargs = None  # TODO: make it a parameter
 
@@ -378,6 +379,7 @@ def train_param_estimator(
     cost_estimators_db_path: pathlib.Path,
     data_iter: int,
     run_id: str,
+    full_block_mode: bool,
 ):
     suffix = f"{utils.get_timestamp_for_fname()}_{utils.get_random_str(6)}"
     estimator_id = f"cost{data_iter:04d}_{suffix}"

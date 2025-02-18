@@ -21,6 +21,7 @@ class SamplerConfig(pydantic.BaseModel):
     n_data_iter: int
     n_val_rand: int
     trn_data_iter_configs: list[TrnDataBlockConfig]
+    full_block_mode: bool
 
 
 class ParetoOptimizationConfig(pydantic.BaseModel):

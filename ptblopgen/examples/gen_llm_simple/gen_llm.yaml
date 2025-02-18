@@ -28,6 +28,8 @@ sampler:
   actl_num_scored_candidates: 1000
   parf_min_quality_evaluator_metric: 0.7
 
+  full_block_mode: True
+
   n_data_iter: 4
   n_val_rand: 128
   trn_data_iter_configs:
