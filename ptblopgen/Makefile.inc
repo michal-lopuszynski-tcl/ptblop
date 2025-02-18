@@ -22,6 +22,15 @@ build_zip:
 	printf "import sys\nimport ptblopgen.cli\n\nsys.exit(ptblopgen.cli.main())\n" > __main__.py && \
 	zip -r $${ZIP_NAME} ptblop ptblopgen __main__.py && \
 	rm -rf ptblop ptblopgen __main__.py
+	ZIP_SUFFIX="-mod"; \
+	git diff --exit-code && ZIP_SUFFIX=""; \
+	ZIP_NAME="ptblopgen-plain-$$(git rev-list --count HEAD)-$$(git rev-parse --short HEAD)$${ZIP_SUFFIX}.zip"; \
+	cd $(ZIP_DIR) && \
+	cp -rp ../src/ptblopgen . && \
+	printf "import sys\nimport ptblopgen.cli\n\nsys.exit(ptblopgen.cli.main())\n" > __main__.py && \
+	zip -r $${ZIP_NAME} ptblop ptblopgen __main__.py && \
+	rm -rf ptblop ptblopgen __main__.py
+
 
 check: -check_black -check_isort -check_flake8 -check_mypy
 
