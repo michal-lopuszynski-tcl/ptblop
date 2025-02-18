@@ -318,6 +318,8 @@ class LMEvalWithPPLEvaluator:
         self.lm_eval_tasks = [em for em in evaluator_metrics if em != "ppl"]
 
     def __call__(self, model: torch.nn.Module, device: torch.device):
+
+        model.eval()
         if self.ppl_dl is not None:
             t1 = time.perf_counter()
             perplexity = calc_perplexity(
