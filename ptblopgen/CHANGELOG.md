@@ -1,5 +1,4 @@
 # TODO
-+ **!!.** Add full block mode
 + **!!.** Add option to customize cost model
 + **!!.** Add simple id to saved PFs
 + **!..** Add support for vision transformers evaluation
@@ -9,6 +8,7 @@
 
 
 # DONE
++ Add full block mode
 + Add support for vision transformers blocks
 + Add versioning zips
 + Add handling of restarts
