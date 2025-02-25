@@ -9,3 +9,4 @@ from .core import (  # noqa: F401
     get_unpruned_bp_config,
     has_prunable_blocks,
 )
+from .prunable_block import PrunableBlock  # noqa: F401
