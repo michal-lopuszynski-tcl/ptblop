@@ -69,7 +69,7 @@ def process_bp_config(
     ptblop.apply_bp_config_in_place(
         processing_env.model, bp_config, set_unused_layers_to_none=False
     )
-    res["mparams"] = ptblop.get_num_active_params(processing_env.model) / 1.0e6
+    res["mparams"] = utils.get_num_active_params(processing_env.model) / 1.0e6
     res_evaluation = processing_env.evaluator_fn(
         processing_env.model, processing_env.device
     )

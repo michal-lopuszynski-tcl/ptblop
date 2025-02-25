@@ -438,7 +438,7 @@ def process_bp_config(
         res["n_attention"] = ptblop.get_num_attention_blocks(processing_env.model)
         res["n_mlp"] = ptblop.get_num_mlp_blocks(processing_env.model)
         res["n"] = ptblop.get_num_prunable_blocks(processing_env.model)
-        res["mparams"] = ptblop.get_num_active_params(processing_env.model) / 1.0e6
+        res["mparams"] = utils.get_num_active_params(processing_env.model) / 1.0e6
         res["evaluation"] = processing_env.evaluator_fn(
             processing_env.model, processing_env.device
         )

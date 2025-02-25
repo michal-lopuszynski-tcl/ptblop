@@ -7,6 +7,13 @@ from typing import Any
 
 import ptblop
 
+try:
+    import awq
+
+    WQLINEAR_GEMM_TYPE = awq.modules.linear.gemm.WQLinear_GEMM
+except ImportError:
+    WQLINEAR_GEMM_TYPE = type(None)
+
 from . import _version
 
 
@@ -76,3 +83,62 @@ def update_db(
 
     with open(db_path, flag) as f:
         f.write(json.dumps(db_entry) + "\n")
+
+
+def _get_weight_size_dict(model, prefix, fill_none):
+    if prefix:
+        prefix = f"{prefix}."
+
+    if isinstance(model, WQLINEAR_GEMM_TYPE):
+        res = {}
+        for k in model.state_dict():
+            if not fill_none:
+                if k == "qweight":
+                    res[f"{prefix}qweight"] = (
+                        model.in_features * model.out_features,
+                        model.qweight.data_ptr(),
+                    )
+                elif k == "bias":
+                    res[f"{prefix}bias"] = (model.bias.numel(), model.bias.data_ptr())
+                else:
+                    res[f"{prefix}{k}"] = (None, None)
+            else:
+                res[f"{prefix}{k}"] = (None, None)
+        return res
+    else:
+        if isinstance(model, ptblop.PrunableBlock):
+            skip_names = model.get_unused_layer_names()
+        else:
+            skip_names = set()
+
+        res = {}
+
+        for name, submodel in model.named_children():
+            if name not in skip_names:
+                res_cur = _get_weight_size_dict(submodel, f"{prefix}{name}", fill_none)
+            else:
+                res_cur = _get_weight_size_dict(submodel, f"{prefix}{name}", True)
+            res |= res_cur
+
+        sd = model.state_dict()
+
+        for k in sd:
+            kk = f"{prefix}{k}"
+            if kk not in res:
+                if fill_none:
+                    res[kk] = (None, None)
+                else:
+                    v = sd[k]
+                    res[kk] = (v.numel(), v.data_ptr())
+        return res
+
+
+def get_num_active_params(model):
+    # This function improves handling of AWQ quantized models.
+    # For the AWQ model it returns the same number of parameter as for bfloat16 model
+    # Note. This is not always desireable, perhas you want to prune towards model byte
+    # size.
+    wd_raw = _get_weight_size_dict(model, "", False)
+    wd = {k: v for k, v in wd_raw.items() if v[0] is not None}
+    ptrs = {v[1]: v[0] for v in wd.values()}
+    return sum(ptrs.values())
