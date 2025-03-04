@@ -140,16 +140,21 @@ class EnsembleGradientBoostingBoundsEstimator(_EnsembleBoundsEstimator):
 
 class QuantileGradientBoostingBoundsEstimator(BoundsEstimator):
 
-    def __init__(self, **kwargs):
+    def __init__(
+        self,
+        q_min,
+        q_max,
+        **kwargs,
+    ):
         super().__init__()
         self.regressor_median = sklearn.ensemble.GradientBoostingRegressor(
             loss="quantile", alpha=0.5, **kwargs
         )
         self.regressor_min = sklearn.ensemble.GradientBoostingRegressor(
-            loss="quantile", alpha=0.2, **kwargs
+            loss="quantile", alpha=q_min, **kwargs
         )
         self.regressor_max = sklearn.ensemble.GradientBoostingRegressor(
-            loss="quantile", alpha=0.8, **kwargs
+            loss="quantile", alpha=q_max, **kwargs
         )
 
     def fit(self, X, y):
