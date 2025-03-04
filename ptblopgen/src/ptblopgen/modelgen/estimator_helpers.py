@@ -116,6 +116,7 @@ def evaluate_bounds_estimator(
 
         axs[0, 1].set_title("err_trn_true vs err_trn_pred")
         axs[0, 1].scatter(err_trn, err_trn_pred, alpha=ALPHA, c=CTRN)
+        axs[0, 1].axline((err_trn[0], err_trn[0]), slope=1, c="black")
         axs[0, 1].grid()
         axs[0, 1].set_ylabel("err_pred")
 
@@ -134,6 +135,7 @@ def evaluate_bounds_estimator(
 
         axs[1, 1].set_title("err_val_true vs err_val_pred")
         axs[1, 1].scatter(err_val, err_val_pred, alpha=ALPHA, c=CVAL)
+        axs[1, 1].axline((err_val[0], err_val[0]), slope=1, c="black")
         axs[1, 1].grid()
         axs[1, 1].set_xlabel("err_true")
         axs[1, 1].set_ylabel("err_pred")
