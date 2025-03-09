@@ -11,6 +11,9 @@
 
 # DONE
 
+## ptblop 0.2.1
++  Add exporting PrunableBlock class
+
 ## ptblop 0.2.0
 + Fix transformers 4.48 compatibility
 
