@@ -121,7 +121,7 @@ def prepare_dataloader_v1(
         ds = datasets.Dataset.from_dict({data_name: new_data_list})
 
     def tokenize(
-        data_batch: dict[str, torch.Tensor]
+        data_batch: dict[str, torch.Tensor],
     ) -> transformers.tokenization_utils_base.BatchEncoding:
         # tokenize then pad each batch according to the longest sequence in the batch
         batch = tokenizer(
@@ -307,13 +307,14 @@ def make_dataloader_perplexity(
 
 
 class LMEvalWithPPLEvaluator:
-    def __init__(self, tokenizer, evaluator_metrics):
+    def __init__(self, tokenizer, evaluator_metrics, evaluator_limit):
         if "ppl" in evaluator_metrics:
             self.ppl_dl, _ = make_dataloader_perplexity(tokenizer)
         else:
             self.ppl_dl = None
         self.tokenizer = tokenizer
         self.lm_eval_tasks = [em for em in evaluator_metrics if em != "ppl"]
+        self.evaluator_limit = evaluator_limit
 
     def __call__(self, model: torch.nn.Module, device: torch.device):
 
@@ -344,6 +345,7 @@ class LMEvalWithPPLEvaluator:
                         tasks=self.lm_eval_tasks,
                         tokenizer=self.tokenizer,
                         device=device,
+                        limit=self.evaluator_limit,
                     )
                     break
                 except Exception as e:
@@ -406,7 +408,11 @@ class MockLMEvalWithPPLEvaluator:
 def make_evaluator(evaluator_config, tokenizer):
     evaluator_name = evaluator_config["evaluator_name"]
     if evaluator_name == "lm_eval_with_ppl":
-        return LMEvalWithPPLEvaluator(tokenizer, evaluator_config["evaluator_metrics"])
+        return LMEvalWithPPLEvaluator(
+            tokenizer,
+            evaluator_config["evaluator_metrics"],
+            evaluator_config["evaluator_limit"],
+        )
     elif evaluator_name == "mock_lm_eval_with_ppl":
         return MockLMEvalWithPPLEvaluator(
             tokenizer,
