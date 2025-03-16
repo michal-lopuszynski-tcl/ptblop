@@ -220,14 +220,12 @@ def calc_lm_eval_metrics(
         pretrained=model, tokenizer=tokenizer, device=device
     )
 
-    num_fewshot = 0
     results = lm_eval.evaluator.simple_evaluate(
         model=lm_eval_model,
         tasks=tasks,
-        num_fewshot=num_fewshot,
         batch_size="auto",
-        max_batch_size=None,
         device=device,
+        confirm_run_unsafe_code=True,
     )
     results_str = lm_eval.utils.make_table(results)
 
