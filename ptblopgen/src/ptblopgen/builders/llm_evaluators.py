@@ -229,13 +229,12 @@ def calc_lm_eval_metrics(
         limit=limit,
         confirm_run_unsafe_code=True,
     )
-    results_str = lm_eval.utils.make_table(results)
 
     # Make results JSON-serializeable
     results["config"]["device"] = str(results["config"]["device"])
     results["config"]["model_dtype"] = str(results["config"]["device"])
 
-    return results, results_str
+    return results
 
 
 def calc_perplexity(
@@ -342,7 +341,7 @@ class LMEvalWithPPLEvaluator:
             t1 = time.perf_counter()
             while True:
                 try:
-                    res_dict, res_str = calc_lm_eval_metrics(
+                    res_dict = calc_lm_eval_metrics(
                         model=model,
                         tasks=self.lm_eval_tasks,
                         tokenizer=self.tokenizer,
@@ -357,10 +356,18 @@ class LMEvalWithPPLEvaluator:
 
             res_lm_eval = {}
             for task in self.lm_eval_tasks:
-                res_lm_eval[f"{task}"] = res_dict["results"][task]["acc,none"]
-                res_lm_eval[f"{task}_acc_stderr"] = res_dict["results"][task][
-                    "acc_stderr,none"
-                ]
+                res_dict_task = res_dict["results"][task]
+                if "acc,none" in res_dict_task:
+                    res_lm_eval[f"{task}"] = res_dict_task["acc,none"]
+                    res_lm_eval[f"{task}_stderr"] = res_dict_task["acc_stderr,none"]
+                elif "pass_at_1,none" in res_dict_task:
+                    res_lm_eval[f"{task}"] = res_dict_task["pass_at_1,none"]
+                    res_lm_eval[f"{task}_stderr"] = res_dict_task[
+                        "pass_at_1_stderr,none"
+                    ]
+                else:
+                    ValueError("No known_metric found - acc, pass_at_1")
+
             res_lm_eval["time_lm_eval"] = t2 - t1
         else:
             res_lm_eval = {}
