@@ -3,7 +3,7 @@ import collections
 import logging
 import random
 import time
-from typing import Any
+from typing import Any, Optional
 
 import datasets
 import lm_eval
@@ -214,6 +214,7 @@ def calc_lm_eval_metrics(
     tasks: list[str],
     tokenizer: transformers.PreTrainedTokenizerBase,
     device: torch.device,
+    limit: Optional[int],
 ) -> tuple[dict[str, Any], str]:
 
     lm_eval_model = lm_eval.models.huggingface.HFLM(
@@ -225,6 +226,7 @@ def calc_lm_eval_metrics(
         tasks=tasks,
         batch_size="auto",
         device=device,
+        limit=limit,
         confirm_run_unsafe_code=True,
     )
     results_str = lm_eval.utils.make_table(results)
