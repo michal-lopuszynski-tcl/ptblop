@@ -174,8 +174,17 @@ def get_unpruned_bp_config(module: torch.nn.Module) -> dict[str, dict[str, bool]
     return res
 
 
-def _is_multi_gpu(module: torch.nn.Module) -> bool:
-    raise NotImplementedError("_is_multi_gpu not implemented`")
+def _is_model_on_multiple_gpus(model: torch.nn.Module) -> bool:
+    devices = set()
+
+    for param in model.parameters():
+        if param.is_cuda:
+            devices.add(param.get_device())
+
+            if len(devices) > 1:
+                return True
+
+    return len(devices) > 1
 
 
 def _redispatch(module: torch.nn.Module) -> None:
@@ -183,7 +192,7 @@ def _redispatch(module: torch.nn.Module) -> None:
         import accelerate  # type: ignore
 
         if hasattr(module, "hf_device_map"):
-            logger.info("Dispatching model")
+            logger.info("Redispatching model using accelerate library")
             accelerate.dispatch_model(module, module.hf_device_map)
     except ImportError:
         pass
@@ -241,9 +250,11 @@ def apply_bp_config_in_place(
     # TODO: Perhaps add collecting all prunable types and call fix_root_model for each?
     if last_prunable_submodule is not None:
         last_prunable_submodule.fix_root_model(module)
+
+    # Fix multigpu model after applying wrapping
     if (
         not supress_multigpu_redispatch
         and torch.cuda.device_count() > 1
-        and _is_multi_gpu(module)
+        and _is_model_on_multiple_gpus(module)
     ):
         _redispatch(module)
