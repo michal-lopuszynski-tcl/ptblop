@@ -11,6 +11,9 @@
 
 # DONE
 
+## ptblop 0.3.0
++ Fix applying multi-gpu inference
+
 ## ptblop 0.2.1
 +  Add exporting PrunableBlock class
 
