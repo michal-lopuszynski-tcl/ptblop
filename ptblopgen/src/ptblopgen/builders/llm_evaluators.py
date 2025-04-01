@@ -3,7 +3,7 @@ import collections
 import logging
 import random
 import time
-from typing import Any, Optional
+from typing import Any
 
 import datasets
 import lm_eval
@@ -214,27 +214,42 @@ def calc_lm_eval_metrics(
     tasks: list[str],
     tokenizer: transformers.PreTrainedTokenizerBase,
     device: torch.device,
-    limit: Optional[int],
 ) -> tuple[dict[str, Any], str]:
 
     lm_eval_model = lm_eval.models.huggingface.HFLM(
         pretrained=model, tokenizer=tokenizer, device=device
     )
+    if isinstance(tasks, dict):
+        results = {}
+        for task, limit in tasks.items():
+            results_task = lm_eval.evaluator.simple_evaluate(
+                model=lm_eval_model,
+                tasks=[task],
+                batch_size="auto",
+                device=device,
+                limit=limit,
+                confirm_run_unsafe_code=True,
+            )
+            results_task["config"]["device"] = str(results["config"]["device"])
+            results_task["config"]["model_dtype"] = str(results["config"]["device"])
+            results[task] = results_task
+            return results
+    # TODO Remove this
+    # elif isinstance(tasks, list):
+    #     results = lm_eval.evaluator.simple_evaluate(
+    #         model=lm_eval_model,
+    #         tasks=tasks,
+    #         batch_size="auto",
+    #         device=device,
+    #         confirm_run_unsafe_code=True,
+    #     )
 
-    results = lm_eval.evaluator.simple_evaluate(
-        model=lm_eval_model,
-        tasks=tasks,
-        batch_size="auto",
-        device=device,
-        limit=limit,
-        confirm_run_unsafe_code=True,
-    )
-
-    # Make results JSON-serializeable
-    results["config"]["device"] = str(results["config"]["device"])
-    results["config"]["model_dtype"] = str(results["config"]["device"])
-
-    return results
+    #     # Make results JSON-serializeable
+    #     results["config"]["device"] = str(results["config"]["device"])
+    #     results["config"]["model_dtype"] = str(results["config"]["device"])
+    #     return results
+    else:
+        raise ValueError(f"Unknown {type(task)=}")
 
 
 def calc_perplexity(
@@ -308,14 +323,13 @@ def make_dataloader_perplexity(
 
 
 class LMEvalWithPPLEvaluator:
-    def __init__(self, tokenizer, evaluator_metrics, evaluator_limit):
+    def __init__(self, tokenizer, evaluator_metrics):
         if "ppl" in evaluator_metrics:
             self.ppl_dl, _ = make_dataloader_perplexity(tokenizer)
         else:
             self.ppl_dl = None
         self.tokenizer = tokenizer
         self.lm_eval_tasks = [em for em in evaluator_metrics if em != "ppl"]
-        self.evaluator_limit = evaluator_limit
 
     def __call__(self, model: torch.nn.Module, device: torch.device):
 
@@ -346,7 +360,6 @@ class LMEvalWithPPLEvaluator:
                         tasks=self.lm_eval_tasks,
                         tokenizer=self.tokenizer,
                         device=device,
-                        limit=self.evaluator_limit,
                     )
                     break
                 except Exception as e:
@@ -356,9 +369,14 @@ class LMEvalWithPPLEvaluator:
 
             res_lm_eval = {}
             for task in self.lm_eval_tasks:
-                res_dict_task = res_dict["results"][task]
+                # TODO Remove this
+                # if "results" in res_dict:
+                #     res_dict_task = res_dict["results"][task]
+                # else:
+                #     # This is for the case when task is dictionary task to limit
+                res_dict_task = res_dict[task]["results"][task]
                 if "acc,none" in res_dict_task:
-                    res_lm_eval[f"{task}"] = res_dict_task["acc,none"]
+                    res_lm_eval[task] = res_dict_task["acc,none"]
                     res_lm_eval[f"{task}_stderr"] = res_dict_task["acc_stderr,none"]
                 elif "pass_at_1,none" in res_dict_task:
                     res_lm_eval[f"{task}"] = res_dict_task["pass_at_1,none"]
