@@ -439,7 +439,6 @@ def make_evaluator(evaluator_config, tokenizer):
         return LMEvalWithPPLEvaluator(
             tokenizer,
             evaluator_config["evaluator_metrics"],
-            evaluator_config["evaluator_limit"],
         )
     elif evaluator_name == "mock_lm_eval_with_ppl":
         return MockLMEvalWithPPLEvaluator(
