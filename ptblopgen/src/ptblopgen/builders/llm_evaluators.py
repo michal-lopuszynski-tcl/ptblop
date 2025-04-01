@@ -222,6 +222,7 @@ def calc_lm_eval_metrics(
     if isinstance(tasks, dict):
         results = {}
         for task, limit in tasks.items():
+            logger.info(f"Runnning lm_eval_task={task} with {limit=}")
             results_task = lm_eval.evaluator.simple_evaluate(
                 model=lm_eval_model,
                 tasks=[task],
