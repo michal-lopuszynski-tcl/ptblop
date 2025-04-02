@@ -250,7 +250,7 @@ def calc_lm_eval_metrics(
     #     results["config"]["model_dtype"] = str(results["config"]["device"])
     #     return results
     else:
-        raise ValueError(f"Unknown {type(task)=}")
+        raise ValueError(f"Unknown {type(tasks)=}")
 
 
 def calc_perplexity(
@@ -330,7 +330,7 @@ class LMEvalWithPPLEvaluator:
         else:
             self.ppl_dl = None
         self.tokenizer = tokenizer
-        self.lm_eval_tasks = [em for em in evaluator_metrics if em != "ppl"]
+        self.lm_eval_tasks = {k: v for k, v in evaluator_metrics.items() if k != "ppl"}
 
     def __call__(self, model: torch.nn.Module, device: torch.device):
 
@@ -354,18 +354,25 @@ class LMEvalWithPPLEvaluator:
 
         if self.lm_eval_tasks:
             t1 = time.perf_counter()
-            while True:
-                try:
-                    res_dict = calc_lm_eval_metrics(
-                        model=model,
-                        tasks=self.lm_eval_tasks,
-                        tokenizer=self.tokenizer,
-                        device=device,
-                    )
-                    break
-                except Exception as e:
-                    logger.warning(f"Exception {e} during lm_eval")
-                    time.sleep(_SLEEP_SECONDS_ON_EXCEPTION)
+            res_dict = calc_lm_eval_metrics(
+                model=model,
+                tasks=self.lm_eval_tasks,
+                tokenizer=self.tokenizer,
+                device=device,
+            )
+            # TODO: Remove this code
+            # while True:
+            #     try:
+            #         res_dict = calc_lm_eval_metrics(
+            #             model=model,
+            #             tasks=self.lm_eval_tasks,
+            #             tokenizer=self.tokenizer,
+            #             device=device,
+            #         )
+            #         break
+            #     except Exception as e:
+            #         logger.warning(f"Exception {e} during lm_eval")
+            #         time.sleep(_SLEEP_SECONDS_ON_EXCEPTION)
             t2 = time.perf_counter()
 
             res_lm_eval = {}
