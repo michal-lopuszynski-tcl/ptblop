@@ -3,7 +3,7 @@ import collections
 import logging
 import random
 import time
-from typing import Any
+from typing import Any, Optional
 
 import datasets
 import lm_eval
@@ -211,7 +211,7 @@ def get_dataset(dataset_and_split_name: str) -> datasets.Dataset:
 
 def calc_lm_eval_metrics(
     model: torch.nn.Module,
-    tasks: list[str],
+    tasks: dict[str, Optional[float]],
     tokenizer: transformers.PreTrainedTokenizerBase,
     device: torch.device,
 ) -> tuple[dict[str, Any], str]:
@@ -231,8 +231,10 @@ def calc_lm_eval_metrics(
                 limit=limit,
                 confirm_run_unsafe_code=True,
             )
-            results_task["config"]["device"] = str(results["config"]["device"])
-            results_task["config"]["model_dtype"] = str(results["config"]["device"])
+            results_task["config"]["device"] = str(results_task["config"]["device"])
+            results_task["config"]["model_dtype"] = str(
+                results_task["config"]["device"]
+            )
             results[task] = results_task
             return results
     # TODO Remove this
