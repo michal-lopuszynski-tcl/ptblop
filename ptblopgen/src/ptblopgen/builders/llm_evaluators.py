@@ -236,7 +236,7 @@ def calc_lm_eval_metrics(
                 results_task["config"]["device"]
             )
             results[task] = results_task
-            return results
+        return results
     # TODO Remove this
     # elif isinstance(tasks, list):
     #     results = lm_eval.evaluator.simple_evaluate(
