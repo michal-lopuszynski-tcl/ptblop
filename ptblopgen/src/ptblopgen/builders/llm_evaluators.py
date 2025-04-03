@@ -6,6 +6,7 @@ import time
 from typing import Any, Optional
 
 import datasets
+import huggingface_hub
 import lm_eval
 import torch
 import transformers
@@ -174,9 +175,10 @@ def get_dataset(dataset_and_split_name: str) -> datasets.Dataset:
         raise ValueError(f"Unkown dataset {dataset_name}, available are {ds_available}")
 
     properties = DS_PROPERTIES[dataset_name]
-
+    try_number = 0
     while True:
         try:
+            try_number += 1
             ds = datasets.load_dataset(
                 properties["path"],
                 name=properties.get("config_name"),
@@ -184,7 +186,10 @@ def get_dataset(dataset_and_split_name: str) -> datasets.Dataset:
             )
             break
         except Exception as e:
-            logger.warning(f"Exception {e} during creating wikitext")
+            logger.warning(
+                f"Exception in wikitext creation, {try_number=}, exception {e=}",
+                f"sleeping {_SLEEP_SECONDS_ON_EXCEPTION} s.",
+            )
             time.sleep(_SLEEP_SECONDS_ON_EXCEPTION)
 
     if dataset_name == "alpaca":
@@ -237,20 +242,6 @@ def calc_lm_eval_metrics(
             )
             results[task] = results_task
         return results
-    # TODO Remove this
-    # elif isinstance(tasks, list):
-    #     results = lm_eval.evaluator.simple_evaluate(
-    #         model=lm_eval_model,
-    #         tasks=tasks,
-    #         batch_size="auto",
-    #         device=device,
-    #         confirm_run_unsafe_code=True,
-    #     )
-
-    #     # Make results JSON-serializeable
-    #     results["config"]["device"] = str(results["config"]["device"])
-    #     results["config"]["model_dtype"] = str(results["config"]["device"])
-    #     return results
     else:
         raise ValueError(f"Unknown {type(tasks)=}")
 
@@ -362,28 +353,28 @@ class LMEvalWithPPLEvaluator:
                 tokenizer=self.tokenizer,
                 device=device,
             )
-            # TODO: Remove this code
-            # while True:
-            #     try:
-            #         res_dict = calc_lm_eval_metrics(
-            #             model=model,
-            #             tasks=self.lm_eval_tasks,
-            #             tokenizer=self.tokenizer,
-            #             device=device,
-            #         )
-            #         break
-            #     except Exception as e:
-            #         logger.warning(f"Exception {e} during lm_eval")
-            #         time.sleep(_SLEEP_SECONDS_ON_EXCEPTION)
+            try_number = 0
+            while True:
+                try:
+                    try_number += 1
+                    res_dict = calc_lm_eval_metrics(
+                        model=model,
+                        tasks=self.lm_eval_tasks,
+                        tokenizer=self.tokenizer,
+                        device=device,
+                    )
+                    break
+                except huggingface_hub.errors.HfHubHTTPError as e:
+                    logger.warning(
+                        f"Exception in lm_eval, {try_number=}, exception {e=}",
+                        f"sleeping {_SLEEP_SECONDS_ON_EXCEPTION} s.",
+                    )
+                    time.sleep(_SLEEP_SECONDS_ON_EXCEPTION)
+
             t2 = time.perf_counter()
 
             res_lm_eval = {}
             for task in self.lm_eval_tasks:
-                # TODO Remove this
-                # if "results" in res_dict:
-                #     res_dict_task = res_dict["results"][task]
-                # else:
-                #     # This is for the case when task is dictionary task to limit
                 res_dict_task = res_dict[task]["results"][task]
                 if "acc,none" in res_dict_task:
                     res_lm_eval[task] = res_dict_task["acc,none"]
