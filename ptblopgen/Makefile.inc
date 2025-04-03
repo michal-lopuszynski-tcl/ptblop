@@ -1,7 +1,7 @@
 
 VER_FILE=src/$(MODULE_NAME)/_version.py
 
-ZIP_DIR=build_zip
+ZIP_DIR=dist_zip
 
 F=set_it_to_reformated_file_from_cli
 
@@ -62,7 +62,7 @@ test_cpu:
 	CUDA_VISIBLE_DEVICES="" pytest -vv tests
 
 clean:
-	rm -rf make.black.log make.flake8.log make.mypy.log $(FILES_TO_CLEAN)
+	rm -rf make.black.log make.flake8.log make.mypy.log $(ZIP_DIR) $(FILES_TO_CLEAN)
 
 fix:
 	ISORT_FLAGS="$(ISORT_FLAGS)" ./aux/fix.sh $(F)
