@@ -347,12 +347,6 @@ class LMEvalWithPPLEvaluator:
 
         if self.lm_eval_tasks:
             t1 = time.perf_counter()
-            res_dict = calc_lm_eval_metrics(
-                model=model,
-                tasks=self.lm_eval_tasks,
-                tokenizer=self.tokenizer,
-                device=device,
-            )
             try_number = 0
             while True:
                 try:
@@ -370,7 +364,6 @@ class LMEvalWithPPLEvaluator:
                         f"sleeping {_SLEEP_SECONDS_ON_EXCEPTION} s.",
                     )
                     time.sleep(_SLEEP_SECONDS_ON_EXCEPTION)
-
             t2 = time.perf_counter()
 
             res_lm_eval = {}
