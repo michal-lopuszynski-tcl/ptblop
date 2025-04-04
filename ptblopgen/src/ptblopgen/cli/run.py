@@ -13,6 +13,7 @@ import yaml
 from .. import modelgen, utils
 
 REPRO_SUBDIR_PREFIX = "repro"
+BP_CONFIG_SUBDIR_PREFIX = "bp_configs"
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,9 @@ def parse_args() -> tuple[argparse.Namespace, str]:
     parser_gen = subparsers.add_parser("paretofind")
     parser_gen.add_argument("--config", type=pathlib.Path, required=True)
     parser_gen.add_argument("--output-path", type=pathlib.Path, required=True)
-    parser_gen.add_argument("--bp-configs-path", type=pathlib.Path, required=True)
+    parser_gen.add_argument(
+        "--bp-configs-path", action="append", type=pathlib.Path, required=True
+    )
 
     parser_gen = subparsers.add_parser("paretoeval")
     parser_gen.add_argument("--config", type=pathlib.Path, required=True)
@@ -127,7 +130,7 @@ def save_requirements(
 def make_repro_dir(
     args: argparse.Namespace,
     repro_subdir_prefix: str,
-    bp_configs_path: Optional[pathlib.Path] = None,
+    bp_configs_paths: Optional[list[pathlib.Path]] = None,
 ) -> None:
     repro_subdir = repro_subdir_prefix + "." + utils.get_timestamp_for_fname()
     repro_path = args.output_path / repro_subdir
@@ -136,14 +139,18 @@ def make_repro_dir(
         repro_path / "requirements.txt", repro_path / "requirements_unsafe.txt"
     )
 
-    if bp_configs_path is None:
-        bp_configs_path = args.output_path / modelgen.BP_CONFIG_DB_FNAME
+    if bp_configs_paths is None:
+        bp_configs_paths = [args.output_path / modelgen.BP_CONFIG_DB_FNAME]
 
-    if bp_configs_path.exists():
-        bp_config_bak_path = repro_path / (modelgen.BP_CONFIG_DB_FNAME + ".gz")
-        with open(bp_configs_path, "rb") as f_in:
-            with gzip.open(bp_config_bak_path, "wb") as f_out:
-                shutil.copyfileobj(f_in, f_out)
+    for i, cur_bp_configs_path in enumerate(bp_configs_paths, start=1):
+        if cur_bp_configs_path.exists():
+            cur_dir = repro_path / f"{BP_CONFIG_SUBDIR_PREFIX}_{i:02d}"
+            cur_dir.mkdir(parents=True, exist_ok=True)
+            bp_config_bak_path = cur_dir / (modelgen.BP_CONFIG_DB_FNAME + ".gz")
+
+            with open(cur_bp_configs_path, "rb") as f_in:
+                with gzip.open(bp_config_bak_path, "wb") as f_out:
+                    shutil.copyfileobj(f_in, f_out)
 
 
 def main() -> int:
@@ -160,14 +167,15 @@ def main() -> int:
             modelgen.main_sample(config, args.output_path)
         elif args.command == "paretofind":
             args.output_path.mkdir(exist_ok=True, parents=True)
+            print(args)
             make_repro_dir(
-                args, REPRO_SUBDIR_PREFIX, bp_configs_path=args.bp_configs_path
+                args, REPRO_SUBDIR_PREFIX, bp_configs_paths=args.bp_configs_path
             )
             config = read_config(args.config)
             modelgen.main_paretofind(
                 config=config,
                 output_path=args.output_path,
-                bp_config_db_path=args.bp_configs_path,
+                bp_config_db_paths=args.bp_configs_path,
             )
         elif args.command == "paretoeval":
             config = read_config(args.config)

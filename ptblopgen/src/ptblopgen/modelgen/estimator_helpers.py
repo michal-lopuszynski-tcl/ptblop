@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 # Universal functions
 
 
-def read_data(db_path, data_iter):
+def read_data_one_file(db_path, data_iter):
 
     def __is_val(d):
         return d["id"].startswith("val.")
@@ -40,6 +40,53 @@ def read_data(db_path, data_iter):
 
     data_val = [d for d in data if __is_val(d)]
     data_trn = [d for d in data if not __is_val(d)]
+    return data_trn, data_val
+
+
+def read_data(db_paths, data_iter):
+    data_trn, data_val = [], []
+    duplicates_trn, duplicates_val = 0, 0
+
+    processed_bp_config_signatures = set()
+
+    for cur_db_path in db_paths:
+        cur_data_trn, cur_data_val = read_data_one_file(cur_db_path, data_iter)
+        cur_duplicates_trn, cur_duplicates_val = 0, 0
+
+        for d in cur_data_val:
+            bp_config = d["bp_config"]
+            bp_signature = utils.get_bp_config_signature(bp_config)
+            if bp_signature not in processed_bp_config_signatures:
+                data_val.append(d)
+                processed_bp_config_signatures.add(bp_signature)
+            else:
+                cur_duplicates_val += 1
+
+        for d in cur_data_trn:
+            bp_config = d["bp_config"]
+            bp_signature = utils.get_bp_config_signature(bp_config)
+            if bp_signature not in processed_bp_config_signatures:
+                data_trn.append(d)
+                processed_bp_config_signatures.add(bp_signature)
+            else:
+                cur_duplicates_trn += 1
+
+        duplicates_trn += cur_duplicates_trn
+        duplicates_val += cur_duplicates_val
+        cur_n_trn = len(cur_data_trn)
+        cur_n_val = len(cur_data_val)
+        logger.info(
+            f"Read {cur_db_path}, {cur_n_trn=}, {cur_n_val}, "
+            f"{cur_duplicates_trn=}, {cur_duplicates_val=}"
+        )
+    logger.info(
+        f"Final trn datasize = {len(data_trn)}, "
+        f"after removing {duplicates_trn} duplicates"
+    )
+    logger.info(
+        f"Final val datasize = {len(data_val)}, "
+        f"after removing {duplicates_val} duplicates"
+    )
     return data_trn, data_val
 
 
@@ -258,7 +305,7 @@ def get_params_features(bp_configs):
 
 def train_quality_estimator(
     *,
-    bp_config_db_path: pathlib.Path,
+    bp_config_db_paths: pathlib.Path,
     quality_estimator_report_path: pathlib.Path,
     quality_estimators_db_path: pathlib.Path,
     data_iter: int,
@@ -271,7 +318,7 @@ def train_quality_estimator(
     suffix = f"{utils.get_timestamp_for_fname()}_{utils.get_random_str(6)}"
     estimator_id = f"qual{data_iter:04d}_{suffix}"
 
-    data_trn, data_val = read_data(bp_config_db_path, data_iter)
+    data_trn, data_val = read_data(bp_config_db_paths, data_iter)
     X_trn = get_quality_features([d["bp_config"] for d in data_trn], full_block_mode)
     y_trn = get_target(data_trn, "evaluation." + quality_metric)
     logger.info(f"{X_trn.shape=} {X_trn.dtype=} {y_trn.shape=} {y_trn.dtype=}")
@@ -384,7 +431,7 @@ def train_quality_estimator(
 
 def train_param_estimator(
     *,
-    bp_config_db_path: pathlib.Path,
+    bp_config_db_paths: list[pathlib.Path],
     cost_estimators_db_path: pathlib.Path,
     data_iter: int,
     run_id: str,
@@ -393,7 +440,7 @@ def train_param_estimator(
     suffix = f"{utils.get_timestamp_for_fname()}_{utils.get_random_str(6)}"
     estimator_id = f"cost{data_iter:04d}_{suffix}"
 
-    data_trn, data_val = read_data(bp_config_db_path, data_iter)
+    data_trn, data_val = read_data(bp_config_db_paths, data_iter)
     X_trn = get_quality_features([d["bp_config"] for d in data_trn], full_block_mode)
     y_trn = get_target(data_trn, "mparams")
     logger.info(f"{X_trn.shape=} {X_trn.dtype=} {y_trn.shape=} {y_trn.dtype=}")

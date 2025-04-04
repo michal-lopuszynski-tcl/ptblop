@@ -621,7 +621,7 @@ def main_sample(config: dict[str, Any], output_path: pathlib.Path) -> None:
                             quality_estimator_metrics,
                             quality_estimator_id,
                         ) = estimator_helpers.train_quality_estimator(
-                            bp_config_db_path=processing_env.bp_config_db_path,
+                            bp_config_db_paths=[processing_env.bp_config_db_path],
                             quality_estimator_report_path=quality_estimator_report_path,
                             quality_estimators_db_path=quality_estimators_db_path,
                             data_iter=data_iter - 1,
@@ -688,7 +688,7 @@ def main_sample(config: dict[str, Any], output_path: pathlib.Path) -> None:
                 if cost_estimator is None:
                     cost_estimator, _, cost_estimator_id = (
                         estimator_helpers.train_param_estimator(
-                            bp_config_db_path=processing_env.bp_config_db_path,
+                            bp_config_db_paths=[processing_env.bp_config_db_path],
                             cost_estimators_db_path=cost_estimators_db_path,
                             data_iter=data_iter,
                             run_id=processing_env.run_id,
@@ -698,7 +698,7 @@ def main_sample(config: dict[str, Any], output_path: pathlib.Path) -> None:
 
                 quality_estimator, quality_estimator_metrics, quality_estimator_id = (
                     estimator_helpers.train_quality_estimator(
-                        bp_config_db_path=processing_env.bp_config_db_path,
+                        bp_config_db_paths=[processing_env.bp_config_db_path],
                         quality_estimator_report_path=quality_estimator_report_path,
                         quality_estimators_db_path=quality_estimators_db_path,
                         data_iter=data_iter,

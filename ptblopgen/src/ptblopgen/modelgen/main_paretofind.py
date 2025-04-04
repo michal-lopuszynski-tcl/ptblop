@@ -17,10 +17,10 @@ class BPConfigProcsessingFindEnvironment:
     device: torch.device
     evaluator_fn: Any
     stop_path: pathlib.Path
-    bp_config_db_path: pathlib.Path
+    bp_config_db_paths: list[pathlib.Path]
 
-    def __init__(self, config: dict[str, Any], bp_config_db_path: pathlib.Path):
-        self.bp_config_db_path = bp_config_db_path
+    def __init__(self, config: dict[str, Any], bp_config_db_paths: pathlib.Path):
+        self.bp_config_db_paths = bp_config_db_paths
         self.run_id = utils.make_runid()
         self.model_metadata = config["model"]
 
@@ -40,7 +40,7 @@ def main_paretofind(
     *,
     config: dict[str, Any],
     output_path: pathlib.Path,
-    bp_config_db_path: pathlib.Path
+    bp_config_db_paths: pathlib.Path
 ):
     config_sampler = configurator.SamplerConfig(**config["sampler"])
     config_pareto_optimization = configurator.ParetoOptimizationConfig(
@@ -57,14 +57,14 @@ def main_paretofind(
         output_path / pareto_optimization.QUALITY_ESTIMATOR_REPORT_DIR
     )
 
-    bp_config_unpruned = get_unpruned_bp_config(bp_config_db_path)
+    bp_config_unpruned = get_unpruned_bp_config(bp_config_db_paths[0])
 
-    processing_env = BPConfigProcsessingFindEnvironment(config, bp_config_db_path)
+    processing_env = BPConfigProcsessingFindEnvironment(config, bp_config_db_paths)
 
     quality_estimator_report_path.mkdir(exist_ok=False, parents=True)
 
     cost_estimator, _, cost_estimator_id = estimator_helpers.train_param_estimator(
-        bp_config_db_path=processing_env.bp_config_db_path,
+        bp_config_db_paths=processing_env.bp_config_db_paths,
         cost_estimators_db_path=cost_estimators_db_path,
         data_iter=0,
         run_id=processing_env.run_id,
@@ -73,7 +73,7 @@ def main_paretofind(
 
     quality_estimator, quality_estimator_metrics, quality_estimator_id = (
         estimator_helpers.train_quality_estimator(
-            bp_config_db_path=processing_env.bp_config_db_path,
+            bp_config_db_paths=processing_env.bp_config_db_paths,
             quality_estimator_report_path=quality_estimator_report_path,
             quality_estimators_db_path=quality_estimators_db_path,
             data_iter=0,

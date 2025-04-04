@@ -8,7 +8,6 @@ import pymoo.core.problem
 import pymoo.core.sampling
 import pymoo.operators.crossover.pntx
 import pymoo.operators.mutation.bitflip
-import pymoo.operators.sampling.rnd
 import pymoo.optimize
 import pymoo.termination
 

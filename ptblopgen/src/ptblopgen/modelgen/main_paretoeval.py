@@ -43,14 +43,14 @@ def make_pareto_evaluated_paths(
 
 
 def read_processed_bp_config_signatures(pareto_path: pathlib.Path) -> set[int]:
-    proessed_bp_config_signatures = set()
+    processed_bp_config_signatures = set()
     if pareto_path.exists():
         with open(pareto_path, "rt") as f:
             for line in f:
                 d = json.loads(line)
                 bpcs = utils.bp_config_signature_from_str(d["bp_config_signature"])
-                proessed_bp_config_signatures.add(bpcs)
-    return proessed_bp_config_signatures
+                processed_bp_config_signatures.add(bpcs)
+    return processed_bp_config_signatures
 
 
 def read_pareto_front_data(pareto_path: pathlib.Path):
