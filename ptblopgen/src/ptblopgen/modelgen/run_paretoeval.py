@@ -6,10 +6,13 @@ import shutil
 from dataclasses import dataclass
 from typing import Any, Optional
 
+import matplotlib.pyplot as plt
+import numpy as np
 import ptblop
 import torch
 
 from .. import builders, utils
+from . import estimator_helpers
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +135,104 @@ def filter_by_min_metric(pareto_front_data, config, min_metric):
     return res
 
 
+def eval_pareto_front(config, pareto_evaluated_path, pareto_evaluated_plot_path=None):
+    pareto_evaluated_path = pathlib.Path(pareto_evaluated_path)
+    if pareto_evaluated_plot_path is None:
+        plot_name = pareto_evaluated_path.stem + ".png"
+        pareto_evaluated_plot_path = pareto_evaluated_path.parent / plot_name
+
+    metric_key = config["sampler"]["quality_evaluator_metric"]
+    metric_pred_key = config["sampler"]["quality_evaluator_metric"] + "_pred"
+    metric_pred_min_key = config["sampler"]["quality_evaluator_metric"] + "_pred_min"
+    metric_pred_max_key = config["sampler"]["quality_evaluator_metric"] + "_pred_max"
+
+    metric_pred, metric_pred_min, metric_pred_max, metric_true = [], [], [], []
+    mparams = []
+
+    with open(pareto_evaluated_path, "rt") as f:
+        for line in f:
+            d = json.loads(line)
+            metric_pred.append(d[metric_pred_key])
+            metric_pred_min.append(d[metric_pred_min_key])
+            metric_pred_max.append(d[metric_pred_max_key])
+            metric_true.append(d["evaluation"][metric_key])
+            mparams.append(d["evaluation"]["mparams"])
+
+    if len(metric_pred) <= 3:
+        logger.info("Fewer than 3 points in Pareto front, skipping evaluation")
+        return
+
+    metric_pred = np.array(metric_pred)
+    metric_pred_min = np.array(metric_pred_min)
+    metric_pred_max = np.array(metric_pred_max)
+    metric_true = np.array(metric_true)
+    err_pred = np.abs(metric_pred_max - metric_pred_min)
+    err_true = np.abs(metric_true - metric_pred)
+
+    stats = estimator_helpers.get_metrics(
+        y=metric_true, ypred=metric_pred, err=err_true, errpred=err_pred, prefix=""
+    )
+
+    ALPHA = 1.0
+
+    CTRUE = "#2ca02c"
+    CPRED = "#1f77b4"
+    CPRED_CONF = "#aec7e8"
+    CERR_CMP = "#ff7f0e"
+
+    fig, axs = plt.subplots(figsize=(18, 12), nrows=2, ncols=2)
+    axs[0, 0].set_title(f"mparams vs {metric_key}")
+    axs[0, 0].set_ylabel(f"{metric_key}")
+    axs[0, 0].set_xlabel("mparams")
+    axs[0, 0].fill_between(mparams, metric_pred_min, metric_pred_max, color=CPRED_CONF)
+    axs[0, 0].scatter(mparams, metric_pred, alpha=ALPHA, c=CPRED)
+    axs[0, 0].scatter(mparams, metric_true, alpha=ALPHA, c=CTRUE)
+    axs[0, 0].grid()
+
+    axs[1, 0].set_title(f"{metric_key}_true vs {metric_pred_key}")
+    axs[1, 0].axline((metric_true[-1], metric_true[-1]), slope=1, c="black")
+    axs[1, 0].set_xlabel(f"{metric_key}_true")
+    axs[1, 0].set_ylabel(f"{metric_pred_key}")
+    # ii = np.argsort(metric_true)
+    # axs[1, 0].fill_between(
+    #     metric_true[ii], metric_pred_min[ii], metric_pred_max[ii], color=CPRED_CONF
+    # )
+    tmp_err = np.vstack((metric_pred - metric_pred_min, metric_pred_max - metric_pred))
+    axs[1, 0].errorbar(
+        x=metric_true,
+        y=metric_pred,
+        yerr=tmp_err,
+        fmt="none",
+        color=CPRED,
+        elinewidth=4,
+        zorder=1,
+    )
+    axs[1, 0].scatter(metric_true, metric_pred, alpha=ALPHA, c=CPRED)
+    axs[1, 0].grid()
+
+    axs[1, 1].set_title(f"{metric_key}_err_true vs {metric_key}_err_pred")
+    axs[1, 1].set_xlabel(f"{metric_key}_err_true")
+    axs[1, 1].set_ylabel(f"{metric_key}_err_pred")
+    axs[1, 1].scatter(err_true, err_pred, alpha=ALPHA, c=CERR_CMP)
+    axs[1, 1].grid()
+
+    num = stats["n"]
+    rms = stats["rms"]
+    mae = stats["mae"]
+    corerr = stats["corerr"]
+    stats_str = f"n = {num}\ntrn_rms = {rms:.3f}\n"
+    stats_str += f"mae = {mae:.3f}\ncorerr = {corerr:.3f}"
+    axs[0, 1].text(0.2, 0.7, stats_str, fontsize=18)
+    axs[0, 1].set_xlim(0.0, 1.0)
+    axs[0, 1].set_ylim(0.0, 1.0)
+    axs[0, 1].set_axis_off()
+
+    logger.info(f"Pareto front plots saved to {pareto_evaluated_plot_path}")
+    if pareto_evaluated_plot_path is not None:
+        fig.savefig(pareto_evaluated_plot_path, dpi=240, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main_paretoeval(
     *,
     config: dict[str, Any],
@@ -185,4 +286,5 @@ def main_paretoeval(
             update_pareto_front(pareto_evaluated_path, pareto_evaluated_path_bak, d)
             signature = utils.get_bp_config_signature(bp_config)
             processed_bp_config_signatures.add(signature)
+        eval_pareto_front(config, pareto_evaluated_path)
     pareto_evaluated_path_bak.unlink(missing_ok=True)

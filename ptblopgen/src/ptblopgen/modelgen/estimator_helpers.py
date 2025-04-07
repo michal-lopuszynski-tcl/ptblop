@@ -110,7 +110,7 @@ def _get_bounds_pred(bounds_regressor, X, y):
     return ypred, ypred_min, ypred_max, err, errpred
 
 
-def _get_metrics(*, prefix, y, ypred, err, errpred):
+def get_metrics(*, prefix, y, ypred, err, errpred):
     rms = sklearn.metrics.root_mean_squared_error(y, ypred)
     mae = sklearn.metrics.mean_absolute_error(y, ypred)
     corerr = np.corrcoef(err, errpred)[0][1]
@@ -130,7 +130,7 @@ def evaluate_bounds_estimator(
         _get_bounds_pred(bounds_regressor, X_trn, y_trn)
     )
 
-    r_trn = _get_metrics(
+    r_trn = get_metrics(
         prefix="trn_", y=y_trn, ypred=y_trn_pred, err=err_trn, errpred=err_trn_pred
     )
 
@@ -138,7 +138,7 @@ def evaluate_bounds_estimator(
         _get_bounds_pred(bounds_regressor, X_val, y_val)
     )
 
-    r_val = _get_metrics(
+    r_val = get_metrics(
         prefix="val_", y=y_val, ypred=y_val_pred, err=err_val, errpred=err_val_pred
     )
     if plot_fname is not None:
