@@ -347,15 +347,26 @@ def train_quality_estimator(
     # reg_kwargs = dict(fit_intercept=True, alpha=0.01)
     # reg = blockprunekit.regressors.QuantileLinearEstimator(**reg_kwargs)
 
+    # # Random forest regressor - the default
+    # estimator_type = "EnsembleRandomForestBoundsEstimator"
+    # if estimator_kwargs is None:
+    #     estimator_kwargs = dict(n_regressors=20, n_estimators=300)
+    # # if reg_kwargs is None:
+    # #     reg_kwargs = dict(
+    # #         n_regressors=20, n_estimators=300, max_features=0.8, min_samples_leaf=2
+    # #     )
+    # estimator = estimators.EnsembleRandomForestBoundsEstimator(**estimator_kwargs)
+    # estimator.fit(X_trn, y_trn)
+
     # Random forest regressor
-    estimator_type = "EnsembleRandomForestBoundsEstimator"
+    estimator_type = "QuantileTabPFNEstimator"
     if estimator_kwargs is None:
-        estimator_kwargs = dict(n_regressors=20, n_estimators=300)
+        estimator_kwargs = dict(n_estimators=8, q_min=0.2, q_max=0.8)
     # if reg_kwargs is None:
     #     reg_kwargs = dict(
     #         n_regressors=20, n_estimators=300, max_features=0.8, min_samples_leaf=2
     #     )
-    estimator = estimators.EnsembleRandomForestBoundsEstimator(**estimator_kwargs)
+    estimator = estimators.QuantileTabPFNEstimator(**estimator_kwargs)
     estimator.fit(X_trn, y_trn)
 
     # Extra trees regressor

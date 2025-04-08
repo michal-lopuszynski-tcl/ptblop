@@ -9,6 +9,7 @@ import numpy as np
 import sklearn.ensemble
 import sklearn.linear_model
 import skops.io
+import tabpfn
 
 from .. import utils
 
@@ -211,6 +212,23 @@ class QuantileLinearEstimator(BoundsEstimator):
         y = self.regressor_median.predict(X)
         y_min = self.regressor_min.predict(X)
         y_max = self.regressor_max.predict(X)
+        return y, y_min, y_max
+
+
+class QuantileTabPFNEstimator(BoundsEstimator):
+
+    def __init__(self, q_min, q_max, **kwargs):
+        self.q_min = q_min
+        self.q_max = q_max
+        self.regressor = tabpfn.TabPFNRegressor(**kwargs)
+
+    def fit(self, X, y) -> None:
+        self.regressor.fit(X, y)
+
+    def predict_with_bounds(self, X):
+        y, y_min, y_max = self.regressor.predict(
+            X, output_type="quantiles", quantiles=[0.5, self.q_min, self.q_max]
+        )
         return y, y_min, y_max
 
 
