@@ -164,7 +164,7 @@ def main() -> int:
             args.output_path.mkdir(exist_ok=True, parents=True)
             make_repro_dir(args, REPRO_SUBDIR_PREFIX)
             config = read_config(args.config)
-            modelgen.run_sample(config, args.output_path)
+            modelgen.main_sample(config, args.output_path)
         elif args.command == "paretofind":
             args.output_path.mkdir(exist_ok=True, parents=True)
             print(args)
@@ -172,14 +172,14 @@ def main() -> int:
                 args, REPRO_SUBDIR_PREFIX, bp_configs_paths=args.bp_configs_path
             )
             config = read_config(args.config)
-            modelgen.run_paretofind(
+            modelgen.main_paretofind(
                 config=config,
                 output_path=args.output_path,
                 bp_config_db_paths=args.bp_configs_path,
             )
         elif args.command == "paretoeval":
             config = read_config(args.config)
-            modelgen.run_paretoeval(
+            modelgen.main_paretoeval(
                 config=config,
                 pareto_path=args.pareto_path,
                 min_metric=args.min_metric,
