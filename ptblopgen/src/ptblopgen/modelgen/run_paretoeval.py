@@ -166,7 +166,7 @@ def eval_pareto_front(config, pareto_evaluated_path, pareto_evaluated_plot_path=
     metric_pred_min = np.array(metric_pred_min)
     metric_pred_max = np.array(metric_pred_max)
     metric_true = np.array(metric_true)
-    err_pred = np.abs(metric_pred_max - metric_pred_min)
+    err_pred = 0.5 * np.abs(metric_pred_max - metric_pred_min)
     err_true = np.abs(metric_true - metric_pred)
 
     stats = estimator_helpers.get_metrics(

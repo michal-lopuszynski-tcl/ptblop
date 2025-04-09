@@ -105,7 +105,7 @@ def get_target(data, target_column):
 
 def _get_bounds_pred(bounds_regressor, X, y):
     ypred, ypred_min, ypred_max = bounds_regressor.predict_with_bounds(X)
-    errpred = np.abs(ypred_max - ypred_min)
+    errpred = 0.5 * np.abs(ypred_max - ypred_min)
     err = np.abs(ypred - y)
     return ypred, ypred_min, ypred_max, err, errpred
 
