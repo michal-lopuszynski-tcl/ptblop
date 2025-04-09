@@ -9,9 +9,14 @@ import numpy as np
 import sklearn.ensemble
 import sklearn.linear_model
 import skops.io
-import tabpfn
 
 from .. import utils
+
+
+class EstimatorNotAvailableException(Exception):
+    def __init__(self, message="An error occurred in MyLibrary"):
+        self.message = message
+        super().__init__(self.message)
 
 
 def _get_name_from_object(o: Any) -> str:
@@ -218,6 +223,14 @@ class QuantileLinearEstimator(BoundsEstimator):
 class QuantileTabPFNEstimator(BoundsEstimator):
 
     def __init__(self, q_min, q_max, **kwargs):
+        super().__init__()
+
+        try:
+            import tabpfn
+        except ImportError:
+            msg = "No tabpfn package, please `pip install tabpfn`"
+
+            raise EstimatorNotAvailableException(msg)
         self.q_min = q_min
         self.q_max = q_max
         self.regressor = tabpfn.TabPFNRegressor(**kwargs)
@@ -229,6 +242,45 @@ class QuantileTabPFNEstimator(BoundsEstimator):
         y, y_min, y_max = self.regressor.predict(
             X, output_type="quantiles", quantiles=[0.5, self.q_min, self.q_max]
         )
+        return y, y_min, y_max
+
+
+class QuantileLightGBMBoundsEstimator(BoundsEstimator):
+
+    def __init__(
+        self,
+        q_min,
+        q_max,
+        **kwargs,
+    ):
+        super().__init__()
+        try:
+            import lightgbm
+        except ImportError:
+            msg = "No lightgbm package, please `pip install lightgbm`"
+            raise EstimatorNotAvailableException(msg)
+
+        self.regressor_median = lightgbm.LGBMRegressor(
+            objective="quantile", alpha=0.5, **kwargs
+        )
+
+        self.regressor_min = lightgbm.LGBMRegressor(
+            objective="quantile", alpha=q_min, **kwargs
+        )
+
+        self.regressor_max = lightgbm.LGBMRegressor(
+            objective="quantile", alpha=q_max, **kwargs
+        )
+
+    def fit(self, X, y):
+        self.regressor_median.fit(X, y)
+        self.regressor_min.fit(X, y)
+        self.regressor_max.fit(X, y)
+
+    def predict_with_bounds(self, X):
+        y = self.regressor_median.predict(X)
+        y_min = self.regressor_min.predict(X)
+        y_max = self.regressor_max.predict(X)
         return y, y_min, y_max
 
 

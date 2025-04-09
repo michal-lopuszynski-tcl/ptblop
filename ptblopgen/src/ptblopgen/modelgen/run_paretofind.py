@@ -73,6 +73,7 @@ def main_paretofind(
 
     quality_estimator, quality_estimator_metrics, quality_estimator_id = (
         estimator_helpers.train_quality_estimator(
+            quality_estimator_config=config["quality_estimator"],
             bp_config_db_paths=processing_env.bp_config_db_paths,
             quality_estimator_report_path=quality_estimator_report_path,
             quality_estimators_db_path=quality_estimators_db_path,

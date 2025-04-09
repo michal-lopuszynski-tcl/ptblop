@@ -303,32 +303,35 @@ def get_params_features(bp_configs):
 # Main library functionality
 
 
-def train_quality_estimator(
-    *,
-    bp_config_db_paths: pathlib.Path,
-    quality_estimator_report_path: pathlib.Path,
-    quality_estimators_db_path: pathlib.Path,
-    data_iter: int,
-    quality_metric: str,
-    run_id: str,
-    full_block_mode: bool,
-):
-    estimator_kwargs = None  # TODO: make it a parameter
+def make_quality_estimator(quality_estimator_config):
+    estimator_type = quality_estimator_config["quality_estimator_type"]
+    estimator_kwargs = quality_estimator_config["quality_estimator_kwargs"]
 
-    suffix = f"{utils.get_timestamp_for_fname()}_{utils.get_random_str(6)}"
-    estimator_id = f"qual{data_iter:04d}_{suffix}"
-
-    data_trn, data_val = read_data(bp_config_db_paths, data_iter)
-    X_trn = get_quality_features([d["bp_config"] for d in data_trn], full_block_mode)
-    y_trn = get_target(data_trn, "evaluation." + quality_metric)
-    logger.info(f"{X_trn.shape=} {X_trn.dtype=} {y_trn.shape=} {y_trn.dtype=}")
-
-    X_val = get_quality_features([d["bp_config"] for d in data_val], full_block_mode)
-    y_val = get_target(data_val, "evaluation." + quality_metric)
-    logger.info(f"{X_val.shape=} {X_val.dtype=} {y_val.shape=} {y_val.dtype=}")
-
-    n_examples_trn, n_features_trn = X_trn.shape
-    n_examples_val, n_features_val = X_val.shape
+    if estimator_type == "EnsembleRandomForestBoundsEstimator":
+        if estimator_kwargs is None:
+            estimator_kwargs = dict(n_regressors=20, n_estimators=300)
+        estimator = estimators.EnsembleRandomForestBoundsEstimator(**estimator_kwargs)
+    elif estimator_type == "QuantileTabPFNEstimator":
+        if estimator_kwargs is None:
+            estimator_kwargs = dict(n_estimators=8, q_min=0.2, q_max=0.8)
+        estimator = estimators.QuantileTabPFNEstimator(**estimator_kwargs)
+    elif estimator_type == "QuantileLightGBMBoundsEstimator":
+        if estimator_kwargs is None:
+            estimator_kwargs = dict(q_min=0.2, q_max=0.8)
+            # Perhaps this ?!?
+            # estimator_kwargs = dict(
+            #     q_min=0.2, q_max=0.8,
+            #     learning_rate=0.03,
+            #     n_estimators=200,
+            #     max_depth=6,
+            #     min_samples_leaf=9,
+            #     min_samples_split=9,
+            # )
+        estimator = estimators.QuantileLightGBMBoundsEstimator(**estimator_kwargs)
+    else:
+        msg = f"Unknown {estimator_type=}"
+        raise estimators.EstimatorNotAvailableException(msg)
+    return estimator, estimator_kwargs
 
     # GBM Estimator
     # reg_type = "QuantileGradientBoostingBoundsEstimator"
@@ -357,17 +360,6 @@ def train_quality_estimator(
     # #     )
     # estimator = estimators.EnsembleRandomForestBoundsEstimator(**estimator_kwargs)
     # estimator.fit(X_trn, y_trn)
-
-    # Random forest regressor
-    estimator_type = "QuantileTabPFNEstimator"
-    if estimator_kwargs is None:
-        estimator_kwargs = dict(n_estimators=8, q_min=0.2, q_max=0.8)
-    # if reg_kwargs is None:
-    #     reg_kwargs = dict(
-    #         n_regressors=20, n_estimators=300, max_features=0.8, min_samples_leaf=2
-    #     )
-    estimator = estimators.QuantileTabPFNEstimator(**estimator_kwargs)
-    estimator.fit(X_trn, y_trn)
 
     # Extra trees regressor
     # reg_type = "EnsembleExtraTreesBoundsEstimator"
@@ -398,6 +390,34 @@ def train_quality_estimator(
     # regressor_path = regressor_dir / "quality_regressor.json.gz"
     # blockprunekit.regressors.save_regressor(regressor_path, reg)
 
+
+def train_quality_estimator(
+    *,
+    quality_estimator_config,
+    bp_config_db_paths: pathlib.Path,
+    quality_estimator_report_path: pathlib.Path,
+    quality_estimators_db_path: pathlib.Path,
+    data_iter: int,
+    quality_metric: str,
+    run_id: str,
+    full_block_mode: bool,
+):
+    suffix = f"{utils.get_timestamp_for_fname()}_{utils.get_random_str(6)}"
+    estimator_id = f"qual{data_iter:04d}_{suffix}"
+
+    data_trn, data_val = read_data(bp_config_db_paths, data_iter)
+    X_trn = get_quality_features([d["bp_config"] for d in data_trn], full_block_mode)
+    y_trn = get_target(data_trn, "evaluation." + quality_metric)
+    logger.info(f"{X_trn.shape=} {X_trn.dtype=} {y_trn.shape=} {y_trn.dtype=}")
+
+    X_val = get_quality_features([d["bp_config"] for d in data_val], full_block_mode)
+    y_val = get_target(data_val, "evaluation." + quality_metric)
+    logger.info(f"{X_val.shape=} {X_val.dtype=} {y_val.shape=} {y_val.dtype=}")
+
+    n_examples_trn, n_features_trn = X_trn.shape
+    n_examples_val, n_features_val = X_val.shape
+    estimator, estimator_kwargs = make_quality_estimator(quality_estimator_config)
+    estimator.fit(X_trn, y_trn)
     plot_fname = quality_estimator_report_path / f"{estimator_id}.png"
     estimator_metrics = evaluate_bounds_estimator(
         bounds_regressor=estimator,
@@ -409,16 +429,6 @@ def train_quality_estimator(
     )
     logger.info(f"{estimator_metrics=}")
 
-    # reg1 = blockprunekit.regressors.load_regressor("quality_regressor.json.gz")
-    # reg_metrics1 = estimator_helpers.evaluate_bounds_regressor(
-    #     bounds_regressor=reg1,
-    #     X_trn=X_trn,
-    #     y_trn=y_trn,
-    #     X_val=X_val,
-    #     y_val=y_val,
-    #     plot_fname="tmp.png",
-    # )
-    # logger.info(f"{reg_metrics1=}")
     v_ptblop, v_ptblopgen = utils.get_versions()
 
     estimator_data = {
@@ -428,7 +438,7 @@ def train_quality_estimator(
         "n_features_trn": n_features_trn,
         "n_examples_val": n_examples_val,
         "n_features_val": n_features_val,
-        "estimator_type": estimator_type,
+        "estimator_type": quality_estimator_config["quality_estimator_type"],
         "estimator_kwargs": estimator_kwargs,
         "estimator_metrics": estimator_metrics,
         "timestamp": utils.get_timestamp(),

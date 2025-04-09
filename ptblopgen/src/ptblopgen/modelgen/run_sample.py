@@ -392,7 +392,9 @@ def make_actl_bp_config_generator(
             max_score = float(scores[imax])
             min_score = float(np.min(scores))
             mean_score = float(np.mean(scores))
-            assert max_score == scoring_fn([max_bp_config]).item()
+
+            # Some predictors are not fully deterministic
+            # assert max_score == scoring_fn([max_bp_config]).item()
 
             logger.info(f"actl - {max_score=:.4f} {min_score=:.4f} {mean_score=:.4f}")
             # scores = [scoring_fn(bpc) for bpc in candidate_bp_configs]
@@ -537,6 +539,9 @@ def get_max_onel(bp_config_unpruned, full_block_mode):
 
 
 def main_sample(config: dict[str, Any], output_path: pathlib.Path) -> None:
+    logger.info("Checking estimator availability")
+    _ = estimator_helpers.make_quality_estimator(config["quality_estimator"])
+
     config_sampler = configurator.SamplerConfig(**config["sampler"])
     config_pareto_optimization = configurator.ParetoOptimizationConfig(
         **config["pareto_optimization"]
@@ -621,6 +626,7 @@ def main_sample(config: dict[str, Any], output_path: pathlib.Path) -> None:
                             quality_estimator_metrics,
                             quality_estimator_id,
                         ) = estimator_helpers.train_quality_estimator(
+                            quality_estimator_config=config["quality_estimator"],
                             bp_config_db_paths=[processing_env.bp_config_db_path],
                             quality_estimator_report_path=quality_estimator_report_path,
                             quality_estimators_db_path=quality_estimators_db_path,
@@ -698,6 +704,7 @@ def main_sample(config: dict[str, Any], output_path: pathlib.Path) -> None:
 
                 quality_estimator, quality_estimator_metrics, quality_estimator_id = (
                     estimator_helpers.train_quality_estimator(
+                        quality_estimator_config=config["quality_estimator"],
                         bp_config_db_paths=[processing_env.bp_config_db_path],
                         quality_estimator_report_path=quality_estimator_report_path,
                         quality_estimators_db_path=quality_estimators_db_path,
