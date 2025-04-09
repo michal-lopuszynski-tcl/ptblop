@@ -1,0 +1,50 @@
+## Language model
+
+model:
+  model_name: "transformers/Qwen/Qwen2-0.5B"
+  model_revision: "main"
+  model_dtype: "torch.bfloat16"
+
+evaluator:
+  evaluator_name: "mock_lm_eval_with_ppl"
+  evaluator_metrics:
+     - "ppl"
+     - "arc_challenge"
+  evaluator_seed: 271828
+
+quality_estimator:
+  quality_estimator_type: "EnsembleRandomForestBoundsEstimator"
+  quality_estimator_kwargs: null
+
+pareto_optimization:
+  optimizer_seed: 173205
+  pop_size: 100
+  n_gen: 50
+  sampling_mode: "uniform"
+  sampling_p: 0.6
+
+sampler:
+  quality_evaluator_metric: "arc_challenge"
+  cost_metric: "parameters"
+  random_bp_config_rng_seed: 314159
+  max_num_changes_factor: 0.5
+
+  actl_num_scored_candidates: 1000
+  parf_min_quality_evaluator_metric: 0.7
+
+  full_block_mode: False
+
+  n_data_iter: 4
+  n_val_rand: 128
+  trn_data_iter_configs:
+    - n_trn_zerl: 1
+      n_trn_onel: -1
+      n_trn_rand: 128
+      n_trn_actl: 0
+      n_trn_parf: 0
+
+    - n_trn_zerl: 0
+      n_trn_onel: 0
+      n_trn_rand: 16
+      n_trn_actl: 16
+      n_trn_parf: 4

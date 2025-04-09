@@ -14,7 +14,7 @@ build_zip:
 	ZIP_SUFFIX="-mod"; \
 	git diff --exit-code && ZIP_SUFFIX=""; \
 	ZIP_NAME="ptblopgen-$$(git rev-list --count HEAD)-$$(git rev-parse --short HEAD)$${ZIP_SUFFIX}.zip"; \
-    rm -rf $(ZIP_DIR) && \
+	rm -rf $(ZIP_DIR) && \
 	mkdir $(ZIP_DIR) && \
 	cd $(ZIP_DIR) && \
 	cp -rp ../src/ptblopgen . && \
@@ -55,14 +55,23 @@ check_mypy:
 		echo "PASSED mypy" || \
 		(echo "FAILED mypy"; cat make.mypy.log; exit 1)
 
-test:
-	pytest -vv tests
+test_py:
+	@pytest -vv tests
+
+test_full:
+	-@cd tests_full && ./test_llm_paretofind.sh
+	-@cd tests_full && ./test_llm_sample.sh
+	-@cd tests_full && ./test_llm_paretoeval.sh
+
+
+test: -test_py -test_full
 
 test_cpu:
 	CUDA_VISIBLE_DEVICES="" pytest -vv tests
 
 clean:
-	rm -rf make.black.log make.flake8.log make.mypy.log $(ZIP_DIR) $(FILES_TO_CLEAN)
+	rm -rf make.black.log make.flake8.log make.mypy.log tests_full/tmp.* \
+    $(ZIP_DIR) $(FILES_TO_CLEAN)
 
 fix:
 	ISORT_FLAGS="$(ISORT_FLAGS)" ./aux/fix.sh $(F)
@@ -96,5 +105,6 @@ manualvercommit:
 
 .PHONY: all build build_zip test clean fix fixall show_version\
 	check  check_black check_isort check_flake8 check_mypy \
-	commit vercommit manualvercommit
+	commit vercommit manualvercommit \
+    test_py test_full test
 
