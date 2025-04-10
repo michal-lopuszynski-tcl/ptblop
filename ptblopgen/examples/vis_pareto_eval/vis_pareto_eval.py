@@ -13,10 +13,11 @@ ROOT_DIR = pathlib.Path("/nas/people/michal_lopuszynski/JOBS_BP5/")
 # ROOT_DIR = pathlib.Path("/nas/people/michal_lopuszynski/JOBS_BP4/")
 
 
-def make_plot(config_path, pareto_ealuated_path):
+def make_plot(config_path, pareto_evaluated_path):
     with open(config_path, "rt") as f:
         config = yaml.safe_load(f)
-    ptblopgen.modelgen.run_paretoeval.eval_pareto_front(config, pareto_ealuated_path)
+    ptblopgen.modelgen.run_paretoeval.eval_pareto_front(config, pareto_evaluated_path)
+    return pareto_evaluated_path.parent / (pareto_evaluated_path.stem + ".png")
 
 
 def main(root_dir):
@@ -25,8 +26,8 @@ def main(root_dir):
         config_path = pareto_evaluated_path.parent.parent.parent / "config.yaml"
         config_ok = config_path.exists()
         if config_ok:
-            print(f"Processing {pareto_evaluated_path}")
-            make_plot(config_path, pareto_evaluated_path)
+            pareto_evaluated_plot_path = make_plot(config_path, pareto_evaluated_path)
+            print(f"Processing {pareto_evaluated_plot_path}")
         else:
             print(f"Skipping {pareto_evaluated_path}, confing not found")
 
