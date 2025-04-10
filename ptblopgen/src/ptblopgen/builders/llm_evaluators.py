@@ -393,7 +393,7 @@ class MockLMEvalWithPPLEvaluator:
         if "ppl" in evaluator_metrics:
             self.ppl_dl = True
         self.tokenizer = tokenizer
-        self.lm_eval_tasks = [em for em in evaluator_metrics if em != "ppl"]
+        self.lm_eval_tasks = {k: v for k, v in evaluator_metrics.items() if k != "ppl"}
         self.rng = random.Random(evaluator_seed)
 
     def get_mock_score(self, model):
@@ -413,17 +413,17 @@ class MockLMEvalWithPPLEvaluator:
     def __call__(self, model: torch.nn.Module, device: torch.device):
         if self.ppl_dl:
             t1 = time.perf_counter()
-            perplexity = 1000.0 * self.rng.random()
+            perplexity = self.get_mock_score(model)
             t2 = time.perf_counter()
             time_perplex_eval = t2 - t1
             res_ppl = {
-                "ppl": self.get_mock_score(model),
+                "ppl": perplexity,
                 "time_ppl": time_perplex_eval,
             }
         else:
             res_ppl = {}
 
-        if self.lm_eval_tasks:
+        if self.lm_eval_tasks.keys():
             t1 = time.perf_counter()
 
             res_lm_eval = {}
