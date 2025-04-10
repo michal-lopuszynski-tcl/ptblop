@@ -8,8 +8,8 @@ model:
 evaluator:
   evaluator_name: "mock_lm_eval_with_ppl"
   evaluator_metrics:
-     - "ppl"
-     - "arc_challenge"
+    "ppl": null
+    "arc_challenge": null
   evaluator_seed: 271828
 
 quality_estimator:
