@@ -4,3 +4,9 @@ make.black.log
 make.flake8.log
 make.mypy.log
 ptblopgen.egg-info
+tests_full/tmp.paretoeval
+tests_full/tmp.paretoeval_blocks
+tests_full/tmp.paretofind
+tests_full/tmp.paretofind_blocks
+tests_full/tmp.sample
+tests_full/tmp.sample_blocks
