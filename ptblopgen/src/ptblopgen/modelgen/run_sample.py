@@ -217,6 +217,7 @@ def make_parf_bp_config_generator(
     min_num_changes,
     max_num_changes,
     rng,
+    full_block_mode,
     processed_bp_bconfig_signatures,
 ):
     # This function reads, filters and shuffles Pareto Front data
@@ -235,7 +236,12 @@ def make_parf_bp_config_generator(
 
     # Filter configs satisying min/max_num_changes + min_quality criteria
     for d in pf_data_raw:
-        num_changes = 2 * d["n"] - d["n_attention"] - d["n_mlp"]
+        if full_block_mode:
+            assert d["n_attention"] == d["n_mlp"]
+            num_changes = (2 * d["n"] - d["n_attention"] - d["n_mlp"]) // 2
+        else:
+            num_changes = 2 * d["n"] - d["n_attention"] - d["n_mlp"]
+
         logger.info(f"{num_changes=} {min_num_changes=} {max_num_changes=}")
         if (
             d[quality_str] > min_quality
@@ -570,7 +576,6 @@ def main_sample(config: dict[str, Any], output_path: pathlib.Path) -> None:
 
     bp_config_unpruned = ptblop.get_unpruned_bp_config(processing_env.model)
 
-    # Two because each block is two possible changes (mlp and attention)
     max_num_changes = get_max_num_changes(
         config_sampler.max_num_changes_factor,
         bp_config_unpruned,
@@ -659,8 +664,9 @@ def main_sample(config: dict[str, Any], output_path: pathlib.Path) -> None:
                         max_num_changes=max_num_changes,
                         quality_metric=config_sampler.quality_evaluator_metric,
                         min_quality=config_sampler.parf_min_quality_evaluator_metric,
-                        processed_bp_bconfig_signatures=processed_bp_config_signatures,
                         rng=rng,
+                        full_block_mode=config_sampler.full_block_mode,
+                        processed_bp_bconfig_signatures=processed_bp_config_signatures,
                     )
                     is_new_pareto_front = False
                 sample_and_process_bp_config(
