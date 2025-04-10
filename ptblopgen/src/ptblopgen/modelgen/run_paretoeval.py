@@ -220,7 +220,7 @@ def eval_pareto_front(config, pareto_evaluated_path, pareto_evaluated_plot_path=
     rms = stats["rms"]
     mae = stats["mae"]
     corerr = stats["corerr"]
-    stats_str = f"n = {num}\ntrn_rms = {rms:.3f}\n"
+    stats_str = f"n = {num}\nrms = {rms:.3f}\n"
     stats_str += f"mae = {mae:.3f}\ncorerr = {corerr:.3f}"
     axs[0, 1].text(0.2, 0.7, stats_str, fontsize=18)
     axs[0, 1].set_xlim(0.0, 1.0)

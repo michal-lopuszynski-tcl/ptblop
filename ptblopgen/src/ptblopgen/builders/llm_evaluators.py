@@ -8,6 +8,7 @@ from typing import Any, Optional
 import datasets
 import huggingface_hub
 import lm_eval
+import ptblop
 import torch
 import transformers
 
@@ -395,6 +396,20 @@ class MockLMEvalWithPPLEvaluator:
         self.lm_eval_tasks = [em for em in evaluator_metrics if em != "ppl"]
         self.rng = random.Random(evaluator_seed)
 
+    def get_mock_score(self, model):
+        bp_config = ptblop.get_bp_config(model)
+
+        last_mlp_i = 0
+        num_blocks = 0
+        n = len(bp_config)
+        for i, v in enumerate(bp_config.values()):
+            if v["use_mlp"]:
+                last_mlp_i = i
+                num_blocks += 1
+            if v["use_attention"]:
+                num_blocks += 1
+        return 0.6 * num_blocks / 2 / n + 0.4 * last_mlp_i / n
+
     def __call__(self, model: torch.nn.Module, device: torch.device):
         if self.ppl_dl:
             t1 = time.perf_counter()
@@ -402,7 +417,7 @@ class MockLMEvalWithPPLEvaluator:
             t2 = time.perf_counter()
             time_perplex_eval = t2 - t1
             res_ppl = {
-                "ppl": perplexity,
+                "ppl": self.get_mock_score(model),
                 "time_ppl": time_perplex_eval,
             }
         else:
@@ -414,8 +429,7 @@ class MockLMEvalWithPPLEvaluator:
             res_lm_eval = {}
             for task in self.lm_eval_tasks:
                 task_score = self.rng.random()
-                res_lm_eval[f"{task}"] = task_score
-                # Add max 20% relative error
+                res_lm_eval[f"{task}"] = self.get_mock_score(model)
                 res_lm_eval[f"{task}_acc_stderr"] = task_score * 0.2 * self.rng.random()
             t2 = time.perf_counter()
 
