@@ -59,9 +59,13 @@ test_py:
 	@pytest -vv tests
 
 test_full:
-	-@cd tests_full && ./test_llm_paretofind.sh
 	-@cd tests_full && ./test_llm_sample.sh
+	-@cd tests_full && ./test_llm_paretofind.sh
 	-@cd tests_full && ./test_llm_paretoeval.sh
+	-@cd tests_full && ./test_llm_sample_blocks.sh
+	-@cd tests_full && ./test_llm_paretofind_blocks.sh
+	-@cd tests_full && ./test_llm_paretoeval_blocks.sh
+
 
 
 test: -test_py -test_full
