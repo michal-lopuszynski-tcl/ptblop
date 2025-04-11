@@ -77,7 +77,7 @@ def read_data(db_paths, data_iter):
         cur_n_trn = len(cur_data_trn)
         cur_n_val = len(cur_data_val)
         logger.info(
-            f"Read {cur_db_path}, {cur_n_trn=}, {cur_n_val}, "
+            f"Read {cur_db_path}, {cur_n_trn=}, {cur_n_val=}, "
             f"{cur_duplicates_trn=}, {cur_duplicates_val=}"
         )
     logger.info(
