@@ -7,6 +7,8 @@
 # Update CHANGELOG
 # Update README
 # Update .gitignore
+# Update gitmessage templates
+# Add minor logging fixes
 #
 # (For below do not include the version as it will be already in the prefix)
 # Bump version
