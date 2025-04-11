@@ -4,6 +4,7 @@ import pathlib
 
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy.stats
 import sklearn.metrics
 
 from .. import estimators, utils
@@ -113,11 +114,17 @@ def _get_bounds_pred(bounds_regressor, X, y):
 def get_metrics(*, prefix, y, ypred, err, errpred):
     rms = sklearn.metrics.root_mean_squared_error(y, ypred)
     mae = sklearn.metrics.mean_absolute_error(y, ypred)
+    cor = np.corrcoef(y, ypred)[0][1]
+    spr = scipy.stats.spearmanr(y, ypred).statistic
     corerr = np.corrcoef(err, errpred)[0][1]
+    sprerr = scipy.stats.spearmanr(err, errpred).statistic
     return {
         f"{prefix}rms": float(rms),
         f"{prefix}mae": float(mae),
+        f"{prefix}cor": float(cor),
+        f"{prefix}spr": float(spr),
         f"{prefix}corerr": float(corerr),
+        f"{prefix}sprerr": float(sprerr),
         f"{prefix}n": len(y),
     }
 
@@ -190,19 +197,26 @@ def evaluate_bounds_estimator(
         num = r_trn["trn_n"]
         rms = r_trn["trn_rms"]
         mae = r_trn["trn_mae"]
+        cor = r_trn["trn_cor"]
+        spr = r_trn["trn_spr"]
         corerr = r_trn["trn_corerr"]
-        trn_stats = f"trn_n = {num}\ntrn_rms = {rms:.3f}\n"
-        trn_stats += f"trn_mae = {mae:.3f}\ntrn_corerr = {corerr:.3f}"
+        sprerr = r_trn["trn_sprerr"]
+        trn_stats = f"trn_n = {num}\n\ntrn_rms = {rms:.3f}\ntrn_mae = {mae:.3f}\n\n"
+        trn_stats += f"trn_cor = {cor:.3f}\ntrn_spr = {spr:.3f}\n\n"
+        trn_stats += f"trn_corerr = {corerr:.3f}\ntrn_sprerr = {sprerr:.3f}"
+        axs[0, 2].text(0.2, 0.2, trn_stats, fontsize=18)
 
-        axs[0, 2].text(0.2, 0.7, trn_stats, fontsize=18)
         num = r_val["val_n"]
         rms = r_val["val_rms"]
         mae = r_val["val_mae"]
+        cor = r_val["val_cor"]
+        spr = r_val["val_spr"]
         corerr = r_val["val_corerr"]
-        val_stats = f"val_n = {num}\nval_rms = {rms:.3f}\n"
-        val_stats += f"val_mae = {mae:.3f}\nval_corerr = {corerr:.3f}"
-
-        axs[1, 2].text(0.2, 0.7, val_stats, fontsize=18)
+        sprerr = r_val["val_sprerr"]
+        val_stats = f"val_n = {num}\n\nval_rms = {rms:.3f}\nval_mae = {mae:.3f}\n\n"
+        val_stats += f"val_cor = {cor:.3f}\nval_spr = {spr:.3f}\n\n"
+        val_stats += f"val_corerr = {corerr:.3f}\nval_sprerr = {sprerr:.3f}"
+        axs[1, 2].text(0.2, 0.2, val_stats, fontsize=18)
         axs[1, 2].set_axis_off()
         fig.savefig(plot_fname, dpi=240, bbox_inches="tight")
         plt.close(fig)

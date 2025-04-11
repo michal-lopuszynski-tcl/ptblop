@@ -219,10 +219,14 @@ def eval_pareto_front(config, pareto_evaluated_path, pareto_evaluated_plot_path=
     num = stats["n"]
     rms = stats["rms"]
     mae = stats["mae"]
+    cor = stats["cor"]
+    spr = stats["spr"]
     corerr = stats["corerr"]
-    stats_str = f"n = {num}\nrms = {rms:.3f}\n"
-    stats_str += f"mae = {mae:.3f}\ncorerr = {corerr:.3f}"
-    axs[0, 1].text(0.2, 0.7, stats_str, fontsize=18)
+    sprerr = stats["sprerr"]
+    stats_str = f"n = {num}\n\nrms = {rms:.3f}\nmae = {mae:.3f}\n\n"
+    stats_str += f"cor = {cor:.3f}\nspr = {spr:.3f}\n\n"
+    stats_str += f"corerr = {corerr:.3f}\nsprerr = {sprerr:.3f}"
+    axs[0, 1].text(0.2, 0.2, stats_str, fontsize=18)
     axs[0, 1].set_xlim(0.0, 1.0)
     axs[0, 1].set_ylim(0.0, 1.0)
     axs[0, 1].set_axis_off()
