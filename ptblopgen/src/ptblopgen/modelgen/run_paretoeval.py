@@ -126,13 +126,32 @@ def filter_processed(pareto_front_data, processed_bp_config_signatures):
     return res
 
 
-def filter_by_min_metric(pareto_front_data, config, min_metric):
-    res = []
-    metric_key = config["sampler"]["quality_evaluator_metric"] + "_pred"
-    for d in pareto_front_data:
-        if d[metric_key] >= min_metric:
-            res.append(d)
-    return res
+def filter_pareto_front(
+    *, pareto_front_data, config, min_metric, min_mparams, max_mparams
+):
+    if min_metric is not None:
+        metric_key = config["sampler"]["quality_evaluator_metric"] + "_pred"
+        pareto_front_data = [
+            d for d in pareto_front_data if d[metric_key] >= min_metric
+        ]
+        n_tot = len(pareto_front_data)
+        logger.info(f"Filtered Pareto front by min_metric - {n_tot=}")
+
+    if min_mparams is not None:
+        pareto_front_data = [
+            d for d in pareto_front_data if d["mparams_pred"] >= min_mparams
+        ]
+        n_tot = len(pareto_front_data)
+        logger.info(f"Filtered Pareto front by min_params - {n_tot=}")
+
+    if max_mparams is not None:
+        pareto_front_data = [
+            d for d in pareto_front_data if d["mparams_pred"] <= max_mparams
+        ]
+        n_tot = len(pareto_front_data)
+        logger.info(f"Filtered Pareto front by max_mparams - {n_tot=}")
+
+    return pareto_front_data
 
 
 def eval_pareto_front(config, pareto_evaluated_path, pareto_evaluated_plot_path=None):
@@ -242,6 +261,8 @@ def main_paretoeval(
     config: dict[str, Any],
     pareto_path: pathlib.Path,
     min_metric: Optional[float],
+    min_mparams: Optional[float],
+    max_mparams: Optional[float],
     shuffle: bool,
 ) -> None:
 
@@ -263,14 +284,16 @@ def main_paretoeval(
         pareto_front_data, processed_bp_config_signatures
     )
     n_tot = len(pareto_front_data)
-    logger.info(f"Filtering processed - {n_tot=} left")
+    logger.info(f"Filtered processed Pareto front data - {n_tot=}")
 
-    if min_metric is not None:
-        pareto_front_data = filter_by_min_metric(pareto_front_data, config, min_metric)
-        n_tot = len(pareto_front_data)
-        logger.info(f"Filtering by {min_metric=} - {n_tot=} left")
-    else:
-        logger.info(f"Filtering by {min_metric=} - skipped")
+    pareto_front_data = filter_pareto_front(
+        pareto_front_data=pareto_front_data,
+        config=config,
+        min_metric=min_metric,
+        min_mparams=min_mparams,
+        max_mparams=max_mparams,
+    )
+    n_tot = len(pareto_front_data)
 
     if shuffle:
         logger.info("Shuffling pareto front data before processing")

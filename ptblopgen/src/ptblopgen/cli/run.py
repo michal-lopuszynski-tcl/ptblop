@@ -38,6 +38,8 @@ def parse_args() -> tuple[argparse.Namespace, str]:
     parser_gen.add_argument("--config", type=pathlib.Path, required=True)
     parser_gen.add_argument("--pareto-path", type=pathlib.Path, required=True)
     parser_gen.add_argument("--min-metric", type=float, default=None)
+    parser_gen.add_argument("--min-mparams", type=float, default=None)
+    parser_gen.add_argument("--max-mparams", type=float, default=None)
     parser_gen.add_argument("--no-shuffle", action="store_true")
 
     help_msg = parser.format_help()
@@ -184,6 +186,8 @@ def main() -> int:
                 pareto_path=args.pareto_path,
                 min_metric=args.min_metric,
                 shuffle=not args.no_shuffle,
+                min_mparams=args.min_mparams,
+                max_mparams=args.max_mparams,
             )
         else:
             if args.command is None:
