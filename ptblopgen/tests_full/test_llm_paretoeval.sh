@@ -14,6 +14,8 @@ cp data/pareto_front_0004.json tmp.paretoeval
 blop paretoeval \
    --config data/config.yaml \
    --pareto-path  tmp.paretoeval/pareto_front_0004.json \
+   --min-mparams 200 \
+   --max-mparams 400 \
    > tmp.paretoeval/log 2>&1
 ERRCODE=$?
 DURATION=$SECONDS
