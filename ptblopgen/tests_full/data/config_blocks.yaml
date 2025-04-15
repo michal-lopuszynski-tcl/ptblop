@@ -10,7 +10,7 @@ evaluator:
   evaluator_metrics:
     "ppl": null
     "arc_challenge": null
-  evaluator_seed: 271828
+  evaluator_batch_size: 32
 
 quality_estimator:
   quality_estimator_type: "EnsembleRandomForestBoundsEstimator"
