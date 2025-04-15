@@ -5,7 +5,7 @@
 + **!..** Consider moving to string bp_config signatures
 + **!..** Add num-layers as cost metric
 + **!..** Refactor the output so the metrics are in a subfield
-
++ **...** In LLM evaluator, add batch size handling to perplexity evaluator
 
 # DONE
 + Add full block mode
