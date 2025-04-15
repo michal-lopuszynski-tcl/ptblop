@@ -216,8 +216,10 @@ def get_dataset(dataset_and_split_name: str) -> datasets.Dataset:
 
 
 def calc_lm_eval_metrics(
+    *,
     model: torch.nn.Module,
     tasks: dict[str, Optional[float]],
+    batch_size,
     tokenizer: transformers.PreTrainedTokenizerBase,
     device: torch.device,
 ) -> tuple[dict[str, Any], str]:
@@ -232,7 +234,7 @@ def calc_lm_eval_metrics(
             results_task = lm_eval.evaluator.simple_evaluate(
                 model=lm_eval_model,
                 tasks=[task],
-                batch_size="auto",
+                batch_size=batch_size,
                 device=device,
                 limit=limit,
                 confirm_run_unsafe_code=True,
@@ -318,12 +320,18 @@ def make_dataloader_perplexity(
 
 
 class LMEvalWithPPLEvaluator:
-    def __init__(self, tokenizer, evaluator_metrics):
+    def __init__(self, tokenizer, evaluator_metrics, batch_size):
         if "ppl" in evaluator_metrics:
             self.ppl_dl, _ = make_dataloader_perplexity(tokenizer)
         else:
             self.ppl_dl = None
         self.tokenizer = tokenizer
+        if batch_size is None:
+            self.batch_size = "auto"
+        else:
+            self.batch_size = batch_size
+
+        self.batch_size = batch_size
         self.lm_eval_tasks = {k: v for k, v in evaluator_metrics.items() if k != "ppl"}
 
     def __call__(self, model: torch.nn.Module, device: torch.device):
@@ -357,6 +365,7 @@ class LMEvalWithPPLEvaluator:
                         tasks=self.lm_eval_tasks,
                         tokenizer=self.tokenizer,
                         device=device,
+                        batch_size=self.batch_size,
                     )
                     break
                 except huggingface_hub.errors.HfHubHTTPError as e:
@@ -389,12 +398,13 @@ class LMEvalWithPPLEvaluator:
 
 
 class MockLMEvalWithPPLEvaluator:
-    def __init__(self, tokenizer, evaluator_metrics, evaluator_seed):
+    def __init__(self, tokenizer, evaluator_metrics, batch_size):
         if "ppl" in evaluator_metrics:
             self.ppl_dl = True
         self.tokenizer = tokenizer
         self.lm_eval_tasks = {k: v for k, v in evaluator_metrics.items() if k != "ppl"}
-        self.rng = random.Random(evaluator_seed)
+        self.batch_size = batch_size  # This is only a mock
+        self.rng = random.Random(4123564143)
 
     def get_mock_score(self, model):
         bp_config = ptblop.get_bp_config(model)
@@ -442,16 +452,18 @@ class MockLMEvalWithPPLEvaluator:
 
 def make_evaluator(evaluator_config, tokenizer):
     evaluator_name = evaluator_config["evaluator_name"]
+
     if evaluator_name == "lm_eval_with_ppl":
         return LMEvalWithPPLEvaluator(
             tokenizer,
             evaluator_config["evaluator_metrics"],
+            batch_size=evaluator_config["evaluator_batch_size"],
         )
     elif evaluator_name == "mock_lm_eval_with_ppl":
         return MockLMEvalWithPPLEvaluator(
             tokenizer,
             evaluator_config["evaluator_metrics"],
-            evaluator_seed=evaluator_config["evaluator_seed"],
+            batch_size=evaluator_config["evaluator_batch_size"],
         )
     else:
         raise ValueError(f"Unsupported evaluator - {evaluator_name=}")
