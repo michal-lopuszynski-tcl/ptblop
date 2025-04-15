@@ -219,7 +219,7 @@ def calc_lm_eval_metrics(
     *,
     model: torch.nn.Module,
     tasks: dict[str, Optional[float]],
-    batch_size,
+    batch_size: int | str,
     tokenizer: transformers.PreTrainedTokenizerBase,
     device: torch.device,
 ) -> tuple[dict[str, Any], str]:
@@ -230,7 +230,7 @@ def calc_lm_eval_metrics(
     if isinstance(tasks, dict):
         results = {}
         for task, limit in tasks.items():
-            logger.info(f"Runnning lm_eval_task={task} with {limit=}")
+            logger.info(f"Runnning lm_eval_task={task} {limit=} {batch_size=}")
             results_task = lm_eval.evaluator.simple_evaluate(
                 model=lm_eval_model,
                 tasks=[task],
