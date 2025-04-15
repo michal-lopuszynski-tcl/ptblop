@@ -1,18 +1,26 @@
 import argparse
+import gzip
 import json
 import pathlib
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--pareto-path", "-p", type=pathlib.Path)
-    parser.add_argument("--min-mparams", "-n", type=float)
-    parser.add_argument("--max-mparams", "-x", type=float)
+    parser.add_argument("--pareto-path", "-p", required=True, type=pathlib.Path)
+    parser.add_argument("--min-mparams", "-n", required=True, type=float)
+    parser.add_argument("--max-mparams", "-x", required=True, type=float)
     return parser.parse_args()
 
 
+def open_rt(fname):
+    if str(fname).endswith(".gz"):
+        return gzip.open(fname, "rt")
+    else:
+        return open(fname, "rt")
+
+
 def main(args):
-    with open(args.pareto_path, "rt") as f:
+    with open_rt(args.pareto_path) as f:
         n = 0
         n_matching = 0
         for line in f:
