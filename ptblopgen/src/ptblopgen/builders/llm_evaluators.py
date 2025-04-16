@@ -225,7 +225,7 @@ def calc_lm_eval_metrics(
 ) -> tuple[dict[str, Any], str]:
 
     lm_eval_model = lm_eval.models.huggingface.HFLM(
-        pretrained=model, tokenizer=tokenizer, device=device
+        pretrained=model, tokenizer=tokenizer, device=device, batch_size=batch_size
     )
     if isinstance(tasks, dict):
         results = {}
