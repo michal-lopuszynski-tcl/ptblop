@@ -330,8 +330,6 @@ class LMEvalWithPPLEvaluator:
             self.batch_size = "auto"
         else:
             self.batch_size = batch_size
-
-        self.batch_size = batch_size
         self.lm_eval_tasks = {k: v for k, v in evaluator_metrics.items() if k != "ppl"}
 
     def __call__(self, model: torch.nn.Module, device: torch.device):
