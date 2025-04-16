@@ -40,7 +40,8 @@ def main_paretofind(
     *,
     config: dict[str, Any],
     output_path: pathlib.Path,
-    bp_config_db_paths: pathlib.Path
+    bp_config_db_paths: pathlib.Path,
+    beam_mode: bool,
 ):
     config_sampler = configurator.SamplerConfig(**config["sampler"])
     config_pareto_optimization = configurator.ParetoOptimizationConfig(
@@ -84,17 +85,38 @@ def main_paretofind(
         )
     )
 
-    pareto_optimization.find_pareto_front(
-        run_id=processing_env.run_id,
-        model_metadata=processing_env.model_metadata,
-        quality_estimator=quality_estimator,
-        quality_estimator_id=quality_estimator_id,
-        quality_metric_name=config_sampler.quality_evaluator_metric,
-        cost_estimator=cost_estimator,
-        cost_estimator_id=cost_estimator_id,
-        n_features=quality_estimator_metrics["n_features_trn"],
-        bp_config_unpruned=bp_config_unpruned,
-        pareto_path=pareto_front_path,
-        config_pareto_optimization=config_pareto_optimization,
-        full_block_mode=config_sampler.full_block_mode,
-    )
+    full_block_mode = config_sampler.full_block_mode
+
+    if beam_mode:
+        if not full_block_mode:
+            msg = f"{full_block_mode=}, but beam is available only in full block mode"
+            raise ValueError(msg)
+        pareto_optimization.find_pareto_front_beam(
+            run_id=processing_env.run_id,
+            model_metadata=processing_env.model_metadata,
+            quality_estimator=quality_estimator,
+            quality_estimator_id=quality_estimator_id,
+            quality_metric_name=config_sampler.quality_evaluator_metric,
+            cost_estimator=cost_estimator,
+            cost_estimator_id=cost_estimator_id,
+            n_features=quality_estimator_metrics["n_features_trn"],
+            bp_config_unpruned=bp_config_unpruned,
+            pareto_path=pareto_front_path,
+            config_pareto_optimization=config_pareto_optimization,
+            full_block_mode=full_block_mode,
+        )
+    else:
+        pareto_optimization.find_pareto_front(
+            run_id=processing_env.run_id,
+            model_metadata=processing_env.model_metadata,
+            quality_estimator=quality_estimator,
+            quality_estimator_id=quality_estimator_id,
+            quality_metric_name=config_sampler.quality_evaluator_metric,
+            cost_estimator=cost_estimator,
+            cost_estimator_id=cost_estimator_id,
+            n_features=quality_estimator_metrics["n_features_trn"],
+            bp_config_unpruned=bp_config_unpruned,
+            pareto_path=pareto_front_path,
+            config_pareto_optimization=config_pareto_optimization,
+            full_block_mode=full_block_mode,
+        )

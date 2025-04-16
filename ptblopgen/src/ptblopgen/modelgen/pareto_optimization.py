@@ -262,3 +262,116 @@ def find_pareto_front(
     msg += f" optimizer_seed={config_pareto_optimization.optimizer_seed}"
     msg += f" n_features={n_features}"
     logger.info(msg)
+
+
+def get_one_indices(cfg):
+    return [i for i, c in enumerate(cfg) if c == 1]
+
+
+def get_cfg_zeroed_at(cfg, zero_index):
+    cfg_list = list(cfg)
+    cfg_list[zero_index] = 0
+    return bytes(cfg_list)
+
+
+def gen_new_cfgs_single(cfg, processed_cfgs):
+    new_configurations = []
+    for i in get_one_indices(cfg):
+        cfg_new = get_cfg_zeroed_at(cfg, i)
+        if cfg_new not in processed_cfgs:
+            new_configurations.append(cfg_new)
+            processed_cfgs.add(cfg_new)
+    return new_configurations
+
+
+def gen_new_cfgs(cfgs, processed_cfgs):
+    new_configurations = []
+    for cfg in cfgs:
+        new_configurations.extend(gen_new_cfgs_single(cfg, processed_cfgs))
+    return new_configurations
+
+
+def rank_cfgs(cfgs, quality_estimator):
+    logger.info(f"Started ranking n={len(cfgs)} configurations")
+    X = [list(cfg) for cfg in cfgs]
+    # logger.info(f"{X=}")
+    X = np.array(X, dtype=np.float32)
+    quality, _, _ = quality_estimator.predict_with_bounds(X)
+    logger.info(f"Finihsed ranking n={len(cfgs)} configurations")
+    return np.argsort(-quality)
+
+
+def find_pareto_front_beam(
+    *,
+    run_id,
+    model_metadata,
+    quality_estimator,
+    quality_estimator_id,
+    quality_metric_name,
+    cost_estimator,
+    cost_estimator_id,
+    bp_config_unpruned,
+    n_features,
+    pareto_path,
+    config_pareto_optimization: configurator.ParetoOptimizationConfig,
+    full_block_mode,
+):
+    t1 = time.perf_counter()
+    # f_quality = build_predict_quality(quality_estimator)
+    # f_cost = build_predict_cost(cost_estimator)
+
+    BEAM_SIZE = 30
+
+    beam_cfgs = [bytes([1] * n_features)]
+    processed_cfgs = set()
+
+    for i in range(1, 20 + 1):
+        candidate_cfgs = gen_new_cfgs(beam_cfgs, processed_cfgs)
+        logger.info(f"{i=} generated n={len(candidate_cfgs)} candidate configs")
+
+        ranking = rank_cfgs(candidate_cfgs, quality_estimator)
+
+        beam_cfgs = [candidate_cfgs[i] for i in ranking[:BEAM_SIZE]]
+
+    # pareto_data = []
+    # ts = utils.get_timestamp()
+    # v_ptblop, v_ptblopgen = utils.get_versions()
+    # for i in range(m):
+    #     features = res.X[i, :]
+    #     bp_config = get_bp_config_from_features(
+    #         bp_config_unpruned, features, full_block_mode
+    #     )
+    #     n, n_attention, n_mlp = get_bp_config_stats(bp_config)
+    #     q, qmin, qmax = quality_estimator.predict_with_bounds([features])
+    #     params = cost_estimator.predict([features])
+    #     d = {
+    #         "run_id": run_id,
+    #         "mparams_pred": params.item(),
+    #         "n": n,
+    #         "n_attention": n_attention,
+    #         "n_mlp": n_mlp,
+    #         f"{quality_metric_name}_pred": q.item(),
+    #         f"{quality_metric_name}_pred_min": qmin.item(),
+    #         f"{quality_metric_name}_pred_max": qmax.item(),
+    #         "cost_estimator_id": cost_estimator_id,
+    #         "quality_estimator_id": quality_estimator_id,
+    #         "timestamp": ts,
+    #         "ptblop_version": v_ptblop,
+    #         "ptblopgen_version": v_ptblopgen,
+    #         "bp_config_signature": hex(utils.get_bp_config_signature(bp_config))[2:],
+    #         "model_metadata": model_metadata,
+    #         "bp_config": bp_config,
+    #     }
+    #     pareto_data.append(d)
+    # pareto_data = sorted(pareto_data, key=lambda d: -d["mparams_pred"])
+    # pareto_path.parent.mkdir(exist_ok=True, parents=True)
+    # with open(pareto_path, "wt") as f:
+    #     for d in pareto_data:
+    #         f.write(json.dumps(d) + "\n")
+    t2 = time.perf_counter()
+    msg = f"Finished Pareto optimization: duration={t2-t1:.2f} seconds"
+    msg += f" n_gen={config_pareto_optimization.n_gen}"
+    msg += f" pos_size={config_pareto_optimization.pop_size}"
+    msg += f" optimizer_seed={config_pareto_optimization.optimizer_seed}"
+    msg += f" n_features={n_features}"
+    logger.info(msg)
