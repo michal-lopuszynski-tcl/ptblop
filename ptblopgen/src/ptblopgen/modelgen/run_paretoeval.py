@@ -216,7 +216,9 @@ def eval_pareto_front(config, pareto_evaluated_path, pareto_evaluated_plot_path=
     # axs[1, 0].fill_between(
     #     metric_true[ii], metric_pred_min[ii], metric_pred_max[ii], color=CPRED_CONF
     # )
-    tmp_err = np.vstack((metric_pred - metric_pred_min, metric_pred_max - metric_pred))
+    err1 = np.maximum(metric_pred - metric_pred_min, 0.0)
+    err2 = np.maximum(metric_pred_max - metric_pred, 0.0)
+    tmp_err = np.vstack((err1, err2))
     axs[1, 0].errorbar(
         x=metric_true,
         y=metric_pred,
