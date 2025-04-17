@@ -33,7 +33,6 @@ def parse_args() -> tuple[argparse.Namespace, str]:
     parser_gen.add_argument(
         "--bp-configs-path", action="append", type=pathlib.Path, required=True
     )
-    parser_gen.add_argument("--beam-mode", action="store_true")
 
     parser_gen = subparsers.add_parser("paretoeval")
     parser_gen.add_argument("--config", type=pathlib.Path, required=True)
@@ -179,7 +178,6 @@ def main() -> int:
                 config=config,
                 output_path=args.output_path,
                 bp_config_db_paths=args.bp_configs_path,
-                beam_mode=args.beam_mode,
             )
         elif args.command == "paretoeval":
             config = read_config(args.config)

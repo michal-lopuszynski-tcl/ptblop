@@ -549,7 +549,7 @@ def main_sample(config: dict[str, Any], output_path: pathlib.Path) -> None:
     _ = estimator_helpers.make_quality_estimator(config["quality_estimator"])
 
     config_sampler = configurator.SamplerConfig(**config["sampler"])
-    config_pareto_optimization = configurator.ParetoOptimizationConfig(
+    config_pareto_optimization = configurator.PymooParetoOptimizationConfig(
         **config["pareto_optimization"]
     )
     quality_estimators_db_path = (
@@ -724,7 +724,7 @@ def main_sample(config: dict[str, Any], output_path: pathlib.Path) -> None:
 
                 # Generate Pareto front
 
-                pareto_optimization.find_pareto_front(
+                pareto_optimization.find_pareto_front_pymoo(
                     run_id=processing_env.run_id,
                     model_metadata=processing_env.model_metadata,
                     quality_estimator=quality_estimator,

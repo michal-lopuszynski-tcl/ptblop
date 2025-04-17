@@ -163,7 +163,7 @@ def get_bp_config_stats(bp_config):
 #         )
 
 
-def find_pareto_front(
+def find_pareto_front_pymoo(
     *,
     run_id,
     model_metadata,
@@ -175,7 +175,7 @@ def find_pareto_front(
     bp_config_unpruned,
     n_features,
     pareto_path,
-    config_pareto_optimization: configurator.ParetoOptimizationConfig,
+    config_pareto_optimization: configurator.PymooParetoOptimizationConfig,
     full_block_mode,
 ):
     t1 = time.perf_counter()
@@ -301,7 +301,7 @@ def rank_cfgs(cfgs, quality_estimator):
     return np.argsort(-quality)
 
 
-def find_pareto_front_beam(
+def find_pareto_front_beam_full_block(
     *,
     run_id,
     model_metadata,
@@ -313,45 +313,42 @@ def find_pareto_front_beam(
     bp_config_unpruned,
     n_features,
     pareto_path,
-    config_pareto_optimization: configurator.ParetoOptimizationConfig,
-    full_block_mode,
+    config_pareto_optimization: configurator.BeamParetoOptimizationConfig,
 ):
     t1 = time.perf_counter()
     # f_quality = build_predict_quality(quality_estimator)
     # f_cost = build_predict_cost(cost_estimator)
 
-    BEAM_SIZE = 30
-    PARETO_SIZE = 1
-
+    beam_size = config_pareto_optimization.beam_size
+    pareto_size = config_pareto_optimization.pareto_size
+    max_removed = round(n_features * config_pareto_optimization.max_num_changes_factor)
+    logger.info(f"Maximum number of removed blocks {max_removed=}")
     beam_cfgs = [bytes([1] * n_features)]
     processed_cfgs = set()
 
     pareto_cfgs = []
 
-    for i in range(1, 20 + 1):
+    for i in range(1, max_removed + 1):
         candidate_cfgs = gen_new_cfgs(beam_cfgs, processed_cfgs)
-        logger.info(f"{i=} generated n={len(candidate_cfgs)} candidate configs")
-
+        m = f"{i=} / {max_removed} generated n={len(candidate_cfgs)} candidate configs"
+        logger.info(m)
         ranking = rank_cfgs(candidate_cfgs, quality_estimator)
-
-        beam_cfgs = [candidate_cfgs[i] for i in ranking[:BEAM_SIZE]]
-        pareto_cfgs.extend([candidate_cfgs[i] for i in ranking[:PARETO_SIZE]])
+        beam_cfgs = [candidate_cfgs[i] for i in ranking[:beam_size]]
+        pareto_cfgs.extend([candidate_cfgs[i] for i in ranking[:pareto_size]])
 
     pareto_data = []
     ts = utils.get_timestamp()
     v_ptblop, v_ptblopgen = utils.get_versions()
     for i in range(len(pareto_cfgs)):
         features = np.array(list(pareto_cfgs[i]), dtype=np.float32)
-        bp_config = get_bp_config_from_features(
-            bp_config_unpruned, features, full_block_mode
-        )
-        n, n_attention, n_mlp = get_bp_config_stats(bp_config)
+        bp_config = get_bp_config_from_features(bp_config_unpruned, features, True)
+        max_removed, n_attention, n_mlp = get_bp_config_stats(bp_config)
         q, qmin, qmax = quality_estimator.predict_with_bounds([features])
         params = cost_estimator.predict([features])
         d = {
             "run_id": run_id,
             "mparams_pred": params.item(),
-            "n": n,
+            "n": max_removed,
             "n_attention": n_attention,
             "n_mlp": n_mlp,
             f"{quality_metric_name}_pred": q.item(),
@@ -374,8 +371,22 @@ def find_pareto_front_beam(
             f.write(json.dumps(d) + "\n")
     t2 = time.perf_counter()
     msg = f"Finished Pareto optimization: duration={t2-t1:.2f} seconds"
-    msg += f" n_gen={config_pareto_optimization.n_gen}"
-    msg += f" pos_size={config_pareto_optimization.pop_size}"
-    msg += f" optimizer_seed={config_pareto_optimization.optimizer_seed}"
     msg += f" n_features={n_features}"
     logger.info(msg)
+
+
+def find_pareto_front_beam_non_full_block(
+    *,
+    run_id,
+    model_metadata,
+    quality_estimator,
+    quality_estimator_id,
+    quality_metric_name,
+    cost_estimator,
+    cost_estimator_id,
+    bp_config_unpruned,
+    n_features,
+    pareto_path,
+    config_pareto_optimization: configurator.BeamParetoOptimizationConfig,
+):
+    raise NotImplementedError("Beam search for non full block mode")
