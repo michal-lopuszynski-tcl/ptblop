@@ -1,5 +1,3 @@
-## Language model
-
 model:
   model_name: "transformers/Qwen/Qwen2-0.5B"
   model_revision: "main"
@@ -17,6 +15,7 @@ quality_estimator:
   quality_estimator_kwargs: null
 
 pareto_optimization:
+  optimizer: "pymoo"
   optimizer_seed: 173205
   pop_size: 100
   n_gen: 50
