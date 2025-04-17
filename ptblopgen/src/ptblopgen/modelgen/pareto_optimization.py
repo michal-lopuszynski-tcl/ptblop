@@ -264,6 +264,16 @@ def find_pareto_front_pymoo(
     logger.info(msg)
 
 
+def rank_cfgs(cfgs, quality_estimator):
+    logger.info(f"Started ranking n={len(cfgs)} configurations")
+    X = [list(cfg) for cfg in cfgs]
+    # logger.info(f"{X=}")
+    X = np.array(X, dtype=np.float32)
+    quality, _, _ = quality_estimator.predict_with_bounds(X)
+    logger.info(f"Finihsed ranking n={len(cfgs)} configurations")
+    return np.argsort(-quality)
+
+
 def get_one_indices(cfg):
     return [i for i, c in enumerate(cfg) if c == 1]
 
@@ -274,7 +284,7 @@ def get_cfg_zeroed_at(cfg, zero_index):
     return bytes(cfg_list)
 
 
-def gen_new_cfgs_single(cfg, processed_cfgs):
+def remove_one_block_from_single_cfg(cfg, processed_cfgs):
     new_configurations = []
     for i in get_one_indices(cfg):
         cfg_new = get_cfg_zeroed_at(cfg, i)
@@ -284,21 +294,11 @@ def gen_new_cfgs_single(cfg, processed_cfgs):
     return new_configurations
 
 
-def gen_new_cfgs(cfgs, processed_cfgs):
+def remove_one_block_from_cfgs(cfgs, processed_cfgs):
     new_configurations = []
     for cfg in cfgs:
-        new_configurations.extend(gen_new_cfgs_single(cfg, processed_cfgs))
+        new_configurations.extend(remove_one_block_from_single_cfg(cfg, processed_cfgs))
     return new_configurations
-
-
-def rank_cfgs(cfgs, quality_estimator):
-    logger.info(f"Started ranking n={len(cfgs)} configurations")
-    X = [list(cfg) for cfg in cfgs]
-    # logger.info(f"{X=}")
-    X = np.array(X, dtype=np.float32)
-    quality, _, _ = quality_estimator.predict_with_bounds(X)
-    logger.info(f"Finihsed ranking n={len(cfgs)} configurations")
-    return np.argsort(-quality)
 
 
 def find_pareto_front_beam_full_block(
@@ -316,8 +316,6 @@ def find_pareto_front_beam_full_block(
     config_pareto_optimization: configurator.BeamParetoOptimizationConfig,
 ):
     t1 = time.perf_counter()
-    # f_quality = build_predict_quality(quality_estimator)
-    # f_cost = build_predict_cost(cost_estimator)
 
     beam_size = config_pareto_optimization.beam_size
     pareto_size = config_pareto_optimization.pareto_size
@@ -329,7 +327,7 @@ def find_pareto_front_beam_full_block(
     pareto_cfgs = []
 
     for i in range(1, max_removed + 1):
-        candidate_cfgs = gen_new_cfgs(beam_cfgs, processed_cfgs)
+        candidate_cfgs = remove_one_block_from_cfgs(beam_cfgs, processed_cfgs)
         m = f"{i=} / {max_removed} generated n={len(candidate_cfgs)} candidate configs"
         logger.info(m)
         ranking = rank_cfgs(candidate_cfgs, quality_estimator)
@@ -375,6 +373,48 @@ def find_pareto_front_beam_full_block(
     logger.info(msg)
 
 
+def get_one_att_indices(cfg):
+    return [i for i, c in enumerate(cfg) if c == 1 and i % 2 == 0]
+
+
+def get_one_mlp_indices(cfg):
+    return [i for i, c in enumerate(cfg) if c == 1 and i % 2 == 1]
+
+
+def remove_one_att_from_single_cfg(cfg, processed_cfgs):
+    new_configurations = []
+    for i in get_one_att_indices(cfg):
+        cfg_new = get_cfg_zeroed_at(cfg, i)
+        if cfg_new not in processed_cfgs:
+            new_configurations.append(cfg_new)
+            processed_cfgs.add(cfg_new)
+    return new_configurations
+
+
+def remove_one_att_from_cfgs(cfgs, processed_cfgs):
+    new_configurations = []
+    for cfg in cfgs:
+        new_configurations.extend(remove_one_att_from_single_cfg(cfg, processed_cfgs))
+    return new_configurations
+
+
+def remove_one_mlp_from_single_cfg(cfg, processed_cfgs):
+    new_configurations = []
+    for i in get_one_mlp_indices(cfg):
+        cfg_new = get_cfg_zeroed_at(cfg, i)
+        if cfg_new not in processed_cfgs:
+            new_configurations.append(cfg_new)
+            processed_cfgs.add(cfg_new)
+    return new_configurations
+
+
+def remove_one_mlp_from_cfgs(cfgs, processed_cfgs):
+    new_configurations = []
+    for cfg in cfgs:
+        new_configurations.extend(remove_one_mlp_from_single_cfg(cfg, processed_cfgs))
+    return new_configurations
+
+
 def find_pareto_front_beam_non_full_block(
     *,
     run_id,
@@ -389,4 +429,88 @@ def find_pareto_front_beam_non_full_block(
     pareto_path,
     config_pareto_optimization: configurator.BeamParetoOptimizationConfig,
 ):
-    raise NotImplementedError("Beam search for non full block mode")
+    t1 = time.perf_counter()
+
+    beam_size = config_pareto_optimization.beam_size
+    pareto_size = config_pareto_optimization.pareto_size
+    max_removed = round(n_features * config_pareto_optimization.max_num_changes_factor)
+    logger.info(f"Maximum number of removed blocks {max_removed=}")
+
+    beam_cfgs = {(0, 0): [bytes([1] * n_features)]}
+
+    processed_cfgs = set()
+
+    pareto_cfgs = []
+
+    for n_removed in range(1, max_removed + 1):
+
+        for n_removed_att in range(0, n_removed + 1):
+            n_removed_mlp = n_removed - n_removed_att
+            logger.info(f"{n_removed=} {n_removed_att=} {n_removed_mlp=}")
+            candidate_cfgs = []
+
+            if n_removed_att - 1 >= 0:
+                base_cfgs = beam_cfgs[(n_removed_att - 1, n_removed_mlp)]
+                candidate_cfgs_att = remove_one_att_from_cfgs(base_cfgs, processed_cfgs)
+                candidate_cfgs.extend(candidate_cfgs_att)
+                logger.info(f"Adding {len(candidate_cfgs_att)} from attention")
+            if n_removed_mlp - 1 >= 0:
+                base_cfgs = beam_cfgs[(n_removed_att, n_removed_mlp - 1)]
+                candidate_cfgs_mlp = remove_one_mlp_from_cfgs(base_cfgs, processed_cfgs)
+                candidate_cfgs.extend(candidate_cfgs_mlp)
+                logger.info(f"Adding {len(candidate_cfgs_mlp)} from mlp")
+            if len(candidate_cfgs) > 0:
+                ranking = rank_cfgs(candidate_cfgs, quality_estimator)
+                beam_cfgs[(n_removed_att, n_removed_mlp)] = [
+                    candidate_cfgs[i] for i in ranking[:beam_size]
+                ]
+                pareto_cfgs.extend([candidate_cfgs[i] for i in ranking[:pareto_size]])
+
+        keys_to_delete = []
+        for k in beam_cfgs:
+            k1, k2 = k
+            if k1 + k2 == (n_removed - 1):
+                keys_to_delete.append(k)
+        n = 0
+        for k in keys_to_delete:
+            n += len(beam_cfgs[k])
+            del beam_cfgs[k]
+        logger.info(f"Deleted {n=} configurations")
+
+    pareto_data = []
+    ts = utils.get_timestamp()
+    v_ptblop, v_ptblopgen = utils.get_versions()
+    for i in range(len(pareto_cfgs)):
+        features = np.array(list(pareto_cfgs[i]), dtype=np.float32)
+        bp_config = get_bp_config_from_features(bp_config_unpruned, features, False)
+        max_removed, n_attention, n_mlp = get_bp_config_stats(bp_config)
+        q, qmin, qmax = quality_estimator.predict_with_bounds([features])
+        params = cost_estimator.predict([features])
+        d = {
+            "run_id": run_id,
+            "mparams_pred": params.item(),
+            "n": max_removed,
+            "n_attention": n_attention,
+            "n_mlp": n_mlp,
+            f"{quality_metric_name}_pred": q.item(),
+            f"{quality_metric_name}_pred_min": qmin.item(),
+            f"{quality_metric_name}_pred_max": qmax.item(),
+            "cost_estimator_id": cost_estimator_id,
+            "quality_estimator_id": quality_estimator_id,
+            "timestamp": ts,
+            "ptblop_version": v_ptblop,
+            "ptblopgen_version": v_ptblopgen,
+            "bp_config_signature": hex(utils.get_bp_config_signature(bp_config))[2:],
+            "model_metadata": model_metadata,
+            "bp_config": bp_config,
+        }
+        pareto_data.append(d)
+    pareto_data = sorted(pareto_data, key=lambda d: -d["mparams_pred"])
+    pareto_path.parent.mkdir(exist_ok=True, parents=True)
+    with open(pareto_path, "wt") as f:
+        for d in pareto_data:
+            f.write(json.dumps(d) + "\n")
+    t2 = time.perf_counter()
+    msg = f"Finished Pareto optimization: duration={t2-t1:.2f} seconds"
+    msg += f" n_features={n_features}"
+    logger.info(msg)
