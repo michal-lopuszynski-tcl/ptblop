@@ -321,9 +321,12 @@ def find_pareto_front_beam(
     # f_cost = build_predict_cost(cost_estimator)
 
     BEAM_SIZE = 30
+    PARETO_SIZE = 1
 
     beam_cfgs = [bytes([1] * n_features)]
     processed_cfgs = set()
+
+    pareto_cfgs = []
 
     for i in range(1, 20 + 1):
         candidate_cfgs = gen_new_cfgs(beam_cfgs, processed_cfgs)
@@ -332,42 +335,43 @@ def find_pareto_front_beam(
         ranking = rank_cfgs(candidate_cfgs, quality_estimator)
 
         beam_cfgs = [candidate_cfgs[i] for i in ranking[:BEAM_SIZE]]
+        pareto_cfgs.extend([candidate_cfgs[i] for i in ranking[:PARETO_SIZE]])
 
-    # pareto_data = []
-    # ts = utils.get_timestamp()
-    # v_ptblop, v_ptblopgen = utils.get_versions()
-    # for i in range(m):
-    #     features = res.X[i, :]
-    #     bp_config = get_bp_config_from_features(
-    #         bp_config_unpruned, features, full_block_mode
-    #     )
-    #     n, n_attention, n_mlp = get_bp_config_stats(bp_config)
-    #     q, qmin, qmax = quality_estimator.predict_with_bounds([features])
-    #     params = cost_estimator.predict([features])
-    #     d = {
-    #         "run_id": run_id,
-    #         "mparams_pred": params.item(),
-    #         "n": n,
-    #         "n_attention": n_attention,
-    #         "n_mlp": n_mlp,
-    #         f"{quality_metric_name}_pred": q.item(),
-    #         f"{quality_metric_name}_pred_min": qmin.item(),
-    #         f"{quality_metric_name}_pred_max": qmax.item(),
-    #         "cost_estimator_id": cost_estimator_id,
-    #         "quality_estimator_id": quality_estimator_id,
-    #         "timestamp": ts,
-    #         "ptblop_version": v_ptblop,
-    #         "ptblopgen_version": v_ptblopgen,
-    #         "bp_config_signature": hex(utils.get_bp_config_signature(bp_config))[2:],
-    #         "model_metadata": model_metadata,
-    #         "bp_config": bp_config,
-    #     }
-    #     pareto_data.append(d)
-    # pareto_data = sorted(pareto_data, key=lambda d: -d["mparams_pred"])
-    # pareto_path.parent.mkdir(exist_ok=True, parents=True)
-    # with open(pareto_path, "wt") as f:
-    #     for d in pareto_data:
-    #         f.write(json.dumps(d) + "\n")
+    pareto_data = []
+    ts = utils.get_timestamp()
+    v_ptblop, v_ptblopgen = utils.get_versions()
+    for i in range(len(pareto_cfgs)):
+        features = np.array(list(pareto_cfgs[i]), dtype=np.float32)
+        bp_config = get_bp_config_from_features(
+            bp_config_unpruned, features, full_block_mode
+        )
+        n, n_attention, n_mlp = get_bp_config_stats(bp_config)
+        q, qmin, qmax = quality_estimator.predict_with_bounds([features])
+        params = cost_estimator.predict([features])
+        d = {
+            "run_id": run_id,
+            "mparams_pred": params.item(),
+            "n": n,
+            "n_attention": n_attention,
+            "n_mlp": n_mlp,
+            f"{quality_metric_name}_pred": q.item(),
+            f"{quality_metric_name}_pred_min": qmin.item(),
+            f"{quality_metric_name}_pred_max": qmax.item(),
+            "cost_estimator_id": cost_estimator_id,
+            "quality_estimator_id": quality_estimator_id,
+            "timestamp": ts,
+            "ptblop_version": v_ptblop,
+            "ptblopgen_version": v_ptblopgen,
+            "bp_config_signature": hex(utils.get_bp_config_signature(bp_config))[2:],
+            "model_metadata": model_metadata,
+            "bp_config": bp_config,
+        }
+        pareto_data.append(d)
+    pareto_data = sorted(pareto_data, key=lambda d: -d["mparams_pred"])
+    pareto_path.parent.mkdir(exist_ok=True, parents=True)
+    with open(pareto_path, "wt") as f:
+        for d in pareto_data:
+            f.write(json.dumps(d) + "\n")
     t2 = time.perf_counter()
     msg = f"Finished Pareto optimization: duration={t2-t1:.2f} seconds"
     msg += f" n_gen={config_pareto_optimization.n_gen}"
