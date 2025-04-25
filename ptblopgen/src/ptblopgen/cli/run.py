@@ -169,7 +169,6 @@ def main() -> int:
             modelgen.main_sample(config, args.output_path)
         elif args.command == "paretofind":
             args.output_path.mkdir(exist_ok=True, parents=True)
-            print(args)
             make_repro_dir(
                 args, REPRO_SUBDIR_PREFIX, bp_configs_paths=args.bp_configs_path
             )
