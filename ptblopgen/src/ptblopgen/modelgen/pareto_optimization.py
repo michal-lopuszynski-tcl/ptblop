@@ -415,6 +415,13 @@ def remove_one_mlp_from_cfgs(cfgs, processed_cfgs):
     return new_configurations
 
 
+def make_pareto_sort_key(quality_metric_name):
+    def __key_fn(d):
+        return -d["mparams_pred"], d[f"{quality_metric_name}_pred"]
+
+    return __key_fn
+
+
 def find_pareto_front_beam_non_full_block(
     *,
     run_id,
@@ -506,7 +513,7 @@ def find_pareto_front_beam_non_full_block(
                 "bp_config": bp_config,
             }
             pareto_data.append(d)
-        pareto_data = sorted(pareto_data, key=lambda d: -d["mparams_pred"])
+        pareto_data = sorted(pareto_data, key=make_pareto_sort_key(quality_metric_name))
         pareto_path.parent.mkdir(exist_ok=True, parents=True)
         with open(pareto_path, "wt") as f:
             for d in pareto_data:
