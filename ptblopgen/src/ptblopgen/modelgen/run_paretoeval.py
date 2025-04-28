@@ -12,7 +12,7 @@ import ptblop
 import torch
 
 from .. import builders, utils
-from . import estimator_helpers
+from . import estimator_helpers, pareto_helpers
 
 logger = logging.getLogger(__name__)
 
@@ -126,9 +126,43 @@ def filter_processed(pareto_front_data, processed_bp_config_signatures):
     return res
 
 
+def filter_pareto_front_by_level(*, pareto_front_data, pareto_level):
+    bpc_signature_to_level = {}
+
+    cur_data = pareto_front_data
+
+    for cur_pareto_level in range(pareto_level):
+        new_data = []
+        mask = pareto_helpers.get_pf_mask()
+        for j in range(len(cur_data)):
+            if mask[j]:
+                bpc = cur_data["bp_config"]
+                bpc_singature = utils.get_bp_config_signature(bpc)
+                bpc_signature_to_level[bpc_singature] = cur_pareto_level
+            else:
+                new_data.append(cur_data[j])
+        cur_data = new_data
+
+    res = []
+    for d in pareto_front_data:
+        bpc_signature = utils.get_bp_config_signature(d["bp_config"])
+        level = bpc_signature_to_level.get(bpc_signature)
+        if level is not None:
+            d["pareto_level"] = level
+            res.append(d)
+
+    n_tot = len(pareto_front_data)
+    logger.info(f"Filtered Pareto front by {pareto_level=} - {n_tot=}")
+    return res
+
+
 def filter_pareto_front(
-    *, pareto_front_data, config, min_metric, min_mparams, max_mparams
+    *, pareto_front_data, config, min_metric, min_mparams, max_mparams, pareto_level
 ):
+    if pareto_level is not None:
+        pareto_front_data = filter_pareto_front_by_level(
+            pareto_front_data=pareto_front_data, pareto_level=pareto_level
+        )
     if min_metric is not None:
         metric_key = config["sampler"]["quality_evaluator_metric"] + "_pred"
         pareto_front_data = [
@@ -302,6 +336,9 @@ def main_paretoeval(
         random.shuffle(pareto_front_data)
     else:
         logger.info("Skipping shuffling pareto front data")
+    import sys
+
+    sys.exit()
 
     for i, d in enumerate(pareto_front_data, start=1):
         bpcs = utils.bp_config_signature_from_str(d["bp_config_signature"])

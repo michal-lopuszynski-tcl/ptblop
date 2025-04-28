@@ -23,24 +23,25 @@ def parse_args() -> tuple[argparse.Namespace, str]:
     parser.add_argument("--version", action="store_true")
     subparsers = parser.add_subparsers(dest="command")
 
-    parser_gen = subparsers.add_parser("sample")
-    parser_gen.add_argument("--config", type=pathlib.Path, required=True)
-    parser_gen.add_argument("--output-path", type=pathlib.Path, required=True)
+    subparser = subparsers.add_parser("sample")
+    subparser.add_argument("--config", type=pathlib.Path, required=True)
+    subparser.add_argument("--output-path", type=pathlib.Path, required=True)
 
-    parser_gen = subparsers.add_parser("paretofind")
-    parser_gen.add_argument("--config", type=pathlib.Path, required=True)
-    parser_gen.add_argument("--output-path", type=pathlib.Path, required=True)
-    parser_gen.add_argument(
+    subparser = subparsers.add_parser("paretofind")
+    subparser.add_argument("--config", type=pathlib.Path, required=True)
+    subparser.add_argument("--output-path", type=pathlib.Path, required=True)
+    subparser.add_argument(
         "--bp-configs-path", action="append", type=pathlib.Path, required=True
     )
 
-    parser_gen = subparsers.add_parser("paretoeval")
-    parser_gen.add_argument("--config", type=pathlib.Path, required=True)
-    parser_gen.add_argument("--pareto-path", type=pathlib.Path, required=True)
-    parser_gen.add_argument("--min-metric", type=float, default=None)
-    parser_gen.add_argument("--min-mparams", type=float, default=None)
-    parser_gen.add_argument("--max-mparams", type=float, default=None)
-    parser_gen.add_argument("--no-shuffle", action="store_true")
+    subparser = subparsers.add_parser("paretoeval")
+    subparser.add_argument("--config", type=pathlib.Path, required=True)
+    subparser.add_argument("--pareto-path", type=pathlib.Path, required=True)
+    subparser.add_argument("--min-metric", type=float, default=None)
+    subparser.add_argument("--min-mparams", type=float, default=None)
+    subparser.add_argument("--max-mparams", type=float, default=None)
+    subparser.add_argument("--pareto-level", type=int, default=None)
+    subparser.add_argument("--no-shuffle", action="store_true")
 
     help_msg = parser.format_help()
     return parser.parse_args(), help_msg
@@ -187,6 +188,7 @@ def main() -> int:
                 shuffle=not args.no_shuffle,
                 min_mparams=args.min_mparams,
                 max_mparams=args.max_mparams,
+                pareto_level=args.pareto_level,
             )
         else:
             if args.command is None:
