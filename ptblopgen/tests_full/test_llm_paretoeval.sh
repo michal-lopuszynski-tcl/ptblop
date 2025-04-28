@@ -16,6 +16,7 @@ blop paretoeval \
    --pareto-path  tmp.paretoeval/pareto_front_0004.json \
    --min-mparams 200 \
    --max-mparams 400 \
+   --pareto-level 2 \
    > tmp.paretoeval/log 2>&1
 ERRCODE=$?
 DURATION=$SECONDS
