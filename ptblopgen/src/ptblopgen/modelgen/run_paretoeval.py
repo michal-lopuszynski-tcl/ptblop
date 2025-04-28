@@ -154,7 +154,7 @@ def filter_pareto_front_by_level(*, pareto_front_data, pareto_level, metric_key)
             d["pareto_level"] = level
             res.append(d)
 
-    n_tot = len(pareto_front_data)
+    n_tot = len(res)
     logger.info(f"Filtered Pareto front by {pareto_level=} - {n_tot=}")
     return res
 
