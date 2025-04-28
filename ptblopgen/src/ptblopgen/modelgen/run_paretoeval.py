@@ -126,18 +126,21 @@ def filter_processed(pareto_front_data, processed_bp_config_signatures):
     return res
 
 
-def filter_pareto_front_by_level(*, pareto_front_data, pareto_level):
+def filter_pareto_front_by_level(*, pareto_front_data, pareto_level, metric_key):
     bpc_signature_to_level = {}
 
     cur_data = pareto_front_data
 
     for cur_pareto_level in range(pareto_level):
         new_data = []
-        mask = pareto_helpers.get_pf_mask()
+        mparams = np.fromiter((d["mparams"] for d in cur_data))
+        metric = np.fromiter((d[metric_key] for d in cur_data))
+        mask = pareto_helpers.get_pf_mask(
+            o1=mparams, o2=metric, mode=pareto_helpers.Mode.O1_MIN_O2_MAX
+        )
         for j in range(len(cur_data)):
             if mask[j]:
-                bpc = cur_data["bp_config"]
-                bpc_singature = utils.get_bp_config_signature(bpc)
+                bpc_singature = utils.get_bp_config_signature(cur_data["bp_config"])
                 bpc_signature_to_level[bpc_singature] = cur_pareto_level
             else:
                 new_data.append(cur_data[j])
@@ -159,12 +162,15 @@ def filter_pareto_front_by_level(*, pareto_front_data, pareto_level):
 def filter_pareto_front(
     *, pareto_front_data, config, min_metric, min_mparams, max_mparams, pareto_level
 ):
+    metric_key = config["sampler"]["quality_evaluator_metric"] + "_pred"
     if pareto_level is not None:
         pareto_front_data = filter_pareto_front_by_level(
-            pareto_front_data=pareto_front_data, pareto_level=pareto_level
+            pareto_front_data=pareto_front_data,
+            pareto_level=pareto_level,
+            metric_key=metric_key,
         )
     if min_metric is not None:
-        metric_key = config["sampler"]["quality_evaluator_metric"] + "_pred"
+
         pareto_front_data = [
             d for d in pareto_front_data if d[metric_key] >= min_metric
         ]

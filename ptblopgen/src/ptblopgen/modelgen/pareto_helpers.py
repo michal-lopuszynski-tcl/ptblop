@@ -11,7 +11,7 @@ class Mode(enum.Enum):
     O1_MIN_O2_MIN = 4
 
 
-logger = logging.getLoger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def get_dedpuplicated_copy(o1, o2):
