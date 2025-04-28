@@ -133,14 +133,14 @@ def filter_pareto_front_by_level(*, pareto_front_data, pareto_level, metric_key)
 
     for cur_pareto_level in range(pareto_level):
         new_data = []
-        mparams = np.fromiter((d["mparams"] for d in cur_data))
-        metric = np.fromiter((d[metric_key] for d in cur_data))
+        mparams = np.fromiter((d["mparams_pred"] for d in cur_data), dtype=np.float64)
+        metric = np.fromiter((d[metric_key] for d in cur_data), dtype=np.float64)
         mask = pareto_helpers.get_pf_mask(
             o1=mparams, o2=metric, mode=pareto_helpers.Mode.O1_MIN_O2_MAX
         )
         for j in range(len(cur_data)):
             if mask[j]:
-                bpc_singature = utils.get_bp_config_signature(cur_data["bp_config"])
+                bpc_singature = utils.get_bp_config_signature(cur_data[j]["bp_config"])
                 bpc_signature_to_level[bpc_singature] = cur_pareto_level
             else:
                 new_data.append(cur_data[j])
@@ -306,6 +306,7 @@ def main_paretoeval(
     min_mparams: Optional[float],
     max_mparams: Optional[float],
     shuffle: bool,
+    pareto_level: int,
 ) -> None:
 
     pareto_front_data = read_pareto_front_data(pareto_path)
@@ -334,6 +335,7 @@ def main_paretoeval(
         min_metric=min_metric,
         min_mparams=min_mparams,
         max_mparams=max_mparams,
+        pareto_level=pareto_level,
     )
     n_tot = len(pareto_front_data)
 
@@ -342,9 +344,6 @@ def main_paretoeval(
         random.shuffle(pareto_front_data)
     else:
         logger.info("Skipping shuffling pareto front data")
-    import sys
-
-    sys.exit()
 
     for i, d in enumerate(pareto_front_data, start=1):
         bpcs = utils.bp_config_signature_from_str(d["bp_config_signature"])
