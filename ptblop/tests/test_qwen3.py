@@ -6,6 +6,10 @@ import transformers  # type: ignore
 import ptblop
 
 
+def is_qwen3_available():
+    return hasattr(transformers.models, "qwen3")
+
+
 def make_qwen3() -> helpers.MODEL_DATA_TYPE:
     model_name = "Qwen/Qwen3-0.6B"
     model_revision = "main"
@@ -27,61 +31,75 @@ def make_qwen3() -> helpers.MODEL_DATA_TYPE:
     return model, __gen_data_qwen, bp_config
 
 
+@pytest.mark.skipif(not is_qwen3_available(), reason="qwen3 not available")
 def test_qwen3_unpruned_forward_cpu() -> None:
     helpers.check_unpruned_forward(make_qwen3, torch.device("cpu"))
 
 
+@pytest.mark.skipif(not is_qwen3_available(), reason="qwen3 not available")
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda not available")
 def test_qwen3_unpruned_forward_gpu() -> None:
     helpers.check_unpruned_forward(make_qwen3, torch.device("cuda"))
 
 
+@pytest.mark.skipif(not is_qwen3_available(), reason="qwen3 not available")
 def test_qwen3_decomposed1_cpu() -> None:
     helpers.check_disabled_attentnions(make_qwen3, torch.device("cpu"))
 
 
+@pytest.mark.skipif(not is_qwen3_available(), reason="qwen3 not available")
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda not available")
 def test_qwen3_decomposed1_gpu() -> None:
     helpers.check_disabled_attentnions(make_qwen3, torch.device("cuda"))
 
 
+@pytest.mark.skipif(not is_qwen3_available(), reason="qwen3 not available")
+@pytest.mark.skipif(not is_qwen3_available(), reason="qwen3 not available")
 def test_qwen3_disabled_mlps_cpu() -> None:
     helpers.check_disabled_mlps(make_qwen3, torch.device("cpu"))
 
 
+@pytest.mark.skipif(not is_qwen3_available(), reason="qwen3 not available")
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda not available")
 def test_qwen3_disabled_mlps_gpu() -> None:
     helpers.check_disabled_mlps(make_qwen3, torch.device("cuda"))
 
 
+@pytest.mark.skipif(not is_qwen3_available(), reason="qwen3 not available")
 def test_qwen3_disabled_blocks_cpu() -> None:
     helpers.check_disabled_blocks(make_qwen3, torch.device("cpu"))
 
 
+@pytest.mark.skipif(not is_qwen3_available(), reason="qwen3 not available")
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda not available")
 def test_qwen3_disabled_blocks_gpu() -> None:
     helpers.check_disabled_blocks(make_qwen3, torch.device("cuda"))
 
 
+@pytest.mark.skipif(not is_qwen3_available(), reason="qwen3 not available")
 def test_qwen3_enable_disable_cpu() -> None:
     helpers.check_enable_disable(make_qwen3, torch.device("cpu"))
 
 
+@pytest.mark.skipif(not is_qwen3_available(), reason="qwen3 not available")
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda not available")
 def test_qwen3_enable_disable_gpu() -> None:
     helpers.check_enable_disable(make_qwen3, torch.device("cuda"))
 
 
+@pytest.mark.skipif(not is_qwen3_available(), reason="qwen3 not available")
 def test_qwen3_num_params() -> None:
     helpers.check_num_params(make_qwen3)
 
 
+@pytest.mark.skipif(not is_qwen3_available(), reason="qwen3 not available")
 def test_qwen3_disabled_block0_is_identity_cpu() -> None:
     helpers.check_disabled_block_is_identity(
         make_qwen3, torch.device("cpu"), "model.layers.0", 0
     )
 
 
+@pytest.mark.skipif(not is_qwen3_available(), reason="qwen3 not available")
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda not available")
 def test_qwen3_disabled_block0_is_identity_gpu() -> None:
     helpers.check_disabled_block_is_identity(
@@ -89,12 +107,14 @@ def test_qwen3_disabled_block0_is_identity_gpu() -> None:
     )
 
 
+@pytest.mark.skipif(not is_qwen3_available(), reason="qwen3 not available")
 def test_qwen3_disabled_block5_is_identity_cpu() -> None:
     helpers.check_disabled_block_is_identity(
         make_qwen3, torch.device("cpu"), "model.layers.5", 5
     )
 
 
+@pytest.mark.skipif(not is_qwen3_available(), reason="qwen3 not available")
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda not available")
 def test_qwen3_disabled_block5_is_identity_gpu() -> None:
     helpers.check_disabled_block_is_identity(
