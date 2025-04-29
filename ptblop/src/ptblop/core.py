@@ -9,8 +9,32 @@ logger = logging.getLogger(__name__)
 
 _WRAPPER_DICT_TYPE = dict[type[torch.nn.Module], type[prunable_block.PrunableBlock]]
 
-try:
-    import transformers  # type: ignore
+
+def get_transformers_generation() -> str:
+    try:
+        import transformers
+    except ImportError:
+        return "not_installed"
+    version = transformers.__version__
+    major, minor = map(int, version.split(".")[:2])
+    if (major < 4) or (major == 4 and minor < 48):
+        return "<4.48"
+    elif (major == 4) and (minor >= 48 and minor < 51):
+        return ">=4.48,<4.51"
+    elif (major == 4) and (minor >= 51):
+        return ">=4.51"
+    elif major > 4:
+        return ">=4.51"
+    raise ValueError(f"Unsupported {transformers.__version__=}")
+
+
+TRANSFORMERS_GENERATION = get_transformers_generation()
+
+
+if TRANSFORMERS_GENERATION == "not_installed":
+    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS: _WRAPPER_DICT_TYPE = {}
+
+elif TRANSFORMERS_GENERATION == "<4.48":
     from transformers.models.llama.modeling_llama import (  # type: ignore
         LlamaDecoderLayer,
     )
@@ -19,36 +43,64 @@ try:
         Qwen2DecoderLayer,
     )
 
-    def is_old_tranformers() -> bool:
-        version = transformers.__version__
-        major, minor = map(int, version.split(".")[:2])
-        return (major < 4) or (major == 4 and minor < 48)
-
-    if is_old_tranformers():
-        from .wrapper_transformers_pre448 import (
-            PrunableLlamaBlock,
-            PrunablePhi2BLock,
-            PrunableQwen2Block,
-        )
-    else:
-        from .wrapper_transformers import (  # type: ignore[assignment]
-            PrunableLlamaBlock,
-            PrunablePhi2BLock,
-            PrunableQwen2Block,
-        )
+    from .wrapper_transformers_pre448.llama3 import PrunableLlamaBlock
+    from .wrapper_transformers_pre448.phi2 import PrunablePhi2BLock
+    from .wrapper_transformers_pre448.qwen2 import PrunableQwen2Block
 
     _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS: _WRAPPER_DICT_TYPE = {
         Qwen2DecoderLayer: PrunableQwen2Block,
         PhiDecoderLayer: PrunablePhi2BLock,
         LlamaDecoderLayer: PrunableLlamaBlock,
     }
-except ImportError:
-    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS = {}
+elif TRANSFORMERS_GENERATION == ">=4.48,<4.51":
+    from transformers.models.llama.modeling_llama import (  # type: ignore
+        LlamaDecoderLayer,
+    )
+    from transformers.models.phi.modeling_phi import PhiDecoderLayer  # type: ignore
+    from transformers.models.qwen2.modeling_qwen2 import (  # type: ignore
+        Qwen2DecoderLayer,
+    )
+
+    from .wrapper_transformers.llama3 import PrunableLlamaBlock
+    from .wrapper_transformers.phi2 import PrunablePhi2BLock
+    from .wrapper_transformers.qwen2 import PrunableQwen2Block
+
+    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS: _WRAPPER_DICT_TYPE = {
+        Qwen2DecoderLayer: PrunableQwen2Block,
+        PhiDecoderLayer: PrunablePhi2BLock,
+        LlamaDecoderLayer: PrunableLlamaBlock,
+    }
+elif TRANSFORMERS_GENERATION == ">=4.51":
+    from transformers.models.llama.modeling_llama import (  # type: ignore
+        LlamaDecoderLayer,
+    )
+    from transformers.models.phi.modeling_phi import PhiDecoderLayer  # type: ignore
+    from transformers.models.qwen2.modeling_qwen2 import (  # type: ignore
+        Qwen2DecoderLayer,
+    )
+    from transformers.models.qwen3.modeling_qwen3 import (  # type: ignore
+        Qwen3DecoderLayer,
+    )
+
+    from .wrapper_transformers.llama3 import PrunableLlamaBlock
+    from .wrapper_transformers.phi2 import PrunablePhi2BLock
+    from .wrapper_transformers.qwen2 import PrunableQwen2Block
+    from .wrapper_transformers.qwen3 import PrunableQwen3Block
+
+    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS: _WRAPPER_DICT_TYPE = {
+        Qwen2DecoderLayer: PrunableQwen2Block,
+        Qwen3DecoderLayer: PrunableQwen3Block,
+        PhiDecoderLayer: PrunablePhi2BLock,
+        LlamaDecoderLayer: PrunableLlamaBlock,
+    }
+else:
+    raise ValueError(f"Unsupported {TRANSFORMERS_GENERATION=}")
+
 
 try:
     import timm  # type: ignore
 
-    from .wrapper_timm import PrunableVisionTransformerBlock
+    from .wrapper_timm.vision_transformer import PrunableVisionTransformerBlock
 
     _BLOCK_TYPE_TO_WRAPPER_TYPE_TIMM: _WRAPPER_DICT_TYPE = {
         timm.models.vision_transformer.Block: PrunableVisionTransformerBlock,
