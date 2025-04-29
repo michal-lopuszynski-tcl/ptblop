@@ -1,3 +1,4 @@
+import sys
 from typing import Any, Optional
 
 import torch
@@ -6,10 +7,17 @@ from transformers.cache_utils import Cache  # type: ignore
 from transformers.modeling_flash_attention_utils import (  # type: ignore
     FlashAttentionKwargs,
 )
-from transformers.processing_utils import Unpack  # type: ignore
 
 from .. import prunable_block
 from . import common
+
+# from transformers.processing_utils import Unpack  # type: ignore
+
+
+if sys.version_info >= (3, 11):
+    from typing import Unpack
+else:
+    from typing_extensions import Unpack
 
 
 class PrunableQwen3Block(torch.nn.Module, prunable_block.PrunableBlock):

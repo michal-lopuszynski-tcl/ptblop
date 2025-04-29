@@ -30,10 +30,10 @@ def get_transformers_generation() -> str:
 
 TRANSFORMERS_GENERATION = get_transformers_generation()
 
+_BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS: _WRAPPER_DICT_TYPE = {}
 
 if TRANSFORMERS_GENERATION == "not_installed":
-    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS: _WRAPPER_DICT_TYPE = {}
-
+    pass
 elif TRANSFORMERS_GENERATION == "<4.48":
     from transformers.models.llama.modeling_llama import (  # type: ignore
         LlamaDecoderLayer,
@@ -43,15 +43,24 @@ elif TRANSFORMERS_GENERATION == "<4.48":
         Qwen2DecoderLayer,
     )
 
-    from .wrapper_transformers_pre448.llama3 import PrunableLlamaBlock
-    from .wrapper_transformers_pre448.phi2 import PrunablePhi2BLock
-    from .wrapper_transformers_pre448.qwen2 import PrunableQwen2Block
+    from .wrapper_transformers_pre448.llama3 import (
+        PrunableLlamaBlock as PrunableLlamaBlock_pre448,
+    )
+    from .wrapper_transformers_pre448.phi2 import (
+        PrunablePhi2BLock as PrunablePhi2BLock_pre448,
+    )
+    from .wrapper_transformers_pre448.qwen2 import (
+        PrunableQwen2Block as PrunableQwen2Block_pre_448,
+    )
 
-    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS: _WRAPPER_DICT_TYPE = {
-        Qwen2DecoderLayer: PrunableQwen2Block,
-        PhiDecoderLayer: PrunablePhi2BLock,
-        LlamaDecoderLayer: PrunableLlamaBlock,
-    }
+    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS[Qwen2DecoderLayer] = (
+        PrunableQwen2Block_pre_448
+    )
+    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS[PhiDecoderLayer] = PrunablePhi2BLock_pre448
+    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS[LlamaDecoderLayer] = (
+        PrunableLlamaBlock_pre448
+    )
+
 elif TRANSFORMERS_GENERATION == ">=4.48,<4.51":
     from transformers.models.llama.modeling_llama import (  # type: ignore
         LlamaDecoderLayer,
@@ -65,11 +74,10 @@ elif TRANSFORMERS_GENERATION == ">=4.48,<4.51":
     from .wrapper_transformers.phi2 import PrunablePhi2BLock
     from .wrapper_transformers.qwen2 import PrunableQwen2Block
 
-    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS: _WRAPPER_DICT_TYPE = {
-        Qwen2DecoderLayer: PrunableQwen2Block,
-        PhiDecoderLayer: PrunablePhi2BLock,
-        LlamaDecoderLayer: PrunableLlamaBlock,
-    }
+    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS[Qwen2DecoderLayer] = PrunableQwen2Block
+    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS[PhiDecoderLayer] = PrunablePhi2BLock
+    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS[LlamaDecoderLayer] = PrunableLlamaBlock
+
 elif TRANSFORMERS_GENERATION == ">=4.51":
     from transformers.models.llama.modeling_llama import (  # type: ignore
         LlamaDecoderLayer,
@@ -87,12 +95,11 @@ elif TRANSFORMERS_GENERATION == ">=4.51":
     from .wrapper_transformers.qwen2 import PrunableQwen2Block
     from .wrapper_transformers.qwen3 import PrunableQwen3Block
 
-    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS: _WRAPPER_DICT_TYPE = {
-        Qwen2DecoderLayer: PrunableQwen2Block,
-        Qwen3DecoderLayer: PrunableQwen3Block,
-        PhiDecoderLayer: PrunablePhi2BLock,
-        LlamaDecoderLayer: PrunableLlamaBlock,
-    }
+    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS[Qwen2DecoderLayer] = PrunableQwen2Block
+    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS[PhiDecoderLayer] = PrunablePhi2BLock
+    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS[LlamaDecoderLayer] = PrunableLlamaBlock
+    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS[Qwen3DecoderLayer] = PrunableQwen3Block
+
 else:
     raise ValueError(f"Unsupported {TRANSFORMERS_GENERATION=}")
 
