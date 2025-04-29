@@ -6,7 +6,7 @@ import transformers  # type: ignore
 import ptblop
 
 
-def is_qwen3_available():
+def is_qwen3_available() -> bool:
     return hasattr(transformers.models, "qwen3")
 
 
