@@ -1,4 +1,5 @@
 # TODO
++ **!!.** Add inheritance from `GradientCheckpointingLayer` in Qwen2 and Qwen3
 + **!..** Add `set_unused_layers_to_none` function to `ptblop`
 + **!..** Define type alias for `bp_config`
 + **!..** Remove support for transformers < 4.48 at some point
