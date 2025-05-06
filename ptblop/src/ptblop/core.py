@@ -89,17 +89,23 @@ elif TRANSFORMERS_GENERATION == ">=4.51":
     from transformers.models.qwen3.modeling_qwen3 import (  # type: ignore
         Qwen3DecoderLayer,
     )
+    from transformers.models.qwen3_moe.modeling_qwen3_moe import (  # type: ignore
+        Qwen3MoeDecoderLayer,
+    )
 
     from .wrapper_transformers.llama3 import PrunableLlamaBlock
     from .wrapper_transformers.phi2 import PrunablePhi2BLock
     from .wrapper_transformers.qwen2 import PrunableQwen2Block
     from .wrapper_transformers.qwen3 import PrunableQwen3Block
+    from .wrapper_transformers.qwen3_moe import PrunableQwen3MoeBlock
 
     _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS[Qwen2DecoderLayer] = PrunableQwen2Block
     _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS[PhiDecoderLayer] = PrunablePhi2BLock
     _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS[LlamaDecoderLayer] = PrunableLlamaBlock
     _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS[Qwen3DecoderLayer] = PrunableQwen3Block
-
+    _BLOCK_TYPE_TO_WRAPPER_TYPE_TRANSFORMERS[Qwen3MoeDecoderLayer] = (
+        PrunableQwen3MoeBlock
+    )
 else:
     raise ValueError(f"Unsupported {TRANSFORMERS_GENERATION=}")
 
