@@ -54,7 +54,6 @@ def test_qwen3_decomposed1_gpu() -> None:
 
 
 @pytest.mark.skipif(not is_qwen3_available(), reason="qwen3 not available")
-@pytest.mark.skipif(not is_qwen3_available(), reason="qwen3 not available")
 def test_qwen3_disabled_mlps_cpu() -> None:
     helpers.check_disabled_mlps(make_qwen3, torch.device("cpu"))
 
