@@ -1,5 +1,7 @@
 # TODO
 + **!!.** Add inheritance from `GradientCheckpointingLayer` in Qwen2 and Qwen3
++ **!..** Investigate test failures of phi2 on gpu for `transformers==4.51`
++ **!..** In tests remove weights copying cpu->gpu, which should reduces cpu RAM usage
 + **!..** Add `set_unused_layers_to_none` function to `ptblop`
 + **!..** Define type alias for `bp_config`
 + **!..** Remove support for transformers < 4.48 at some point
@@ -11,6 +13,9 @@
 + **...** Add some visualization of models with pruned blocks?
 
 # DONE
+
+## ptblop 0.4.0
++ Add support for qwen3 and qwen3_moe
 
 ## ptblop 0.3.0
 + Fix applying multi-gpu inference
