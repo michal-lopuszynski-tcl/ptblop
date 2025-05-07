@@ -9,7 +9,9 @@ authors = [
 ]
 description = "Package containing builders for block-pruned transformer models in PyTorch"
 readme = "README.md"
-license = {file = "LICENSE"}
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+
 requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
