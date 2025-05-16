@@ -18,7 +18,7 @@ classifiers = [
 dynamic = ["version", "dependencies"]
 
 [project.scripts]
-blop = "ptblopgen.cli:run"
+blop = "ptblopgen.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
