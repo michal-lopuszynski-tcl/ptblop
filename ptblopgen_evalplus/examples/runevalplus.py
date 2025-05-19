@@ -1,6 +1,6 @@
 import argparse
-import logging
 import json
+import logging
 
 import torch
 import torch._dynamo
@@ -41,6 +41,7 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--model")
     parser.add_argument("--dataset")
+    parser.add_argument("--limit", default=None, type=float)
     parser.add_argument("--greedy", action="store_true")
     parser.add_argument("--enable-thinking", default=None, type=parse_enable_thinking)
 
@@ -80,6 +81,7 @@ def main(args):
         dataset=args.dataset,
         greedy=args.greedy,
         enable_thinking=args.enable_thinking,
+        limit=args.limit,
     )
 
     results = {"model": args.model} | results
