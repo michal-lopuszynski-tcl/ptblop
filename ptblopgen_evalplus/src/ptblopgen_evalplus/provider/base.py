@@ -6,6 +6,7 @@ from .utility import EOS
 
 logger = logging.getLogger(__name__)
 
+
 class DecoderBase(ABC):
     def __init__(
         self,

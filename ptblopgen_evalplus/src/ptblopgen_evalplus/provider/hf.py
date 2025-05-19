@@ -1,6 +1,5 @@
 import logging
 import time
-
 from typing import List
 
 import torch
@@ -11,7 +10,6 @@ from .utility import (
     extra_eos_for_direct_completion,
     make_raw_chat_prompt,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +23,7 @@ class HuggingFaceDecoder(DecoderBase):
         tokenizer,
         force_base_prompt: bool = False,
         tempearture: float = 0.0,
-        enable_thinking = None,
+        enable_thinking=None,
         **kwargs,
     ):
         super().__init__(name=name, temperature=tempearture, **kwargs)
@@ -50,7 +48,6 @@ class HuggingFaceDecoder(DecoderBase):
         logger.info(f"HF Wrapper: force_base_prompt={self.force_base_prompt}")
         logger.info(f"HF Wrapper: is_direct_completion={self.is_direct_completion()}")
 
-
     def is_direct_completion(self) -> bool:
         return self.force_base_prompt or self.tokenizer.chat_template is None
 
@@ -66,7 +63,11 @@ class HuggingFaceDecoder(DecoderBase):
             prompt
             if self.is_direct_completion()
             else make_raw_chat_prompt(
-                prompt, self.instruction_prefix, self.response_prefix, self.tokenizer, self.enable_thinking
+                prompt,
+                self.instruction_prefix,
+                self.response_prefix,
+                self.tokenizer,
+                self.enable_thinking,
             )
         )
         input_tokens = self.tokenizer.encode(prompt, return_tensors="pt").to(
@@ -105,5 +106,10 @@ class HuggingFaceDecoder(DecoderBase):
             outputs_final.append(output[:min_index].replace("\t", "    "))
 
         outputs_raw = self.tokenizer.batch_decode(outputs, skip_special_tokens=False)
-        r = {"outputs": outputs_final, "prompt_raw": prompt, "outputs_raw": outputs_raw, "time_gen": time_gen}
+        r = {
+            "outputs": outputs_final,
+            "prompt_raw": prompt,
+            "outputs_raw": outputs_raw,
+            "time_gen": time_gen,
+        }
         return r

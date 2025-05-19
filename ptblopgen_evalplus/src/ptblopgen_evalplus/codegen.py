@@ -1,12 +1,11 @@
 import gc
 import json
-import os
 import logging
+import os
 from typing import Any, Dict, List, Optional
 
 from .provider import DecoderBase, make_model
 from .sanitize import sanitize
-
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +94,9 @@ def codegen(
                     "time_gen": g["time_gen"],
                 }
                 time_gen = g["time_gen"]
-                logger.info(f"Codegen: {task_id}, {q} of {n_dataset} - {time_gen=:.2f} s")
+                logger.info(
+                    f"Codegen: {task_id}, {q} of {n_dataset} - {time_gen=:.2f} s"
+                )
 
                 results.append(r)
                 # if target_path.endswith(".jsonl"):
@@ -189,7 +190,7 @@ def run_codegen(
     force_base_prompt: bool = False,
     evalperf_type: str = None,  # For EvalPerf
     jsonl_fmt: bool = True,
-    enable_thinking = None,
+    enable_thinking=None,
 ):
     assert dataset in ["humaneval", "mbpp", "evalperf"], f"Invalid dataset {dataset}"
     assert evalperf_type is None or evalperf_type in [
@@ -290,18 +291,16 @@ def run_codegen(
     )
 
     for i, sample in enumerate(results):
-            assert (
-                "completion" in sample or "solution" in sample
-            ), "No completion or solution found in sample!"
-            assert "solution" not in sample or isinstance(
-                sample["solution"], str
-            ), "Solution must be a string! If you have multiple solutions, please repeat the task_id."
-            assert "completion" not in sample or isinstance(
-                sample["completion"], str
-            ), "Completion must be a string! If you have multiple solutions, please repeat the task_id."
+        assert (
+            "completion" in sample or "solution" in sample
+        ), "No completion or solution found in sample!"
+        assert "solution" not in sample or isinstance(
+            sample["solution"], str
+        ), "Solution must be a string! If you have multiple solutions, please repeat the task_id."
+        assert "completion" not in sample or isinstance(
+            sample["completion"], str
+        ), "Completion must be a string! If you have multiple solutions, please repeat the task_id."
 
-            sample["_identifier"] = (
-                sample["task_id"] + f" (line {i+1} in memory)"
-            )
-    results_dict = { sample["task_id"]: sample for sample in results}
+        sample["_identifier"] = sample["task_id"] + f" (line {i+1} in memory)"
+    results_dict = {sample["task_id"]: sample for sample in results}
     return results_dict

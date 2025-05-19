@@ -1,12 +1,11 @@
 """Post-processing LLM-generated Python code implemented using tree-sitter."""
 
-from typing import Dict, Generator, List, Optional, Set, Tuple
-
 import ast
 import traceback
+from typing import Dict, Generator, List, Optional, Set, Tuple
+
 import tree_sitter_python
 from tree_sitter import Language, Node, Parser
-
 
 CLASS_TYPE = "class_definition"
 FUNCTION_TYPE = "function_definition"

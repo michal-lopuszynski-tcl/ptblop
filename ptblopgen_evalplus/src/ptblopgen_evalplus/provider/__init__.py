@@ -24,7 +24,7 @@ def make_model(
     attn_implementation="eager",
     device_map=None,
     # gptqmodel only
-    gptqmodel_backend: str = 'auto',
+    gptqmodel_backend: str = "auto",
     gguf_file: str = None,
 ) -> DecoderBase:
     if backend == "vllm":
@@ -43,7 +43,7 @@ def make_model(
             enable_prefix_caching=enable_prefix_caching,
             enable_chunked_prefill=enable_chunked_prefill,
             dtype=dtype,
-            gguf_file=gguf_file
+            gguf_file=gguf_file,
         )
     elif backend == "hf":
         from .hf import HuggingFaceDecoder

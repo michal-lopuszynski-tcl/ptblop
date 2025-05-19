@@ -43,7 +43,10 @@ class VllmDecoder(DecoderBase):
         else:
             self.eos += ["\n```\n"]
         self.llm = LLM(
-            model=name, max_model_len=2048, max_num_seqs=512, gpu_memory_utilization=0.7,
+            model=name,
+            max_model_len=2048,
+            max_num_seqs=512,
+            gpu_memory_utilization=0.7,
             **kwargs
         )
 

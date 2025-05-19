@@ -19,9 +19,7 @@ import numpy as np
 
 from .codegen import run_codegen
 from .config import *
-from .data.mbpp import mbpp_deserialize_inputs
-
-from .data.mbpp import mbpp_serialize_inputs
+from .data.mbpp import mbpp_deserialize_inputs, mbpp_serialize_inputs
 from .eval import (
     PASS,
     compatible_eval_result,
@@ -167,7 +165,7 @@ def get_dataset_dict(dataset_name):
         data_file = pkg_ref / "resources" / fname
         logger.info(f"Loading dataset from {fname}")
 
-        with gzip.open(data_file, 'rt', encoding='utf-8') as f:
+        with gzip.open(data_file, "rt", encoding="utf-8") as f:
             dataset = load_jsonl_gz(f)
 
         for task_id, task in dataset.items():
@@ -179,7 +177,7 @@ def get_dataset_dict(dataset_name):
         logger.info(f"Loading dataset from {fname}")
         pkg_ref = importlib.resources.files(__package__)
         data_file = pkg_ref / "resources" / fname
-        with gzip.open(data_file, 'rt', encoding='utf-8') as f:
+        with gzip.open(data_file, "rt", encoding="utf-8") as f:
             dataset = load_jsonl_gz(f)
 
         return dataset
@@ -203,7 +201,7 @@ def evaluate(
     gt_time_limit_factor: float = DEFAULT_GT_TIME_LIMIT_FACTOR,
     output_file: Optional[str] = None,
     greedy: bool = True,
-    enable_thinking : Optional[bool]= None
+    enable_thinking: Optional[bool] = None,
     # **model_kwargs,
 ):
     t_start = time.perf_counter()
@@ -220,7 +218,7 @@ def evaluate(
         dataset=dataset,
         dataset_dict=problems,
         greedy=greedy,
-        enable_thinking=enable_thinking
+        enable_thinking=enable_thinking,
     )
     assert samples is not None, "No samples provided"
 
@@ -230,7 +228,9 @@ def evaluate(
     if dataset == "humaneval":
         expected_output = get_groundtruth(problems, dataset_hash, [])
     elif dataset == "mbpp":
-        expected_output = get_groundtruth(problems, dataset_hash, MBPP_OUTPUT_NOT_NONE_TASKS)
+        expected_output = get_groundtruth(
+            problems, dataset_hash, MBPP_OUTPUT_NOT_NONE_TASKS
+        )
     else:
         raise ValueError("Unknown {dataset=}")
 
@@ -291,7 +291,7 @@ def evaluate(
 
         threading.Thread(target=stucking_checker).start()
 
-        for future in as_completed(futures) :
+        for future in as_completed(futures):
             result = future.result()
             remainings.remove(result["_identifier"])
             eval_results[result["task_id"]].append(result)

@@ -1,5 +1,4 @@
 import logging
-
 from concurrent.futures import ThreadPoolExecutor
 from typing import List
 
@@ -55,10 +54,11 @@ def make_raw_chat_prompt(
 ```
 """
     if enable_thinking is None:
-        apply_chat_template_kwargs = {"tokenize":False}
+        apply_chat_template_kwargs = {"tokenize": False}
     else:
         apply_chat_template_kwargs = {
-            "tokenize":False, "enable_thinking": enable_thinking
+            "tokenize": False,
+            "enable_thinking": enable_thinking,
         }
     # logger.info(f"{enable_thinking=}")
     # logger.info(f"{apply_chat_template_kwargs=}")

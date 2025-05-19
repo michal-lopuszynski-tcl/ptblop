@@ -1,13 +1,12 @@
 import time
 
+
 def make_prompt(task, tokenizer):
     prompt = task["prompt"].strip() + "\n"
 
 
 def generate(model, tokenizer, prompt, do_sample, cfg):
-    input_tokens = tokenizer.encode(prompt, return_tensors="pt").to(
-            model.device
-    )
+    input_tokens = tokenizer.encode(prompt, return_tensors="pt").to(model.device)
     kwargs = {}
     if do_sample:
         kwargs["top_p"] = 0.95
@@ -39,7 +38,12 @@ def generate(model, tokenizer, prompt, do_sample, cfg):
         outputs_final.append(output[:min_index].replace("\t", "    "))
 
     outputs_raw = tokenizer.batch_decode(outputs, skip_special_tokens=False)
-    r = {"outputs": outputs_final, "prompt_raw": prompt, "outputs_raw": outputs_raw, "time_gen": time_gen}
+    r = {
+        "outputs": outputs_final,
+        "prompt_raw": prompt,
+        "outputs_raw": outputs_raw,
+        "time_gen": time_gen,
+    }
     return r
 
 
