@@ -1,0 +1,403 @@
+import copy
+import gzip
+import hashlib
+import importlib
+import json
+import logging
+import multiprocessing
+import os
+import pickle
+import threading
+import time
+from collections import Counter, defaultdict
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
+from warnings import warn
+
+import numpy as np
+
+from .codegen import run_codegen
+from .config import *
+from .data.mbpp import mbpp_deserialize_inputs
+
+from .data.mbpp import mbpp_serialize_inputs
+from .eval import (
+    PASS,
+    compatible_eval_result,
+    estimate_pass_at_k,
+    untrusted_check,
+)
+from .eval._special_oracle import MBPP_OUTPUT_NOT_NONE_TASKS
+
+# 1st item: the status
+# 2nd item (optional): the detailed pass/fail boolean for each input
+Result = Tuple[str, List[bool]]
+
+CACHE_DIR = "tmp/cache"
+
+logger = logging.getLogger(__name__)
+
+
+def trusted_exec(code, inputs, entry_point, record_time=False, output_not_none=False):
+    """Execute trusted code in place."""
+    exec_globals = {}
+    exec(code, exec_globals)
+    fn = exec_globals[entry_point]
+
+    rtime = []
+    ret = []
+    for inp in inputs:
+        inp = copy.deepcopy(inp)
+        if record_time:
+            start = time.time()
+            ret.append(fn(*inp))
+            rtime.append(time.time() - start)
+        else:
+            ret.append(fn(*inp))
+
+    if output_not_none:
+        ret = [i is not None for i in ret]
+
+    if record_time:
+        return ret, rtime
+    else:
+        return ret
+
+
+def get_groundtruth(problems, hashcode, tasks_only_output_not_none):
+    cache_file = os.path.join(CACHE_DIR, f"{hashcode}.pkl")
+    if os.path.exists(cache_file):
+        logger.info(f"Load from ground-truth from {cache_file}")
+        with open(cache_file, "rb") as f:
+            return pickle.load(f)
+
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    logger.info("Computing expected output...")
+    tbegin = time.time()
+    expected_output = {}
+    for task_id, problem in problems.items():
+        oracle = {}
+        oracle["base"], oracle["base_time"] = trusted_exec(
+            problem["prompt"] + problem["canonical_solution"],
+            problem["base_input"],
+            problem["entry_point"],
+            record_time=True,
+            output_not_none=problem["entry_point"] in tasks_only_output_not_none,
+        )
+
+        oracle["plus"], oracle["plus_time"] = trusted_exec(
+            problem["prompt"] + problem["canonical_solution"],
+            problem["plus_input"],
+            problem["entry_point"],
+            record_time=True,
+            output_not_none=problem["entry_point"] in tasks_only_output_not_none,
+        )
+        expected_output[task_id] = oracle
+    logger.info(f"Expected outputs computed in {time.time() - tbegin:.2f}s")
+
+    with open(cache_file, "wb") as f:
+        pickle.dump(expected_output, f)
+
+    return expected_output
+
+
+def check_correctness(
+    dataset: str,
+    completion_id: int,
+    problem: Dict[str, Any],
+    solution: str,
+    expected_output: Dict[str, List],
+    base_only=False,
+    fast_check=False,
+    identifier=None,
+    min_time_limit: float = DEFAULT_MIN_TIME_LIMIT,
+    gt_time_limit_factor: float = DEFAULT_GT_TIME_LIMIT_FACTOR,
+) -> Dict[str, Result]:  # {...}, "base" | "plus" -> (status, details)
+    ret = {
+        "completion_id": completion_id,
+        "task_id": problem["task_id"],
+        "_identifier": identifier,
+        "solution": solution,
+    }
+    ret["base"] = untrusted_check(
+        dataset,
+        solution,
+        problem["base_input"],
+        problem["entry_point"],
+        expected=expected_output["base"],
+        atol=problem["atol"],
+        ref_time=expected_output["base_time"],
+        fast_check=fast_check,
+        min_time_limit=min_time_limit,
+        gt_time_limit_factor=gt_time_limit_factor,
+    )
+
+    if not base_only:
+        ret["plus"] = untrusted_check(
+            dataset,
+            solution,
+            problem["plus_input"],
+            problem["entry_point"],
+            expected=expected_output["plus"],
+            atol=problem["atol"],
+            ref_time=expected_output["plus_time"],
+            fast_check=fast_check,
+            min_time_limit=min_time_limit,
+            gt_time_limit_factor=gt_time_limit_factor,
+        )
+
+    return ret
+
+
+def load_jsonl_gz(f):
+    res = {}
+    for line in f:
+        d = json.loads(line)
+        res[d["task_id"]] = d
+    return res
+
+
+def get_dataset_dict(dataset_name):
+    if dataset_name == "mbpp":
+        # fname = "./data/MbppPlus-v0.2.0.first010.jsonl.gz"
+        # fname = "./data/MbppPlus-v0.2.0.first125.jsonl.gz"
+        fname = "MbppPlus-v0.2.0.jsonl.gz"
+        pkg_ref = importlib.resources.files(__package__)
+        data_file = pkg_ref / "resources" / fname
+        logger.info(f"Loading dataset from {fname}")
+
+        with gzip.open(data_file, 'rt', encoding='utf-8') as f:
+            dataset = load_jsonl_gz(f)
+
+        for task_id, task in dataset.items():
+            task["base_input"] = mbpp_deserialize_inputs(task_id, task["base_input"])
+            task["plus_input"] = mbpp_deserialize_inputs(task_id, task["plus_input"])
+        return dataset
+    elif dataset_name == "humaneval":
+        fname = "HumanEvalPlus-v0.1.10.jsonl.gz"
+        logger.info(f"Loading dataset from {fname}")
+        pkg_ref = importlib.resources.files(__package__)
+        data_file = pkg_ref / "resources" / fname
+        with gzip.open(data_file, 'rt', encoding='utf-8') as f:
+            dataset = load_jsonl_gz(f)
+
+        return dataset
+    else:
+        raise ValueError(f"Unknown {dataset_name=}")
+
+
+def get_hash(problems):
+    return hashlib.md5(repr(problems).encode("utf-8")).hexdigest()
+
+
+def evaluate(
+    model,
+    tokenizer,
+    dataset: str,
+    base_only: bool = False,
+    parallel: Optional[int] = None,
+    force_rerun: bool = False,
+    test_details: bool = False,
+    min_time_limit: float = DEFAULT_MIN_TIME_LIMIT,
+    gt_time_limit_factor: float = DEFAULT_GT_TIME_LIMIT_FACTOR,
+    output_file: Optional[str] = None,
+    greedy: bool = True,
+    enable_thinking : Optional[bool]= None
+    # **model_kwargs,
+):
+    t_start = time.perf_counter()
+    # To suppress the warning of tokenizers
+    os.environ["TOKENIZERS_PARALLELISM"] = os.environ.get(
+        "TOKENIZERS_PARALLELISM", "false"
+    )
+
+    problems = get_dataset_dict(dataset)
+
+    samples = run_codegen(
+        model=model,
+        tokenizer=tokenizer,
+        dataset=dataset,
+        dataset_dict=problems,
+        greedy=greedy,
+        enable_thinking=enable_thinking
+    )
+    assert samples is not None, "No samples provided"
+
+    n_workers = parallel or max(1, multiprocessing.cpu_count() // 2)
+
+    dataset_hash = get_hash(problems)
+    if dataset == "humaneval":
+        expected_output = get_groundtruth(problems, dataset_hash, [])
+    elif dataset == "mbpp":
+        expected_output = get_groundtruth(problems, dataset_hash, MBPP_OUTPUT_NOT_NONE_TASKS)
+    else:
+        raise ValueError("Unknown {dataset=}")
+
+    results = {
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "hash": get_hash(problems),
+        "eval": {},
+    }
+
+    with ProcessPoolExecutor(max_workers=n_workers) as executor:
+        futures = []
+        completion_id = Counter()
+        n_samples = 0
+        eval_results = defaultdict(list)
+        remainings = set()
+
+        for sample in samples.values():
+            task_id = sample["task_id"]
+            if task_id not in problems:
+                warn(
+                    f"Task {task_id} is found in the samples but not found in the dataset"
+                )
+                continue
+            solution = (
+                sample["solution"]
+                if "solution" in sample
+                else problems[task_id]["prompt"] + sample["completion"]
+            )
+            remainings.add(sample["_identifier"])
+            args = (
+                dataset,
+                completion_id[task_id],
+                problems[task_id],
+                solution,
+                expected_output[task_id],
+                base_only,
+                not test_details,  # fast_check
+                sample["_identifier"],
+                min_time_limit,
+                gt_time_limit_factor,
+            )
+            futures.append(executor.submit(check_correctness, *args))
+            completion_id[task_id] += 1
+            n_samples += 1
+
+        assert n_samples == len(remainings), "Missing problems in unfinished"
+        assert len(completion_id) == len(problems), "Missing problems in samples"
+
+        def stucking_checker():
+            while remainings:
+                last_size = len(remainings)
+                time.sleep(20)
+                if last_size != len(remainings) or len(remainings) == 0:
+                    continue
+                # Potential stucking
+                warn("No samples had finished testing in the last 20s")
+                warn(f"{len(remainings)} samples to be tested: {remainings}")
+
+        threading.Thread(target=stucking_checker).start()
+
+        for future in as_completed(futures) :
+            result = future.result()
+            remainings.remove(result["_identifier"])
+            eval_results[result["task_id"]].append(result)
+
+        # sort the results for each problem by completion_id
+        for task_id, task_results in eval_results.items():
+            task_results.sort(key=lambda x: x["completion_id"])
+            results["eval"][task_id] = []
+            for res in task_results:
+
+                def get_failed_tests(stat, details, inputs) -> List[Any]:
+                    if stat == PASS or not details:
+                        return []
+
+                    if test_details:
+                        return [
+                            inputs[i] for i in range(len(details)) if not details[i]
+                        ]
+
+                    # else => simply return the only and the last fail test
+                    return [inputs[len(details) - 1]]
+
+                base_stat, base_details = res["base"]
+                base_fail_tests = get_failed_tests(
+                    base_stat, base_details, problems[task_id]["base_input"]
+                )
+
+                # initialize plus tests
+                plus_stat = None
+                plus_fail_tests = []
+
+                # with plus tests
+                if not base_only:
+                    plus_stat, plus_details = res["plus"]
+                    plus_fail_tests = get_failed_tests(
+                        plus_stat, plus_details, problems[task_id]["plus_input"]
+                    )
+
+                if dataset == "mbpp":
+                    base_fail_tests = mbpp_serialize_inputs(task_id, base_fail_tests)
+                    plus_fail_tests = mbpp_serialize_inputs(task_id, plus_fail_tests)
+
+                results["eval"][task_id].append(
+                    {
+                        "task_id": task_id,
+                        "solution": res["solution"],
+                        "base_status": base_stat,
+                        "plus_status": plus_stat,
+                        "base_fail_tests": base_fail_tests,
+                        "plus_fail_tests": plus_fail_tests,
+                    }
+                )
+
+    # Calculate pass@k.
+    total = np.array([len(r) for r in results["eval"].values()])
+    base_correct = []
+    new_correct = []
+
+    for res in results["eval"].values():
+        bc = sum([r["base_status"] == PASS for r in res])
+        base_correct.append(bc)
+        if not base_only:
+            new_correct.append(
+                sum(
+                    [
+                        res[i]["base_status"] == res[i]["plus_status"] == PASS
+                        for i in range(len(res))
+                    ]
+                )
+            )
+    base_correct = np.array(base_correct)
+
+    pass_at_k = {
+        f"pass@{k}": estimate_pass_at_k(total, base_correct, k).mean()
+        for k in [1, 10, 100]
+        if total.min() >= k
+    }
+    logger.info(f"{dataset} (base tests)")
+    for k, v in pass_at_k.items():
+        logger.info(f"{k}:\t{v:.3f}")
+    results["pass_at_k"] = {"base": pass_at_k}
+
+    if new_correct:
+        logger.info(f"{dataset}+ (base + extra tests)")
+        pass_at_k = {
+            f"pass@{k}": estimate_pass_at_k(total, np.array(new_correct), k).mean()
+            for k in [1, 10, 100]
+            if (total >= k).all()
+        }
+        for k, v in pass_at_k.items():
+            logger.info(f"{k}:\t{v:.3f}")
+        results["pass_at_k"]["plus"] = pass_at_k
+
+    for k, vs in results["eval"].items():
+        for v in vs:
+            v["prompt_raw"] = samples[k]["prompt_raw"]
+            v["outputs_raw"] = samples[k]["outputs_raw"]
+            v["time_gen"] = samples[k]["time_gen"]
+
+    # save results
+    # if os.path.isfile(result_path):
+    #     logger.warning(f"{result_path} exists, overwritting")
+
+    # with open(result_path, "wt") as f:
+    #     json.dump(results, f)
+    eval_duration = time.perf_counter() - t_start
+    results["eval_duration"] = eval_duration
+    logger.info(f"{eval_duration=:.2f} seconds")
+    return results

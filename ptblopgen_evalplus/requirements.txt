@@ -1,0 +1,4 @@
+accelerate
+transformers
+tree_sitter>=0.22.0
+tree-sitter-python
