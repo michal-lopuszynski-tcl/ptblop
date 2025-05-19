@@ -190,7 +190,7 @@ def get_dataset_dict(dataset_name, limit):
         n2 = int(limit * n1)
         dataset = {k: v for i, (k, v) in enumerate(dataset.items()) if i < n2}
         n3 = len(dataset)
-        logger.info(f"Truncating dataset from {fname} {n1} -> {n3}")
+        logger.info(f"Truncating dataset from {fname} with {limit=}: {n1} -> {n3}")
         return dataset
 
 
