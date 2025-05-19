@@ -157,10 +157,11 @@ def load_jsonl_gz(f):
     return res
 
 
-def get_dataset_dict(dataset_name):
+def get_dataset_dict(dataset_name, limit):
+    if dataset_name not in ["mbpp", "humaneval"]:
+        raise ValueError(f"Unknown {dataset_name=}")
+
     if dataset_name == "mbpp":
-        # fname = "./data/MbppPlus-v0.2.0.first010.jsonl.gz"
-        # fname = "./data/MbppPlus-v0.2.0.first125.jsonl.gz"
         fname = "MbppPlus-v0.2.0.jsonl.gz"
         pkg_ref = importlib.resources.files(__package__)
         data_file = pkg_ref / "resources" / fname
@@ -172,7 +173,6 @@ def get_dataset_dict(dataset_name):
         for task_id, task in dataset.items():
             task["base_input"] = mbpp_deserialize_inputs(task_id, task["base_input"])
             task["plus_input"] = mbpp_deserialize_inputs(task_id, task["plus_input"])
-        return dataset
     elif dataset_name == "humaneval":
         fname = "HumanEvalPlus-v0.1.10.jsonl.gz"
         logger.info(f"Loading dataset from {fname}")
@@ -180,10 +180,18 @@ def get_dataset_dict(dataset_name):
         data_file = pkg_ref / "resources" / fname
         with gzip.open(data_file, "rt", encoding="utf-8") as f:
             dataset = load_jsonl_gz(f)
+    else:
+        raise ValueError(f"Unknown {dataset_name=}, but should never be raised")
 
+    if limit is None:
         return dataset
     else:
-        raise ValueError(f"Unknown {dataset_name=}")
+        n1 = len(dataset)
+        n2 = int(limit * n1)
+        dataset = {k: v for i, (k, v) in enumerate(dataset.items()) if i < n2}
+        n3 = len(dataset)
+        logger.info(f"Truncating dataset from {fname} {n1} -> {n3}")
+        return dataset
 
 
 def get_hash(problems):
@@ -191,6 +199,7 @@ def get_hash(problems):
 
 
 def evaluate(
+    *,
     model,
     tokenizer,
     dataset: str,
@@ -201,11 +210,12 @@ def evaluate(
     gt_time_limit_factor: float = DEFAULT_GT_TIME_LIMIT_FACTOR,
     greedy: bool = True,
     enable_thinking: Optional[bool] = None,
+    limit: Optional[float] = None,
     # **model_kwargs,
 ):
     t_start = time.perf_counter()
 
-    problems = get_dataset_dict(dataset)
+    problems = get_dataset_dict(dataset, limit)
 
     samples = run_codegen(
         model=model,
@@ -422,6 +432,18 @@ class EvalplusEvaluator:
             self.dataset = "humaneval"
         else:
             raise ValueError(f"Unsupported set of metrics {evaluator_metrics_names}")
+
+        evaluator_metrics_limits = list(evaluator_metrics)
+        assert len(evaluator_metrics_limits) == 1 or len(evaluator_metrics_limits) == 2
+
+        if (
+            len(evaluator_metrics_limits) == 2
+            and evaluator_metrics_limits[0] != evaluator_metrics_limits[1]
+        ):
+            msg = "Provided different limits for metrics, this is not supported"
+            raise ValueError(msg)
+
+        self.limit = self.evaluator_metrics_limits[0]
         self.greedy = True
 
     def __call__(self, model: torch.nn.Module, device: torch.device):
@@ -432,6 +454,7 @@ class EvalplusEvaluator:
             dataset=self.dataset,
             greedy=self.greedy,
             enable_thinking=self.enable_thinking,
+            limit=self.limit,
         )
         res = {}
         if self.dataset == "mbpp":
