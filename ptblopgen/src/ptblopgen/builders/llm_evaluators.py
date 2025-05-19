@@ -1,5 +1,6 @@
 import codecs
 import collections
+import importlib
 import logging
 import random
 import time
@@ -445,7 +446,15 @@ class MockLMEvalWithPPLEvaluator:
         else:
             res_lm_eval = {}
         res = res_ppl | res_lm_eval
+
         return res
+
+
+def instantiate_from_str(qualified_class_name: str, class_kwargs):
+    module_name, class_name = qualified_class_name.rsplit(".", 1)
+    module = importlib.import_module(module_name)
+    cls = getattr(module, class_name)
+    return cls(**class_kwargs)
 
 
 def make_evaluator(evaluator_config, tokenizer):
@@ -464,4 +473,8 @@ def make_evaluator(evaluator_config, tokenizer):
             batch_size=evaluator_config["evaluator_batch_size"],
         )
     else:
-        raise ValueError(f"Unsupported evaluator - {evaluator_name=}")
+        evaluator_kwargs = {
+            k: v for k, v in evaluator_config.items() if k != "evaluator_name"
+        }
+        evaluator = instantiate_from_str(evaluator_name, evaluator_kwargs)
+        return evaluator
