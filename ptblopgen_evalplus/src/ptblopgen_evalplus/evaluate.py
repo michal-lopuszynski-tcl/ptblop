@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from warnings import warn
 
 import numpy as np
+import torch
 
 from .codegen import run_codegen
 from .config import *
@@ -195,20 +196,14 @@ def evaluate(
     dataset: str,
     base_only: bool = False,
     parallel: Optional[int] = None,
-    force_rerun: bool = False,
     test_details: bool = False,
     min_time_limit: float = DEFAULT_MIN_TIME_LIMIT,
     gt_time_limit_factor: float = DEFAULT_GT_TIME_LIMIT_FACTOR,
-    output_file: Optional[str] = None,
     greedy: bool = True,
     enable_thinking: Optional[bool] = None,
     # **model_kwargs,
 ):
     t_start = time.perf_counter()
-    # To suppress the warning of tokenizers
-    os.environ["TOKENIZERS_PARALLELISM"] = os.environ.get(
-        "TOKENIZERS_PARALLELISM", "false"
-    )
 
     problems = get_dataset_dict(dataset)
 
@@ -391,13 +386,60 @@ def evaluate(
             v["outputs_raw"] = samples[k]["outputs_raw"]
             v["time_gen"] = samples[k]["time_gen"]
 
-    # save results
-    # if os.path.isfile(result_path):
-    #     logger.warning(f"{result_path} exists, overwritting")
-
-    # with open(result_path, "wt") as f:
-    #     json.dump(results, f)
-    eval_duration = time.perf_counter() - t_start
-    results["eval_duration"] = eval_duration
-    logger.info(f"{eval_duration=:.2f} seconds")
+    time_evalplus = time.perf_counter() - t_start
+    results["time_evalplus"] = time_evalplus
+    logger.info(f"{time_evalplus=:.2f} seconds")
     return results
+
+
+ALLOWED_METRICS_MBPP = [
+    {"mbpp"},
+    {"mbpp_plus"},
+    {"mbpp", "mbpp_plus"},
+]
+
+ALLOWED_METRICS_HUMANEVAL = [
+    {"humaneval"},
+    {"humaneval_plus"},
+    {"humaneval", "humaneval_plus"},
+]
+
+
+class EvalplusEvaluator:
+    def __init__(
+        self,
+        tokenizer,
+        evaluator_metrics: dict[str, float],
+        enable_thinking: Optional[bool],
+    ):
+        self.tokenizer = tokenizer
+        self.evaluator_metrics = evaluator_metrics
+        self.enable_thinking = enable_thinking
+        evaluator_metrics_names = set(evaluator_metrics.keys())
+        if evaluator_metrics_names in ALLOWED_METRICS_MBPP:
+            self.dataset = "mbpp"
+        elif evaluator_metrics_names in ALLOWED_METRICS_HUMANEVAL:
+            self.dataset = "humaneval"
+        else:
+            raise ValueError(f"Unsupported set of metrics {evaluator_metrics_names}")
+        self.greedy = True
+
+    def __call__(self, model: torch.nn.Module, device: torch.device):
+
+        res_full = evaluate(
+            model=model,
+            tokenizer=self.tokenizer,
+            dataset=self.dataset,
+            greedy=self.greedy,
+            enable_thinking=self.enable_thinking,
+        )
+        res = {}
+        if self.dataset == "mbpp":
+            res["mbpp"] = res_full["pass_at_k"]["base"]["pass@1"]
+            res["mbpp_plus"] = res_full["pass_at_k"]["plus"]["pass@1"]
+        elif self.dataset == "humaneval":
+            res["humaneval"] = res_full["pass_at_k"]["base"]["pass@1"]
+            res["humaneval_plus"] = res_full["pass_at_k"]["plus"]["pass@1"]
+
+        res["time_evalplus"] = res_full["time_evalplus"]
+        return res

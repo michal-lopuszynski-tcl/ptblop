@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 
 
 def codegen(
-    target_path: str,
     model: DecoderBase,
     dataset: Dict,
     greedy=False,
@@ -21,22 +20,22 @@ def codegen(
 ):
     logger.info(f"Processing dataset {len(dataset)=}")
     task2nexist = {}
-    if resume and target_path.endswith(".jsonl") and os.path.isfile(target_path):
-        with open(target_path, "r") as f:
-            for line in f:
-                if not line.strip():
-                    continue
-                task_id = json.loads(line)["task_id"]
-                task2nexist[task_id] = task2nexist.get(task_id, 0) + 1
+    # if resume and target_path.endswith(".jsonl") and os.path.isfile(target_path):
+    #     with open(target_path, "r") as f:
+    #         for line in f:
+    #             if not line.strip():
+    #                 continue
+    #             task_id = json.loads(line)["task_id"]
+    #             task2nexist[task_id] = task2nexist.get(task_id, 0) + 1
 
-    if target_path.endswith(".jsonl"):
-        raw_target_path = target_path.replace(".jsonl", ".raw.jsonl")
-    else:
-        raw_target_path = target_path + ".raw"
-        os.makedirs(target_path, exist_ok=True)
+    # if target_path.endswith(".jsonl"):
+    #     raw_target_path = target_path.replace(".jsonl", ".raw.jsonl")
+    # else:
+    #     raw_target_path = target_path + ".raw"
+    #     os.makedirs(target_path, exist_ok=True)
 
-    logger.info(f"Sanitized code outputs will be saved to {target_path}")
-    logger.info(f"Raw outputs will be saved to {raw_target_path}")
+    # logger.info(f"Sanitized code outputs will be saved to {target_path}")
+    # logger.info(f"Raw outputs will be saved to {raw_target_path}")
 
     results = []
     n_dataset = len(dataset)
@@ -50,16 +49,16 @@ def codegen(
                 logger.info(f"Skipping {task_id} as it is not in {id_range}")
                 continue
 
-        if not target_path.endswith(".jsonl"):
-            p_name = task_id.replace("/", "_")
-            os.makedirs(os.path.join(target_path, p_name), exist_ok=True)
-            task2nexist[task_id] = len(
-                [
-                    f
-                    for f in os.listdir(os.path.join(target_path, p_name))
-                    if f.endswith(".py")
-                ]
-            )
+        # if not target_path.endswith(".jsonl"):
+        #     p_name = task_id.replace("/", "_")
+        #     os.makedirs(os.path.join(target_path, p_name), exist_ok=True)
+        #     task2nexist[task_id] = len(
+        #         [
+        #             f
+        #             for f in os.listdir(os.path.join(target_path, p_name))
+        #             if f.endswith(".py")
+        #         ]
+        #     )
 
         n_more_samples = n_samples
 
@@ -75,7 +74,7 @@ def codegen(
             prompt = task["prompt"].strip() + "\n"
             # RUNNING MODEL IS HERE
             g = model.codegen(
-                prompt,
+                prompt=prompt,
                 do_sample=not greedy,
                 num_samples=n_samples - sidx,
             )
@@ -281,7 +280,6 @@ def run_codegen(
     )
 
     results = codegen(
-        target_path=target_path,
         dataset=dataset_dict,
         greedy=greedy,
         model=model_runner,
