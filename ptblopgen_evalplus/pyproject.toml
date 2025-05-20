@@ -22,7 +22,7 @@ where = ["src"]
 exclude = ["tests"]
 
 [tool.setuptools.package-data]
-"pkgname" = ["py.typed"]
+"ptblopgen_evalplus" = ["resources/HumanEvalPlus-v0.1.10.jsonl.gz", "resources/MbppPlus-v0.2.0.jsonl.gz"]
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
