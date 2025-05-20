@@ -81,7 +81,7 @@ test_cpu:
 clean:
 	# Directory `build` sometimes gets greated (by pip install in build_zip ?)
 	rm -rf make.black.log make.flake8.log make.mypy.log tests_full/tmp.* \
-    	$(ZIP_DIR) $(FILES_TO_CLEAN) build
+		$(ZIP_DIR) $(FILES_TO_CLEAN) build dist dist_zip
 
 fix:
 	ISORT_FLAGS="$(ISORT_FLAGS)" ./aux/fix.sh $(F)
