@@ -450,11 +450,11 @@ class MockLMEvalWithPPLEvaluator:
         return res
 
 
-def instantiate_from_str(qualified_class_name: str, class_kwargs):
+def instantiate_from_str(qualified_class_name: str, tokenizer, class_kwargs):
     module_name, class_name = qualified_class_name.rsplit(".", 1)
     module = importlib.import_module(module_name)
     cls = getattr(module, class_name)
-    return cls(**class_kwargs)
+    return cls(tokenizer=tokenizer, **class_kwargs)
 
 
 def make_evaluator(evaluator_config, tokenizer):
@@ -476,5 +476,5 @@ def make_evaluator(evaluator_config, tokenizer):
         evaluator_kwargs = {
             k: v for k, v in evaluator_config.items() if k != "evaluator_name"
         }
-        evaluator = instantiate_from_str(evaluator_name, evaluator_kwargs)
+        evaluator = instantiate_from_str(evaluator_name, tokenizer, evaluator_kwargs)
         return evaluator
