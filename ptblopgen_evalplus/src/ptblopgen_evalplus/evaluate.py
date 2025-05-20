@@ -167,8 +167,9 @@ def get_dataset_dict(dataset_name, limit):
         data_file = pkg_ref / "resources" / fname
         logger.info(f"Loading dataset from {fname}")
 
-        with gzip.open(data_file, "rt", encoding="utf-8") as f:
-            dataset = load_jsonl_gz(f)
+        with data_file.open("rb") as f:
+            with gzip.open(f, "rt", encoding="utf-8") as f_decompressed:
+                dataset = load_jsonl_gz(f_decompressed)
 
         for task_id, task in dataset.items():
             task["base_input"] = mbpp_deserialize_inputs(task_id, task["base_input"])
@@ -178,8 +179,9 @@ def get_dataset_dict(dataset_name, limit):
         logger.info(f"Loading dataset from {fname}")
         pkg_ref = importlib.resources.files(__package__)
         data_file = pkg_ref / "resources" / fname
-        with gzip.open(data_file, "rt", encoding="utf-8") as f:
-            dataset = load_jsonl_gz(f)
+        with data_file.open("rb") as f:
+            with gzip.open(f, "rt", encoding="utf-8") as f_decompressed:
+                dataset = load_jsonl_gz(f_decompressed)
     else:
         raise ValueError(f"Unknown {dataset_name=}, but should never be raised")
 
@@ -433,7 +435,7 @@ class EvalplusEvaluator:
         else:
             raise ValueError(f"Unsupported set of metrics {evaluator_metrics_names}")
 
-        evaluator_metrics_limits = list(evaluator_metrics)
+        evaluator_metrics_limits = list(evaluator_metrics.values())
         assert len(evaluator_metrics_limits) == 1 or len(evaluator_metrics_limits) == 2
 
         if (
@@ -443,7 +445,7 @@ class EvalplusEvaluator:
             msg = "Provided different limits for metrics, this is not supported"
             raise ValueError(msg)
 
-        self.limit = self.evaluator_metrics_limits[0]
+        self.limit = evaluator_metrics_limits[0]
         self.greedy = True
 
     def __call__(self, model: torch.nn.Module, device: torch.device):
