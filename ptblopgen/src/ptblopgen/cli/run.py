@@ -1,11 +1,10 @@
 import argparse
 import gzip
+import importlib
 import logging
 import pathlib
 import platform
 import shutil
-import subprocess
-import sys
 from typing import Any, Optional
 
 import yaml
@@ -98,36 +97,24 @@ def copy_config(config_path: pathlib.Path, repro_path: pathlib.Path) -> None:
 def save_requirements(
     requirements_path: pathlib.Path, requirements_unsafe_path: pathlib.Path
 ) -> None:
-    # Dump "normal" requirements
+    UNSAFE_PACKAGES = ["pip", "setuptools", "distribute", "wheel"]
+    package_name_to_version = {
+        dist.metadata["Name"]: dist.version
+        for dist in importlib.metadata.distributions()
+    }
 
-    result = subprocess.run(
-        [sys.executable, "-mpip", "freeze"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
+    package_names = sorted(package_name_to_version.keys(), key=lambda x: x.lower())
 
-    requirements_safe = result.stdout.decode("utf-8").splitlines()
+    with open(requirements_path, "wt") as f:
+        for package_name in package_names:
+            if package_name not in UNSAFE_PACKAGES:
+                version = package_name_to_version[package_name]
+                f.write(f"{package_name}=={version}\n")
 
-    with requirements_path.open("wt") as f:
-        f.write(f"# Python {sys.version}\n\n")
-        for r in requirements_safe:
-            f.write(r + "\n")
-
-    # Dump "unsafe" requirements (rarely needed)
-
-    result = subprocess.run(
-        [sys.executable, "-mpip", "freeze", "--all"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-
-    requirements_all = result.stdout.decode("utf-8").splitlines()
-
-    with requirements_unsafe_path.open("wt") as f:
-        f.write(f"# Python {sys.version}\n\n")
-        for r in requirements_all:
-            if r not in requirements_safe:
-                f.write(r + "\n")
+    with open(requirements_unsafe_path, "wt") as f:
+        for package_name in package_names:
+            version = package_name_to_version[package_name]
+            f.write(f"{package_name}=={version}\n")
 
 
 def make_repro_dir(
