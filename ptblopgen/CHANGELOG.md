@@ -8,6 +8,9 @@
 + **...** In LLM evaluator, add batch size handling to perplexity evaluator
 
 # DONE
+
+## 0.1.0
++ Add pluggable LLM evaluators
 + Add full block mode
 + Add support for vision transformers blocks
 + Add versioning zips
