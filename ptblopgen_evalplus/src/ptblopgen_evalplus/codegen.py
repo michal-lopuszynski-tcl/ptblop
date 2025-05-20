@@ -1,10 +1,9 @@
-import gc
 import json
 import logging
 import os
 from typing import Any, Dict, List, Optional
 
-from .provider import DecoderBase, make_model
+from .provider import DecoderBase
 from .sanitize import sanitize
 
 logger = logging.getLogger(__name__)
@@ -19,7 +18,7 @@ def codegen(
     resume=True,
 ):
     logger.info(f"Processing dataset {len(dataset)=}")
-    task2nexist = {}
+    # task2nexist = {}
     # if resume and target_path.endswith(".jsonl") and os.path.isfile(target_path):
     #     with open(target_path, "r") as f:
     #         for line in f:
@@ -62,9 +61,9 @@ def codegen(
 
         n_more_samples = n_samples
 
-        if resume and task2nexist.get(task_id, 0) > 0:
-            log += f" (resuming from {task2nexist[task_id]})"
-            n_more_samples -= task2nexist[task_id]
+        # if resume and task2nexist.get(task_id, 0) > 0:
+        #     log += f" (resuming from {task2nexist[task_id]})"
+        #     n_more_samples -= task2nexist[task_id]
 
         log = f"Codegen: {task_id}, {q} of {n_dataset} - started"
         logger.info(log)

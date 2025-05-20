@@ -30,11 +30,6 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import psutil
 
-# from ..config import *
-
-DEFAULT_MIN_TIME_LIMIT = 4.0
-DEFAULT_GT_TIME_LIMIT_FACTOR = 4.0
-
 from ._special_oracle import (
     MBPP_OUTPUT_NOT_NONE_TASKS,
     MBPP_OUTPUT_SET_EQ_TASKS,
@@ -48,6 +43,12 @@ from .utils import (
     swallow_io,
     time_limit,
 )
+
+# from ..config import *
+
+
+DEFAULT_MIN_TIME_LIMIT = 4.0
+DEFAULT_GT_TIME_LIMIT_FACTOR = 4.0
 
 
 def compatible_eval_result(results: Dict) -> Dict:

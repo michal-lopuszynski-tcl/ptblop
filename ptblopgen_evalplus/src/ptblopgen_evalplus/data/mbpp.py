@@ -1,8 +1,3 @@
-import hashlib
-import json
-import os
-from typing import Dict
-
 # import wget
 
 # from evalplus.data.utils import (

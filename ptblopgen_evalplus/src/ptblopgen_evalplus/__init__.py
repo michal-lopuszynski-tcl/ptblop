@@ -1,1 +1,1 @@
-from .evaluate import EvalplusEvaluator
+from .evaluate import EvalplusEvaluator  # noqa: F401

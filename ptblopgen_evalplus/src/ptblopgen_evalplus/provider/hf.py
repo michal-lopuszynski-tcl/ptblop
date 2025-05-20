@@ -3,7 +3,6 @@ import time
 from typing import List
 
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from .base import DecoderBase
 from .utility import (
