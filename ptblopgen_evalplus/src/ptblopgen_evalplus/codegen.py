@@ -41,12 +41,12 @@ def codegen(
     time_gen_total = 0
 
     for q, (task_id, task) in enumerate(dataset.items(), start=1):
-        if id_range is not None:
-            id_num = int(task_id.split("/")[1])
-            low, high = id_range
-            if id_num < low or id_num >= high:
-                logger.info(f"Skipping {task_id} as it is not in {id_range}")
-                continue
+        # if id_range is not None:
+        #     id_num = int(task_id.split("/")[1])
+        #     low, high = id_range
+        #     if id_num < low or id_num >= high:
+        #         logger.info(f"Skipping {task_id} as it is not in {id_range}")
+        #         continue
 
         # if not target_path.endswith(".jsonl"):
         #     p_name = task_id.replace("/", "_")
@@ -65,7 +65,7 @@ def codegen(
         #     log += f" (resuming from {task2nexist[task_id]})"
         #     n_more_samples -= task2nexist[task_id]
 
-        log = f"Codegen: {task_id}, {q} of {n_dataset} - started"
+        log = f"Codegen for {task_id}, {q} of {n_dataset}"
         logger.info(log)
 
         sidx = n_samples - n_more_samples
@@ -91,10 +91,6 @@ def codegen(
                     "outputs_raw": g["outputs_raw"],
                     "time_gen": g["time_gen"],
                 }
-                time_gen = g["time_gen"]
-                logger.info(
-                    f"Codegen: {task_id}, {q} of {n_dataset} - {time_gen=:.2f} s"
-                )
 
                 results.append(r)
                 # if target_path.endswith(".jsonl"):
@@ -150,23 +146,27 @@ def make_model_runner(
     instruction_prefix,
     response_prefix,
     enable_thinking,
+    max_new_tokens,
 ):
     model_type_name = get_type_name(model)
     if model_type_name.startswith("transformers."):
         logger.info("Detected HF model")
         from .provider import hf
 
-        return hf.HuggingFaceDecoder(
-            name=model_name,
-            model=model,
-            tokenizer=tokenizer,
-            dataset=dataset,
-            tempearture=temperature,
-            force_base_prompt=force_base_prompt,
-            instruction_prefix=instruction_prefix,
-            response_prefix=response_prefix,
-            enable_thinking=enable_thinking,
-        )
+        hf_decoder_kwargs = {
+            "name": model_name,
+            "model": model,
+            "tokenizer": tokenizer,
+            "dataset": dataset,
+            "tempearture": temperature,
+            "force_base_prompt": force_base_prompt,
+            "instruction_prefix": instruction_prefix,
+            "response_prefix": response_prefix,
+            "enable_thinking": enable_thinking,
+        }
+        if max_new_tokens is not None:
+            hf_decoder_kwargs["max_new_tokens"] = max_new_tokens
+        return hf.HuggingFaceDecoder(**hf_decoder_kwargs)
     else:
         raise ValueError(f"Unsupported model type {model_type_name}")
 
@@ -189,6 +189,7 @@ def run_codegen(
     evalperf_type: str = None,  # For EvalPerf
     jsonl_fmt: bool = True,
     enable_thinking=None,
+    max_new_tokens=None,
 ):
     assert dataset in ["humaneval", "mbpp", "evalperf"], f"Invalid dataset {dataset}"
     assert evalperf_type is None or evalperf_type in [
@@ -276,6 +277,7 @@ def run_codegen(
         instruction_prefix=instruction_prefix,
         response_prefix=response_prefix,
         enable_thinking=enable_thinking,
+        max_new_tokens=max_new_tokens,
     )
 
     results = codegen(

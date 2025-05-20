@@ -213,6 +213,7 @@ def evaluate(
     greedy: bool = True,
     enable_thinking: Optional[bool] = None,
     limit: Optional[float] = None,
+    max_new_tokens: Optional[int] = None,
     # **model_kwargs,
 ):
     t_start = time.perf_counter()
@@ -226,6 +227,7 @@ def evaluate(
         dataset_dict=problems,
         greedy=greedy,
         enable_thinking=enable_thinking,
+        max_new_tokens=max_new_tokens,
     )
     assert samples is not None, "No samples provided"
 
@@ -423,6 +425,7 @@ class EvalplusEvaluator:
         tokenizer,
         evaluator_metrics: dict[str, float],
         enable_thinking: Optional[bool],
+        max_new_tokens: Optional[int],
     ):
         self.tokenizer = tokenizer
         self.evaluator_metrics = evaluator_metrics
@@ -447,6 +450,7 @@ class EvalplusEvaluator:
 
         self.limit = evaluator_metrics_limits[0]
         self.greedy = True
+        self.max_new_tokens = max_new_tokens
 
     def __call__(self, model: torch.nn.Module, device: torch.device):
 
@@ -457,6 +461,7 @@ class EvalplusEvaluator:
             greedy=self.greedy,
             enable_thinking=self.enable_thinking,
             limit=self.limit,
+            max_new_tokens=self.max_new_tokens,
         )
         res = {}
         if self.dataset == "mbpp":

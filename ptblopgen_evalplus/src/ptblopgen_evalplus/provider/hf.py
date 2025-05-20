@@ -103,8 +103,13 @@ class HuggingFaceDecoder(DecoderBase):
                 if eos in output:
                     min_index = min(min_index, output.index(eos))
             outputs_final.append(output[:min_index].replace("\t", "    "))
-
+        tok_prompt = input_tokens.shape[-1]
+        tok_out = outputs.shape[-1]
+        tok_gen = tok_out - tok_prompt
+        s = f"{tok_prompt=} {tok_gen=} tok_gen/s={tok_gen/time_gen:.2f} {time_gen=:.2f}"
+        logger.info(s)
         outputs_raw = self.tokenizer.batch_decode(outputs, skip_special_tokens=False)
+        logger.info(f"{outputs_raw=}")
         r = {
             "outputs": outputs_final,
             "prompt_raw": prompt,
