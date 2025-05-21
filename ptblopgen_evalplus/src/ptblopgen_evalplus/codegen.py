@@ -54,6 +54,9 @@ def codegen(
 
                 results.append(r)
                 sidx += 1
+                logger.info(f"{sanitized_solution=}")
+                logger.info("sanitized_solution:")
+                logger.info("\n\n" + sanitized_solution + "\n")
     logger.info(f"{time_gen_total=:.2f} seconds")
     return results
 
