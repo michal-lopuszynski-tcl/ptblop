@@ -1,5 +1,8 @@
 import time
 
+# TODO: This is work in progress, later on remove the flag below
+# flake8: noqa
+
 
 def make_prompt(task, tokenizer):
     prompt = task["prompt"].strip() + "\n"
