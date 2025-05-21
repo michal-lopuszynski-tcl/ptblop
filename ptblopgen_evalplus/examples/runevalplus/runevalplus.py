@@ -41,6 +41,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--model")
+    parser.add_argument("--bp-config", default=None)
     parser.add_argument("--dataset")
     parser.add_argument("--limit", default=None, type=float)
     parser.add_argument("--max-new-tokens", default=None, type=int)
@@ -48,6 +49,15 @@ def parse_args() -> argparse.Namespace:
 
     # Alternatively: parser.parse_args(sys.argv[1:])
     return parser.parse_args()
+
+
+def apply_bp_config(model, bp_config_path):
+    import ptblop
+
+    logger.info("Applying bp_config from {bp_config_path}")
+    with open(bp_config_path, "rt") as f:
+        bp_config = json.loads(f)
+    ptblop.apply_bp_config_in_place(model, bp_config)
 
 
 def main(args):
@@ -68,6 +78,9 @@ def main(args):
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         args.model, trust_remote_code=True
     )
+    if args.bp_config is not None:
+        apply_bp_config(model, args.bp_config)
+
     model.eval()
     logger.info(f"{model.generation_config=}")
     # torch._dynamo.config.verbose = True
