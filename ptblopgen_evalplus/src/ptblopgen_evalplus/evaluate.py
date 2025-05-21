@@ -451,6 +451,10 @@ class EvalPlusEvaluator:
         self.limit = evaluator_metrics_limits[0]
         self.greedy = True
         self.max_new_tokens = max_new_tokens
+        self.last_results = None
+
+    def get_last_results(self):
+        return self.last_results
 
     def __call__(self, model: torch.nn.Module, device: torch.device):
 
@@ -465,11 +469,12 @@ class EvalPlusEvaluator:
         )
         res = {}
         if self.dataset == "mbpp":
-            res["mbpp"] = res_full["pass_at_k"]["base"]["pass@1"]
-            res["mbpp_plus"] = res_full["pass_at_k"]["plus"]["pass@1"]
+            res["mbpp"] = float(res_full["pass_at_k"]["base"]["pass@1"])
+            res["mbpp_plus"] = float(res_full["pass_at_k"]["plus"]["pass@1"])
         elif self.dataset == "humaneval":
-            res["humaneval"] = res_full["pass_at_k"]["base"]["pass@1"]
-            res["humaneval_plus"] = res_full["pass_at_k"]["plus"]["pass@1"]
+            res["humaneval"] = float(res_full["pass_at_k"]["base"]["pass@1"])
+            res["humaneval_plus"] = float(res_full["pass_at_k"]["plus"]["pass@1"])
 
         res["time_evalplus"] = res_full["time_evalplus"]
+        self.last_results = res_full
         return res
