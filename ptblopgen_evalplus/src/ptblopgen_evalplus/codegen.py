@@ -212,8 +212,6 @@ def run_codegen(
         greedy=greedy,
         model=model_runner,
         n_samples=n_samples,
-        resume=resume,
-        id_range=id_range,
     )
 
     for i, sample in enumerate(results):
