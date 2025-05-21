@@ -419,7 +419,7 @@ ALLOWED_METRICS_HUMANEVAL = [
 ]
 
 
-class EvalplusEvaluator:
+class EvalPlusEvaluator:
     def __init__(
         self,
         tokenizer,
