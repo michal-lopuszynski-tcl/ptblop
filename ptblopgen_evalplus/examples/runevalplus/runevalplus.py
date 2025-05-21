@@ -5,8 +5,9 @@ import logging
 import torch
 import torch._dynamo
 
+
 import transformers
-import ptblopgen_evalplus.evaluate
+import ptblopgen_evalplus
 
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,10 @@ def parse_args() -> argparse.Namespace:
 
 def main(args):
     setup_logging()
+    logger.info(f"model=={args.model}")
+    logger.info(f"torch=={torch.__version__}")
+    logger.info(f"ptblopgen_evalplus=={ptblopgen_evalplus.__version__}")
+    logger.info(f"transformers=={transformers.__version__}")
     # attn_implementation = "sdpa"
     logger.info(f"{list(transformers.modeling_utils.ALL_ATTENTION_FUNCTIONS.keys())=}")
     model = transformers.AutoModelForCausalLM.from_pretrained(
@@ -88,6 +93,10 @@ def main(args):
 
     with open("./results.json", "wt") as f:
         json.dump(results, f)
+    logger.info(f"model=={args.model}")
+    logger.info(f"torch=={torch.__version__}")
+    logger.info(f"ptblopgen_evalplus=={ptblopgen_evalplus.__version__}")
+    logger.info(f"transformers=={transformers.__version__}")
 
 
 if __name__ == "__main__":
