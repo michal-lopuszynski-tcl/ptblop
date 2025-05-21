@@ -73,9 +73,15 @@ class HuggingFaceDecoder(DecoderBase):
             self.device
         )
         kwargs = {}
+
         if do_sample:
             kwargs["top_p"] = 0.95
             kwargs["temperature"] = self.temperature
+        else:
+            kwargs["top_p"] = None
+            kwargs["top_k"] = None
+            kwargs["temperature"] = None
+
         t_start = time.perf_counter()
         with torch.inference_mode():
             self.model.eval()
