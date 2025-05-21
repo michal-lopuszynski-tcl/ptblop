@@ -43,7 +43,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model")
     parser.add_argument("--dataset")
     parser.add_argument("--limit", default=None, type=float)
-    parser.add_argument("--greedy", action="store_true")
+    parser.add_argument("--max-new-tokens", default=None, type=int)
     parser.add_argument("--enable-thinking", default=None, type=parse_enable_thinking)
 
     # Alternatively: parser.parse_args(sys.argv[1:])
@@ -79,20 +79,27 @@ def main(args):
     # logger.info("Compiling finished")
     # torch.set_float32_matmul_precision("high")
 
-    torch.set_float32_matmul_precision("high")
-    results = ptblopgen_evalplus.evaluate.evaluate(
-        model=model,
+    # torch.set_float32_matmul_precision("high")
+    if args.dataset == "mbpp":
+        evaluator_metrics = {"mbpp_plus": args.limit}
+    elif args.dataset == "humaneval":
+        evaluator_metrics = {"humaneval_plus": args.limit}
+    else:
+        raise ValueError(f"Unknown dataset {args.dataset}")
+    evaluator = ptblopgen_evalplus.EvalPlusEvaluator(
         tokenizer=tokenizer,
-        dataset=args.dataset,
-        greedy=args.greedy,
+        evaluator_metrics=evaluator_metrics,
         enable_thinking=args.enable_thinking,
-        limit=args.limit,
+        max_new_tokens=args.max_new_tokens,
     )
+    results_summary = evaluator(model, model.device)
+    results = evaluator.get_last_results()
 
     results = {"model": args.model} | results
 
     with open("./results.json", "wt") as f:
         json.dump(results, f)
+    logger.info(f"{results_summary=}")
     logger.info(f"model=={args.model}")
     logger.info(f"torch=={torch.__version__}")
     logger.info(f"ptblopgen_evalplus=={ptblopgen_evalplus.__version__}")
