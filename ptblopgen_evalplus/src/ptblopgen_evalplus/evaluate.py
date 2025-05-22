@@ -465,7 +465,7 @@ def is_eligible_for_early_stopping(
         for j, output in enumerate(solution["outputs_raw"], start=1):
             output_generated = output[n_prompt:]
             logger.info("\n" + output_generated + "\n")
-            if entry_point in output_generated:
+            if entry_point in output_generated and "return" in output_generated:
                 duration = time.perf_counter() - t1
                 logger.info(
                     f"Disabling early stopping, {task_id}.{j} contains "
