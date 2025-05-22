@@ -32,7 +32,6 @@ from .eval._special_oracle import MBPP_OUTPUT_NOT_NONE_TASKS
 # 2nd item (optional): the detailed pass/fail boolean for each input
 Result = Tuple[str, List[bool]]
 
-CACHE_DIR = "tmp/cache"
 
 logger = logging.getLogger(__name__)
 
@@ -63,21 +62,21 @@ def trusted_exec(code, inputs, entry_point, record_time=False, output_not_none=F
         return ret
 
 
-def get_groundtruth(*, dataset_name, dataset, dataset_hash):
+def get_groundtruth(*, dataset_name, dataset, dataset_hash, cache_dir_prefix):
     if dataset_name == "humaneval":
         tasks_only_output_not_none = []
     elif dataset_name == "mbpp":
         tasks_only_output_not_none = MBPP_OUTPUT_NOT_NONE_TASKS
     else:
         raise ValueError(f"Unknown {dataset_name=}")
-
-    cache_file = os.path.join(CACHE_DIR, f"{dataset_hash}.pkl")
+    cache_dir = cache_dir_prefix + str(os.getpid())
+    cache_file = os.path.join(cache_dir, f"{dataset_hash}.pkl")
     if os.path.exists(cache_file):
         logger.info(f"Load from ground-truth from {cache_file}")
         with open(cache_file, "rb") as f:
             return pickle.load(f)
 
-    os.makedirs(CACHE_DIR, exist_ok=True)
+    os.makedirs(cache_dir, exist_ok=True)
     logger.info("Computing expected output...")
     tbegin = time.time()
     expected_output = {}
@@ -461,9 +460,11 @@ def is_eligible_for_early_stopping(
 
     for task_id, solution in dataset_solutions_early.items():
         entry_point = dataset_problems_early[task_id]["entry_point"]
+
         n_prompt = len(solution["prompt_raw"])
         for j, output in enumerate(solution["outputs_raw"], start=1):
             output_generated = output[n_prompt:]
+            logger.info("\n" + output_generated + "\n")
             if entry_point in output_generated:
                 duration = time.perf_counter() - t1
                 logger.info(
@@ -473,7 +474,6 @@ def is_eligible_for_early_stopping(
                 return False
     duration = time.perf_counter() - t1
     logger.info("Eanbling early stopping, check duration {duration:.2f} s.")
-
     return True
 
 
@@ -482,6 +482,7 @@ def evaluate(
     model,
     tokenizer,
     dataset: str,
+    cache_dir_prefix: str,
     base_only: bool = False,
     parallel: Optional[int] = None,
     test_details: bool = False,
@@ -500,7 +501,10 @@ def evaluate(
     dataset_hash = get_hash(dataset_problems)
 
     expected_soultions = get_groundtruth(
-        dataset_name=dataset, dataset=dataset_problems, dataset_hash=dataset_hash
+        dataset_name=dataset,
+        dataset=dataset_problems,
+        dataset_hash=dataset_hash,
+        cache_dir_prefix=cache_dir_prefix,
     )
     if n_early_stopping is None:
         dataset_solutions = run_codegen(
@@ -649,6 +653,7 @@ class EvalPlusEvaluator:
         enable_thinking: Optional[bool],
         max_new_tokens: Optional[int],
         n_early_stopping: Optional[int],
+        cache_dir_prefix: str,
     ):
         self.tokenizer = tokenizer
         self.evaluator_metrics = evaluator_metrics
@@ -675,6 +680,7 @@ class EvalPlusEvaluator:
         self.greedy = True
         self.max_new_tokens = max_new_tokens
         self.n_early_stopping = n_early_stopping
+        self.cache_dir_prefix = cache_dir_prefix
         self.last_results = None
 
     def get_last_results(self):
@@ -691,6 +697,7 @@ class EvalPlusEvaluator:
             limit=self.limit,
             max_new_tokens=self.max_new_tokens,
             n_early_stopping=self.n_early_stopping,
+            cache_dir_prefix=self.cache_dir_prefix,
         )
         res = {}
         if self.dataset == "mbpp":
