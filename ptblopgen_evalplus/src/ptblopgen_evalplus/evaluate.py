@@ -14,7 +14,6 @@ from collections import Counter, defaultdict
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
-from warnings import warn
 
 import numpy as np
 import torch
@@ -354,27 +353,20 @@ def summarize_solutions(
     base_correct = np.array(base_correct)
 
     base_pass_at_k = {
-        f"pass@{k}": estimate_pass_at_k(total, base_correct, k).mean()
+        f"pass@{k}": estimate_pass_at_k(total, base_correct, k).mean().item()
         for k in [1, 10, 100]
         if total.min() >= k
     }
-    # logger.info(f"{dataset} (base tests)")
-    # for k, v in base_pass_at_k.items():
-    #     logger.info(f"{k}:\t{v:.3f}")
-    # #results["pass_at_k"] = {"base": pass_at_k}
 
     if new_correct:
-        logger.info(f"{dataset}+ (base + extra tests)")
+        new_correct = np.array(new_correct)
         plus_pass_at_k = {
-            f"pass@{k}": estimate_pass_at_k(total, np.array(new_correct), k).mean()
+            f"pass@{k}": estimate_pass_at_k(total, new_correct, k).mean().item()
             for k in [1, 10, 100]
             if (total >= k).all()
         }
     else:
         plus_pass_at_k = None
-        # for k, v in pass_at_k.items():
-        #     logger.info(f"{k}:\t{v:.3f}")
-        # #results["pass_at_k"]["plus"] = pass_at_k
 
     return eval_summary, base_pass_at_k, plus_pass_at_k
 
@@ -433,7 +425,7 @@ def split_problems(dataset_problems, n):
     return dataset_problems1, dataset_problems2
 
 
-def are_results_collapsed(dataset_problems_early, eval_results_early, results_early):
+def perform_early_stopping(dataset_problems_early, eval_results_early, results_early):
     return False
 
 
@@ -532,11 +524,10 @@ def evaluate(
             base_only=base_only,
             test_details=test_details,
         )
-
-        if are_results_collapsed(
+        if perform_early_stopping(
             dataset_problems_early, eval_results_early, results_early
         ):
-            logger.info(f"Very poor results, performing early stopping...")
+            logger.info("Very poor results, performing early stopping...")
             results = results_early
             results["early_stopped"] = True
         else:
