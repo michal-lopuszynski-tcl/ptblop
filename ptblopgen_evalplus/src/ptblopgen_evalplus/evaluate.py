@@ -378,6 +378,45 @@ def summarize_solutions(
     return eval_summary, base_pass_at_k, plus_pass_at_k
 
 
+def prepare_evaluate_results(
+    *,
+    dataset,
+    dataset_hash,
+    dataset_problems,
+    dataset_solutions,
+    eval_results,
+    base_only,
+    test_details,
+):
+    results = {
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "hash": dataset_hash,
+        "eval": None # <- placeholder to keep the `eval` entry at the top
+    }
+
+    eval_summary, base_pass_at_k, plus_pass_at_k = summarize_solutions(
+        dataset=dataset,
+        dataset_problems=dataset_problems,
+        eval_results=eval_results,
+        base_only=base_only,
+        test_details=test_details,
+    )
+
+    results["pass_at_k"] = {"base": base_pass_at_k}
+
+    if not base_only:
+        results["pass_at_k"]["plus"] = plus_pass_at_k
+
+    for k, vs in eval_summary.items():
+        for v in vs:
+            v["prompt_raw"] = dataset_solutions[k]["prompt_raw"]
+            v["outputs_raw"] = dataset_solutions[k]["outputs_raw"]
+            v["time_gen"] = dataset_solutions[k]["time_gen"]
+
+    results["eval"] = eval_summary
+    return results
+
+
 def evaluate(
     *,
     model,
@@ -397,6 +436,11 @@ def evaluate(
     t_start = time.perf_counter()
 
     dataset_problems = get_dataset_dict(dataset, limit)
+    dataset_hash = get_hash(dataset_problems)
+
+    expected_soultions = get_groundtruth(
+        dataset_name=dataset, dataset=dataset_problems, dataset_hash=dataset_hash
+    )
 
     dataset_solutions = run_codegen(
         model=model,
@@ -407,17 +451,6 @@ def evaluate(
         enable_thinking=enable_thinking,
         max_new_tokens=max_new_tokens,
     )
-
-    dataset_hash = get_hash(dataset_problems)
-
-    expected_soultions = get_groundtruth(
-        dataset_name=dataset, dataset=dataset_problems, dataset_hash=dataset_hash
-    )
-
-    results = {
-        "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "hash": dataset_hash,
-    }
 
     eval_results = run_solutions_tests(
         dataset=dataset,
@@ -431,36 +464,27 @@ def evaluate(
         gt_time_limit_factor=gt_time_limit_factor,
     )
 
-    eval_summary, base_pass_at_k, plus_pass_at_k = summarize_solutions(
+    results = prepare_evaluate_results(
         dataset=dataset,
+        dataset_hash=dataset_hash,
         dataset_problems=dataset_problems,
+        dataset_solutions=dataset_solutions,
         eval_results=eval_results,
         base_only=base_only,
         test_details=test_details,
     )
 
-    logger.info("Base tests:")
-    for k, v in base_pass_at_k.items():
-        logger.info(f"{k}:\t{v:.3f}")
-    logger.info("Plus tests")
-    for k, v in plus_pass_at_k.items():
-        logger.info(f"{k}:\t{v:.3f}")
-
-    results["pass_at_k"] = {"base": base_pass_at_k}
-
-    if not base_only:
-        results["pass_at_k"]["plus"] = plus_pass_at_k
-
-    for k, vs in eval_summary.items():
-        for v in vs:
-            v["prompt_raw"] = dataset_solutions[k]["prompt_raw"]
-            v["outputs_raw"] = dataset_solutions[k]["outputs_raw"]
-            v["time_gen"] = dataset_solutions[k]["time_gen"]
-
     time_evalplus = time.perf_counter() - t_start
     results["time_evalplus"] = time_evalplus
+
+    logger.info("Base tests:")
+    for k, v in results["pass_at_k"]["base"].items():
+        logger.info(f"{k}:\t{v:.3f}")
+    if "plus" in results["pass_at_k"]:
+        logger.info("Plus tests:")
+        for k, v in results["pass_at_k"]["plus"].items():
+            logger.info(f"{k}:\t{v:.3f}")
     logger.info(f"{time_evalplus=:.2f} seconds")
-    results["eval"] = eval_summary
     return results
 
 
