@@ -45,6 +45,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dataset")
     parser.add_argument("--limit", default=None, type=float)
     parser.add_argument("--max-new-tokens", default=None, type=int)
+    parser.add_argument("--n_early_stopping", default=None, type=int)
     parser.add_argument("--enable-thinking", default=None, type=parse_enable_thinking)
 
     # Alternatively: parser.parse_args(sys.argv[1:])
@@ -104,6 +105,7 @@ def main(args):
         evaluator_metrics=evaluator_metrics,
         enable_thinking=args.enable_thinking,
         max_new_tokens=args.max_new_tokens,
+        n_early_stopping=args.n_early_stopping,
     )
     results_summary = evaluator(model, model.device)
     results = evaluator.get_last_results()
