@@ -407,7 +407,6 @@ def evaluate(
         enable_thinking=enable_thinking,
         max_new_tokens=max_new_tokens,
     )
-    assert dataset_solutions is not None, "No samples provided"
 
     dataset_hash = get_hash(dataset_problems)
 
@@ -418,7 +417,6 @@ def evaluate(
     results = {
         "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "hash": dataset_hash,
-        "eval": None,
     }
 
     eval_results = run_solutions_tests(
