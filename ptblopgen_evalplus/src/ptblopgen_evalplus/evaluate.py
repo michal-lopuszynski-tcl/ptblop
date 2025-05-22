@@ -18,12 +18,11 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import torch
 
+from . import config
 from .codegen import run_codegen
-from .config import *
 from .data.mbpp import mbpp_deserialize_inputs, mbpp_serialize_inputs
 from .eval import (
     PASS,
-    compatible_eval_result,
     estimate_pass_at_k,
     untrusted_check,
 )
@@ -117,8 +116,8 @@ def check_correctness(
     base_only=False,
     fast_check=False,
     identifier=None,
-    min_time_limit: float = DEFAULT_MIN_TIME_LIMIT,
-    gt_time_limit_factor: float = DEFAULT_GT_TIME_LIMIT_FACTOR,
+    min_time_limit: float = config.DEFAULT_MIN_TIME_LIMIT,
+    gt_time_limit_factor: float = config.DEFAULT_GT_TIME_LIMIT_FACTOR,
 ) -> Dict[str, Result]:  # {...}, "base" | "plus" -> (status, details)
     ret = {
         "completion_id": completion_id,
@@ -232,7 +231,7 @@ def run_solutions_tests(
             task_id = sample["task_id"]
             if task_id not in dataset_problems:
                 logger.warning(
-                    f"Task {task_id} is found in the samples but not found in the dataset"
+                    f"{task_id=} is found in the samples but not found in the dataset"
                 )
                 continue
             solution = (
@@ -437,8 +436,8 @@ def evaluate(
     base_only: bool = False,
     parallel: Optional[int] = None,
     test_details: bool = False,
-    min_time_limit: float = DEFAULT_MIN_TIME_LIMIT,
-    gt_time_limit_factor: float = DEFAULT_GT_TIME_LIMIT_FACTOR,
+    min_time_limit: float = config.DEFAULT_MIN_TIME_LIMIT,
+    gt_time_limit_factor: float = config.DEFAULT_GT_TIME_LIMIT_FACTOR,
     greedy: bool = True,
     enable_thinking: Optional[bool] = None,
     limit: Optional[float] = None,

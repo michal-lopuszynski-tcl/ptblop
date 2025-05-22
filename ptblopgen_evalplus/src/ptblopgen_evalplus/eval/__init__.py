@@ -202,7 +202,7 @@ def unsafe_execute(
                     if not exact_match and atol != 0:
                         # explicitly set rtol=1e-07
                         # to match `np.testing.assert_allclose`'s default values
-                        assert type(out) == type(exp)
+                        assert type(out) is type(exp)
                         if isinstance(exp, (list, tuple)):
                             assert len(out) == len(exp)
                         assert np.allclose(out, exp, rtol=1e-07, atol=atol)

@@ -1,9 +1,10 @@
-"""Special oracle handlings for problems where direct differential testing is not applicable."""
+"""Special oracle handlings for problems where direct differential testing is
+not applicable."""
 
 import math
 
-# For tasks whose output are not serializable, we only check the output is not None, which
-# is also consistent with the original dataset.
+# For tasks whose output are not serializable, we only check the output is not None,
+# which is also consistent with the original dataset.
 MBPP_OUTPUT_NOT_NONE_TASKS = ["check_str", "text_match_three", "text_starta_endb"]
 
 # Tasks that needs to perform set comparison over two lists
@@ -22,7 +23,8 @@ MBPP_OUTPUT_SET_EQ_TASKS = [
 # oracle for Mbpp/581
 def _surface_Area(base_edge, height):
     """
-    Recognizes the "height" as the perpendicular distance from the base to the apex of the pyramid
+    Recognizes the "height" as the perpendicular distance from the base to the apex of
+    the pyramid
     """
     slant_height = math.sqrt((base_edge / 2) ** 2 + height**2)
     base_area = base_edge**2

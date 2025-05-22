@@ -178,21 +178,34 @@ def run_codegen(
         bs = min(n_samples, 32)
         logger.info(f"Setting batch size to {bs=}")
 
-    # # Make project dir
-    # os.makedirs(root, exist_ok=True)
-    # # Make dataset dir
-    # os.makedirs(os.path.join(root, dataset), exist_ok=True)
-
     # Model instructions
-    instruction_prefix = "Please provide a self-contained Python script that solves the following problem in a markdown code block:"
-    response_prefix = "Below is a Python script with a self-contained function that solves the problem and passes corresponding tests:"
+    instruction_prefix = (
+        "Please provide a self-contained Python script that solves the following"
+        " problem in a markdown code block:"
+    )
+    response_prefix = (
+        "Below is a Python script with a self-contained function that solves the"
+        " problem and passes corresponding tests:"
+    )
 
     if evalperf_type == "perf-instruct":
-        instruction_prefix = "Please provide an efficient and self-contained Python script that solves the following problem in a markdown code block:"
-        response_prefix = "Below is a Python script with a self-contained function that efficiently solves the problem and passes corresponding tests:"
+        instruction_prefix = (
+            "Please provide an efficient and self-contained Python script that solves"
+            " the following problem in a markdown code block:"
+        )
+        response_prefix = (
+            "Below is a Python script with a self-contained function that efficiently"
+            " solves the problem and passes corresponding tests:"
+        )
     elif evalperf_type == "perf-CoT":
-        instruction_prefix = "Think step by step: please provide an efficient and self-contained Python script that solves the following problem in a markdown code block:"
-        response_prefix = "Below is a Python script with a self-contained function that efficiently solves the problem and passes corresponding tests:"
+        instruction_prefix = (
+            "Think step by step: please provide an efficient and self-contained Python"
+            " script that solves the following problem in a markdown code block:"
+        )
+        response_prefix = (
+            "Below is a Python script with a self-contained function that efficiently"
+            " solves the problem and passes corresponding tests:"
+        )
     elif evalperf_type is not None and evalperf_type != "instruct":
         raise ValueError(f"Invalid evalperf_type: {evalperf_type}")
 
@@ -221,12 +234,14 @@ def run_codegen(
         assert (
             "completion" in sample or "solution" in sample
         ), "No completion or solution found in sample!"
-        assert "solution" not in sample or isinstance(
-            sample["solution"], str
-        ), "Solution must be a string! If you have multiple solutions, please repeat the task_id."
-        assert "completion" not in sample or isinstance(
-            sample["completion"], str
-        ), "Completion must be a string! If you have multiple solutions, please repeat the task_id."
+        assert "solution" not in sample or isinstance(sample["solution"], str), (
+            "Solution must be a string! If you have multiple solutions, please repeat"
+            " the task_id."
+        )
+        assert "completion" not in sample or isinstance(sample["completion"], str), (
+            "Completion must be a string! If you have multiple solutions, please repeat"
+            " the task_id."
+        )
 
         sample["_identifier"] = sample["task_id"] + f" (line {i+1} in memory)"
     results_dict = {sample["task_id"]: sample for sample in results}
