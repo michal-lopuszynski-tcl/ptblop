@@ -706,7 +706,7 @@ class EvalPlusEvaluator:
         elif self.dataset == "humaneval":
             res["humaneval"] = float(res_full["pass_at_k"]["base"]["pass@1"])
             res["humaneval_plus"] = float(res_full["pass_at_k"]["plus"]["pass@1"])
-
+        res["early_stopped"] = res_full["early_stopped"]
         res["time_evalplus"] = res_full["time_evalplus"]
         self.last_results = res_full
         return res
