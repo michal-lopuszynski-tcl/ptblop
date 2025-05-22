@@ -43,6 +43,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model")
     parser.add_argument("--bp-config", default=None)
     parser.add_argument("--dataset")
+    parser.add_argument("--cache-dir-prefix", default="tmp__")
     parser.add_argument("--limit", default=None, type=float)
     parser.add_argument("--max-new-tokens", default=None, type=int)
     parser.add_argument("--n-early-stopping", default=None, type=int)
