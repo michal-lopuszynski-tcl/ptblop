@@ -424,8 +424,57 @@ def split_problems(dataset_problems, n):
     return dataset_problems1, dataset_problems2
 
 
-def perform_early_stopping(dataset_problems_early, eval_results_early, results_early):
-    return False
+def is_eligible_for_early_stopping(
+    dataset_problems_early, dataset_solutions_early, eval_results_early
+):
+    t1 = time.perf_counter()
+    assert set(dataset_problems_early.keys()) == set(dataset_solutions_early.keys())
+    assert set(dataset_problems_early.keys()) == set(eval_results_early.keys())
+
+    # The task is eligible for early stopping if in initial sample
+    # 1. All test failed
+    # 2. None of the solutions contains `entry_point`
+
+    for task_id, task_data_list in eval_results_early.items():
+        # eval_results_early["HumanEval/2"][0]["plus"]
+        for j, task_data in enumerate(task_data_list, start=1):
+            result = task_data["base"][0]
+
+            assert result in {"pass", "fail"}, f"{result=} not pass/fail"
+            if result == "pass":
+                duration = time.perf_counter() - t1
+                logger.info(
+                    f"Disabling early stopping, {task_id}.{j} passed, "
+                    f"check duration {duration:.2f} s.",
+                )
+                return False
+            if "plus" in task_data:
+                result = task_data["plus"][0]
+                assert result in {"pass", "fail"}, f"{result=} not pass/fail"
+                if result == "pass":
+                    duration = time.perf_counter() - t1
+                    logger.info(
+                        f"Disabling early stopping, {task_id}.{j} passed, "
+                        f"check duration {duration:.2f} s."
+                    )
+                    return False
+
+    for task_id, solution in dataset_solutions_early.items():
+        entry_point = dataset_problems_early[task_id]["entry_point"]
+        n_prompt = len(solution["prompt_raw"])
+        for j, output in enumerate(solution["outputs_raw"], start=1):
+            output_generated = output[n_prompt:]
+            if entry_point in output_generated:
+                duration = time.perf_counter() - t1
+                logger.info(
+                    f"Disabling early stopping, {task_id}.{j} contains "
+                    f"entry_point, check duration {duration:.2f} s."
+                )
+                return False
+    duration = time.perf_counter() - t1
+    logger.info("Eanbling early stopping, check duration {duration:.2f} s.")
+
+    return True
 
 
 def evaluate(
@@ -523,8 +572,9 @@ def evaluate(
             base_only=base_only,
             test_details=test_details,
         )
-        if perform_early_stopping(
-            dataset_problems_early, eval_results_early, results_early
+
+        if is_eligible_for_early_stopping(
+            dataset_problems_early, dataset_solutions_early, eval_results_early
         ):
             logger.info("Very poor results, performing early stopping...")
             results = results_early
