@@ -64,8 +64,15 @@ def trusted_exec(code, inputs, entry_point, record_time=False, output_not_none=F
         return ret
 
 
-def get_groundtruth(problems, hashcode, tasks_only_output_not_none):
-    cache_file = os.path.join(CACHE_DIR, f"{hashcode}.pkl")
+def get_groundtruth(*, dataset_name, dataset, dataset_hash):
+    if dataset_name == "humaneval":
+        tasks_only_output_not_none = []
+    elif dataset_name == "mbpp":
+        tasks_only_output_not_none = MBPP_OUTPUT_NOT_NONE_TASKS
+    else:
+        raise ValueError(f"Unknown {dataset_name=}")
+
+    cache_file = os.path.join(CACHE_DIR, f"{dataset_hash}.pkl")
     if os.path.exists(cache_file):
         logger.info(f"Load from ground-truth from {cache_file}")
         with open(cache_file, "rb") as f:
@@ -75,7 +82,7 @@ def get_groundtruth(problems, hashcode, tasks_only_output_not_none):
     logger.info("Computing expected output...")
     tbegin = time.time()
     expected_output = {}
-    for task_id, problem in problems.items():
+    for task_id, problem in dataset.items():
         oracle = {}
         oracle["base"], oracle["base_time"] = trusted_exec(
             problem["prompt"] + problem["canonical_solution"],
@@ -200,6 +207,177 @@ def get_hash(problems):
     return hashlib.md5(repr(problems).encode("utf-8")).hexdigest()
 
 
+def run_solutions_tests(
+    *,
+    dataset,
+    dataset_solutions,
+    expected_solutions,
+    dataset_problems,
+    parallel,
+    base_only,
+    test_details,
+    min_time_limit,
+    gt_time_limit_factor,
+):
+    n_workers = parallel or max(1, multiprocessing.cpu_count() // 2)
+
+    with ProcessPoolExecutor(max_workers=n_workers) as executor:
+        futures = []
+        completion_id = Counter()
+        n_samples = 0
+        eval_results = defaultdict(list)
+        remainings = set()
+
+        for sample in dataset_solutions.values():
+            task_id = sample["task_id"]
+            if task_id not in dataset_problems:
+                logger.warning(
+                    f"Task {task_id} is found in the samples but not found in the dataset"
+                )
+                continue
+            solution = (
+                sample["solution"]
+                if "solution" in sample
+                else dataset_problems[task_id]["prompt"] + sample["completion"]
+            )
+            remainings.add(sample["_identifier"])
+            args = (
+                dataset,
+                completion_id[task_id],
+                dataset_problems[task_id],
+                solution,
+                expected_solutions[task_id],
+                base_only,
+                not test_details,  # fast_check
+                sample["_identifier"],
+                min_time_limit,
+                gt_time_limit_factor,
+            )
+            futures.append(executor.submit(check_correctness, *args))
+            completion_id[task_id] += 1
+            n_samples += 1
+
+        assert n_samples == len(remainings), "Missing problems in unfinished"
+        assert len(completion_id) == len(
+            dataset_problems
+        ), "Missing problems in samples"
+
+        def stucking_checker():
+            while remainings:
+                last_size = len(remainings)
+                time.sleep(20)
+                if last_size != len(remainings) or len(remainings) == 0:
+                    continue
+                # Potential stucking
+                logger.warning("No samples had finished testing in the last 20s")
+                logger.warning(f"{len(remainings)} samples to be tested: {remainings}")
+
+        threading.Thread(target=stucking_checker).start()
+
+        for future in as_completed(futures):
+            result = future.result()
+            remainings.remove(result["_identifier"])
+            eval_results[result["task_id"]].append(result)
+    return eval_results
+
+
+def summarize_solutions(
+    *, dataset, dataset_problems, eval_results, base_only, test_details
+):
+    eval_summary = {}
+
+    # sort the results for each problem by completion_id
+    for task_id, task_results in eval_results.items():
+        task_results.sort(key=lambda x: x["completion_id"])
+        eval_summary[task_id] = []
+        for res in task_results:
+
+            def get_failed_tests(stat, details, inputs) -> List[Any]:
+                if stat == PASS or not details:
+                    return []
+
+                if test_details:
+                    return [inputs[i] for i in range(len(details)) if not details[i]]
+
+                # else => simply return the only and the last fail test
+                return [inputs[len(details) - 1]]
+
+            base_stat, base_details = res["base"]
+            base_fail_tests = get_failed_tests(
+                base_stat, base_details, dataset_problems[task_id]["base_input"]
+            )
+
+            # initialize plus tests
+            plus_stat = None
+            plus_fail_tests = []
+
+            # with plus tests
+            if not base_only:
+                plus_stat, plus_details = res["plus"]
+                plus_fail_tests = get_failed_tests(
+                    plus_stat, plus_details, dataset_problems[task_id]["plus_input"]
+                )
+
+            if dataset == "mbpp":
+                base_fail_tests = mbpp_serialize_inputs(task_id, base_fail_tests)
+                plus_fail_tests = mbpp_serialize_inputs(task_id, plus_fail_tests)
+
+            eval_summary[task_id].append(
+                {
+                    "task_id": task_id,
+                    "solution": res["solution"],
+                    "base_status": base_stat,
+                    "plus_status": plus_stat,
+                    "base_fail_tests": base_fail_tests,
+                    "plus_fail_tests": plus_fail_tests,
+                }
+            )
+
+    # Calculate pass@k.
+    total = np.array([len(r) for r in eval_summary.values()])
+    base_correct = []
+    new_correct = []
+
+    for res in eval_summary.values():
+        bc = sum([r["base_status"] == PASS for r in res])
+        base_correct.append(bc)
+        if not base_only:
+            new_correct.append(
+                sum(
+                    [
+                        res[i]["base_status"] == res[i]["plus_status"] == PASS
+                        for i in range(len(res))
+                    ]
+                )
+            )
+    base_correct = np.array(base_correct)
+
+    base_pass_at_k = {
+        f"pass@{k}": estimate_pass_at_k(total, base_correct, k).mean()
+        for k in [1, 10, 100]
+        if total.min() >= k
+    }
+    # logger.info(f"{dataset} (base tests)")
+    # for k, v in base_pass_at_k.items():
+    #     logger.info(f"{k}:\t{v:.3f}")
+    # #results["pass_at_k"] = {"base": pass_at_k}
+
+    if new_correct:
+        logger.info(f"{dataset}+ (base + extra tests)")
+        plus_pass_at_k = {
+            f"pass@{k}": estimate_pass_at_k(total, np.array(new_correct), k).mean()
+            for k in [1, 10, 100]
+            if (total >= k).all()
+        }
+    else:
+        plus_pass_at_k = None
+        # for k, v in pass_at_k.items():
+        #     logger.info(f"{k}:\t{v:.3f}")
+        # #results["pass_at_k"]["plus"] = pass_at_k
+
+    return eval_summary, base_pass_at_k, plus_pass_at_k
+
+
 def evaluate(
     *,
     model,
@@ -218,191 +396,73 @@ def evaluate(
 ):
     t_start = time.perf_counter()
 
-    problems = get_dataset_dict(dataset, limit)
+    dataset_problems = get_dataset_dict(dataset, limit)
 
-    samples = run_codegen(
+    dataset_solutions = run_codegen(
         model=model,
         tokenizer=tokenizer,
         dataset=dataset,
-        dataset_dict=problems,
+        dataset_dict=dataset_problems,
         greedy=greedy,
         enable_thinking=enable_thinking,
         max_new_tokens=max_new_tokens,
     )
-    assert samples is not None, "No samples provided"
+    assert dataset_solutions is not None, "No samples provided"
 
-    n_workers = parallel or max(1, multiprocessing.cpu_count() // 2)
+    dataset_hash = get_hash(dataset_problems)
 
-    dataset_hash = get_hash(problems)
-    if dataset == "humaneval":
-        expected_output = get_groundtruth(problems, dataset_hash, [])
-    elif dataset == "mbpp":
-        expected_output = get_groundtruth(
-            problems, dataset_hash, MBPP_OUTPUT_NOT_NONE_TASKS
-        )
-    else:
-        raise ValueError("Unknown {dataset=}")
+    expected_soultions = get_groundtruth(
+        dataset_name=dataset, dataset=dataset_problems, dataset_hash=dataset_hash
+    )
 
     results = {
         "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "hash": get_hash(problems),
-        "eval": {},
+        "hash": dataset_hash,
+        "eval": None,
     }
 
-    with ProcessPoolExecutor(max_workers=n_workers) as executor:
-        futures = []
-        completion_id = Counter()
-        n_samples = 0
-        eval_results = defaultdict(list)
-        remainings = set()
+    eval_results = run_solutions_tests(
+        dataset=dataset,
+        dataset_solutions=dataset_solutions,
+        expected_solutions=expected_soultions,
+        dataset_problems=dataset_problems,
+        parallel=parallel,
+        base_only=base_only,
+        test_details=test_details,
+        min_time_limit=min_time_limit,
+        gt_time_limit_factor=gt_time_limit_factor,
+    )
 
-        for sample in samples.values():
-            task_id = sample["task_id"]
-            if task_id not in problems:
-                warn(
-                    f"Task {task_id} is found in the samples but not found in the dataset"
-                )
-                continue
-            solution = (
-                sample["solution"]
-                if "solution" in sample
-                else problems[task_id]["prompt"] + sample["completion"]
-            )
-            remainings.add(sample["_identifier"])
-            args = (
-                dataset,
-                completion_id[task_id],
-                problems[task_id],
-                solution,
-                expected_output[task_id],
-                base_only,
-                not test_details,  # fast_check
-                sample["_identifier"],
-                min_time_limit,
-                gt_time_limit_factor,
-            )
-            futures.append(executor.submit(check_correctness, *args))
-            completion_id[task_id] += 1
-            n_samples += 1
+    eval_summary, base_pass_at_k, plus_pass_at_k = summarize_solutions(
+        dataset=dataset,
+        dataset_problems=dataset_problems,
+        eval_results=eval_results,
+        base_only=base_only,
+        test_details=test_details,
+    )
 
-        assert n_samples == len(remainings), "Missing problems in unfinished"
-        assert len(completion_id) == len(problems), "Missing problems in samples"
-
-        def stucking_checker():
-            while remainings:
-                last_size = len(remainings)
-                time.sleep(20)
-                if last_size != len(remainings) or len(remainings) == 0:
-                    continue
-                # Potential stucking
-                warn("No samples had finished testing in the last 20s")
-                warn(f"{len(remainings)} samples to be tested: {remainings}")
-
-        threading.Thread(target=stucking_checker).start()
-
-        for future in as_completed(futures):
-            result = future.result()
-            remainings.remove(result["_identifier"])
-            eval_results[result["task_id"]].append(result)
-
-        # sort the results for each problem by completion_id
-        for task_id, task_results in eval_results.items():
-            task_results.sort(key=lambda x: x["completion_id"])
-            results["eval"][task_id] = []
-            for res in task_results:
-
-                def get_failed_tests(stat, details, inputs) -> List[Any]:
-                    if stat == PASS or not details:
-                        return []
-
-                    if test_details:
-                        return [
-                            inputs[i] for i in range(len(details)) if not details[i]
-                        ]
-
-                    # else => simply return the only and the last fail test
-                    return [inputs[len(details) - 1]]
-
-                base_stat, base_details = res["base"]
-                base_fail_tests = get_failed_tests(
-                    base_stat, base_details, problems[task_id]["base_input"]
-                )
-
-                # initialize plus tests
-                plus_stat = None
-                plus_fail_tests = []
-
-                # with plus tests
-                if not base_only:
-                    plus_stat, plus_details = res["plus"]
-                    plus_fail_tests = get_failed_tests(
-                        plus_stat, plus_details, problems[task_id]["plus_input"]
-                    )
-
-                if dataset == "mbpp":
-                    base_fail_tests = mbpp_serialize_inputs(task_id, base_fail_tests)
-                    plus_fail_tests = mbpp_serialize_inputs(task_id, plus_fail_tests)
-
-                results["eval"][task_id].append(
-                    {
-                        "task_id": task_id,
-                        "solution": res["solution"],
-                        "base_status": base_stat,
-                        "plus_status": plus_stat,
-                        "base_fail_tests": base_fail_tests,
-                        "plus_fail_tests": plus_fail_tests,
-                    }
-                )
-
-    # Calculate pass@k.
-    total = np.array([len(r) for r in results["eval"].values()])
-    base_correct = []
-    new_correct = []
-
-    for res in results["eval"].values():
-        bc = sum([r["base_status"] == PASS for r in res])
-        base_correct.append(bc)
-        if not base_only:
-            new_correct.append(
-                sum(
-                    [
-                        res[i]["base_status"] == res[i]["plus_status"] == PASS
-                        for i in range(len(res))
-                    ]
-                )
-            )
-    base_correct = np.array(base_correct)
-
-    pass_at_k = {
-        f"pass@{k}": estimate_pass_at_k(total, base_correct, k).mean()
-        for k in [1, 10, 100]
-        if total.min() >= k
-    }
-    logger.info(f"{dataset} (base tests)")
-    for k, v in pass_at_k.items():
+    logger.info("Base tests:")
+    for k, v in base_pass_at_k.items():
         logger.info(f"{k}:\t{v:.3f}")
-    results["pass_at_k"] = {"base": pass_at_k}
+    logger.info("Plus tests")
+    for k, v in plus_pass_at_k.items():
+        logger.info(f"{k}:\t{v:.3f}")
 
-    if new_correct:
-        logger.info(f"{dataset}+ (base + extra tests)")
-        pass_at_k = {
-            f"pass@{k}": estimate_pass_at_k(total, np.array(new_correct), k).mean()
-            for k in [1, 10, 100]
-            if (total >= k).all()
-        }
-        for k, v in pass_at_k.items():
-            logger.info(f"{k}:\t{v:.3f}")
-        results["pass_at_k"]["plus"] = pass_at_k
+    results["pass_at_k"] = {"base": base_pass_at_k}
 
-    for k, vs in results["eval"].items():
+    if not base_only:
+        results["pass_at_k"]["plus"] = plus_pass_at_k
+
+    for k, vs in eval_summary.items():
         for v in vs:
-            v["prompt_raw"] = samples[k]["prompt_raw"]
-            v["outputs_raw"] = samples[k]["outputs_raw"]
-            v["time_gen"] = samples[k]["time_gen"]
+            v["prompt_raw"] = dataset_solutions[k]["prompt_raw"]
+            v["outputs_raw"] = dataset_solutions[k]["outputs_raw"]
+            v["time_gen"] = dataset_solutions[k]["time_gen"]
 
     time_evalplus = time.perf_counter() - t_start
     results["time_evalplus"] = time_evalplus
     logger.info(f"{time_evalplus=:.2f} seconds")
+    results["eval"] = eval_summary
     return results
 
 
