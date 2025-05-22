@@ -433,7 +433,7 @@ def split_problems(dataset_problems, n):
     return dataset_problems1, dataset_problems2
 
 
-def check_for_early_stopping(dataset_problems_early, eval_results_early, results_early):
+def are_results_collapsed(dataset_problems_early, eval_results_early, results_early):
     return False
 
 
@@ -533,10 +533,10 @@ def evaluate(
             test_details=test_details,
         )
 
-        if check_for_early_stopping(
+        if are_results_collapsed(
             dataset_problems_early, eval_results_early, results_early
         ):
-            logger.info(f"Early stoping activated, skipping further evaluation")
+            logger.info(f"Very poor results, performing early stopping...")
             results = results_early
             results["early_stopped"] = True
         else:
@@ -561,7 +561,7 @@ def evaluate(
                 min_time_limit=min_time_limit,
                 gt_time_limit_factor=gt_time_limit_factor,
             )
-            dataset_solutions = dataset_solutions_early | dataset_problems_rest
+            dataset_solutions = dataset_solutions_early | dataset_solutions_rest
             eval_results = eval_results_early | eval_results_rest
             results = prepare_evaluate_results(
                 dataset=dataset,

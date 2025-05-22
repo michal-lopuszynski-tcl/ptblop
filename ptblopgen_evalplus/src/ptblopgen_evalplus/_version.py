@@ -2,7 +2,7 @@
 
 # based on evalplus version '0.4.0.dev36', sha ecbe2352bc448bb60e6c3990ac894ff4c4b56ad6
 
-__version__ = "0.1.7"
+__version__ = "0.1.8"
 
 _ver_major = int(__version__.split(".")[0])
 _ver_minor = int(__version__.split(".")[1])
