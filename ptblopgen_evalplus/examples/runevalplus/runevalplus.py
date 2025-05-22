@@ -45,7 +45,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dataset")
     parser.add_argument("--limit", default=None, type=float)
     parser.add_argument("--max-new-tokens", default=None, type=int)
-    parser.add_argument("--n_early_stopping", default=None, type=int)
+    parser.add_argument("--n-early-stopping", default=None, type=int)
     parser.add_argument("--enable-thinking", default=None, type=parse_enable_thinking)
 
     # Alternatively: parser.parse_args(sys.argv[1:])
