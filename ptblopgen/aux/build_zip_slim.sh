@@ -4,6 +4,7 @@ if [ $# -ne 1 ]; then
     exit 1
 fi
 
+SECONDS=0
 
 ZIP_DIR="${1}/slim"
 TMP_DIR=tmp.$$
@@ -27,3 +28,8 @@ find . | cut -c3- | zip -r ../${ZIP_NAME} -@
 cd ..
 
 rm -rf ${TMP_DIR}
+
+DURATION=${SECONDS}
+echo
+echo "Building took ${DURATION} seconds"
+echo
