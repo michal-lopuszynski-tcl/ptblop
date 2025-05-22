@@ -54,9 +54,9 @@ def parse_args() -> argparse.Namespace:
 def apply_bp_config(model, bp_config_path):
     import ptblop
 
-    logger.info("Applying bp_config from {bp_config_path}")
+    logger.info(f"Applying bp_config from {bp_config_path}")
     with open(bp_config_path, "rt") as f:
-        bp_config = json.loads(f)
+        bp_config = json.load(f)
     ptblop.apply_bp_config_in_place(model, bp_config)
 
 
