@@ -7,6 +7,7 @@ import logging
 import multiprocessing
 import os
 import pickle
+import random
 import threading
 import time
 from collections import Counter, defaultdict
@@ -391,7 +392,7 @@ def prepare_evaluate_results(
     results = {
         "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "hash": dataset_hash,
-        "eval": None # <- placeholder to keep the `eval` entry at the top
+        "eval": None,  # <- placeholder to keep the `eval` entry at the top
     }
 
     eval_summary, base_pass_at_k, plus_pass_at_k = summarize_solutions(
@@ -417,6 +418,25 @@ def prepare_evaluate_results(
     return results
 
 
+def split_problems(dataset_problems, n):
+    dataset_ids = list(dataset_problems.keys())
+    dataset_selected_ids = set(random.sample(dataset_ids, k=n))
+
+    dataset_problems1 = {
+        k: v for k, v in dataset_problems.items() if k in dataset_selected_ids
+    }
+    dataset_problems2 = {
+        k: v for k, v in dataset_problems.items() if k not in dataset_selected_ids
+    }
+    assert len(dataset_problems1) == n
+    assert len(dataset_problems1) + len(dataset_problems2) == len(dataset_problems)
+    return dataset_problems1, dataset_problems2
+
+
+def check_for_early_stopping(dataset_problems_early, eval_results_early, results_early):
+    return False
+
+
 def evaluate(
     *,
     model,
@@ -431,6 +451,7 @@ def evaluate(
     enable_thinking: Optional[bool] = None,
     limit: Optional[float] = None,
     max_new_tokens: Optional[int] = None,
+    n_early_stopping: Optional[int] = None,
     # **model_kwargs,
 ):
     t_start = time.perf_counter()
@@ -441,38 +462,117 @@ def evaluate(
     expected_soultions = get_groundtruth(
         dataset_name=dataset, dataset=dataset_problems, dataset_hash=dataset_hash
     )
+    if n_early_stopping is None:
+        dataset_solutions = run_codegen(
+            model=model,
+            tokenizer=tokenizer,
+            dataset=dataset,
+            dataset_dict=dataset_problems,
+            greedy=greedy,
+            enable_thinking=enable_thinking,
+            max_new_tokens=max_new_tokens,
+        )
 
-    dataset_solutions = run_codegen(
-        model=model,
-        tokenizer=tokenizer,
-        dataset=dataset,
-        dataset_dict=dataset_problems,
-        greedy=greedy,
-        enable_thinking=enable_thinking,
-        max_new_tokens=max_new_tokens,
-    )
+        eval_results = run_solutions_tests(
+            dataset=dataset,
+            dataset_problems=dataset_problems,
+            dataset_solutions=dataset_solutions,
+            expected_solutions=expected_soultions,
+            parallel=parallel,
+            base_only=base_only,
+            test_details=test_details,
+            min_time_limit=min_time_limit,
+            gt_time_limit_factor=gt_time_limit_factor,
+        )
 
-    eval_results = run_solutions_tests(
-        dataset=dataset,
-        dataset_solutions=dataset_solutions,
-        expected_solutions=expected_soultions,
-        dataset_problems=dataset_problems,
-        parallel=parallel,
-        base_only=base_only,
-        test_details=test_details,
-        min_time_limit=min_time_limit,
-        gt_time_limit_factor=gt_time_limit_factor,
-    )
+        results = prepare_evaluate_results(
+            dataset=dataset,
+            dataset_hash=dataset_hash,
+            dataset_problems=dataset_problems,
+            dataset_solutions=dataset_solutions,
+            eval_results=eval_results,
+            base_only=base_only,
+            test_details=test_details,
+        )
+        results["early_stopped"] = False
+    else:
+        logger.info(f"Evaluating with {n_early_stopping=}")
+        dataset_problems_early, dataset_problems_rest = split_problems(
+            dataset_problems, n_early_stopping
+        )
 
-    results = prepare_evaluate_results(
-        dataset=dataset,
-        dataset_hash=dataset_hash,
-        dataset_problems=dataset_problems,
-        dataset_solutions=dataset_solutions,
-        eval_results=eval_results,
-        base_only=base_only,
-        test_details=test_details,
-    )
+        dataset_solutions_early = run_codegen(
+            model=model,
+            tokenizer=tokenizer,
+            dataset=dataset,
+            dataset_dict=dataset_problems_early,
+            greedy=greedy,
+            enable_thinking=enable_thinking,
+            max_new_tokens=max_new_tokens,
+        )
+
+        eval_results_early = run_solutions_tests(
+            dataset=dataset,
+            dataset_solutions=dataset_solutions_early,
+            dataset_problems=dataset_problems_early,
+            expected_solutions=expected_soultions,
+            parallel=parallel,
+            base_only=base_only,
+            test_details=test_details,
+            min_time_limit=min_time_limit,
+            gt_time_limit_factor=gt_time_limit_factor,
+        )
+
+        results_early = prepare_evaluate_results(
+            dataset=dataset,
+            dataset_hash=dataset_hash,
+            dataset_problems=dataset_problems_early,
+            dataset_solutions=dataset_solutions_early,
+            eval_results=eval_results_early,
+            base_only=base_only,
+            test_details=test_details,
+        )
+
+        if check_for_early_stopping(
+            dataset_problems_early, eval_results_early, results_early
+        ):
+            logger.info(f"Early stoping activated, skipping further evaluation")
+            results = results_early
+            results["early_stopped"] = True
+        else:
+            dataset_solutions_rest = run_codegen(
+                model=model,
+                tokenizer=tokenizer,
+                dataset=dataset,
+                dataset_dict=dataset_problems_rest,
+                greedy=greedy,
+                enable_thinking=enable_thinking,
+                max_new_tokens=max_new_tokens,
+            )
+
+            eval_results_rest = run_solutions_tests(
+                dataset=dataset,
+                dataset_problems=dataset_problems_rest,
+                dataset_solutions=dataset_solutions_rest,
+                expected_solutions=expected_soultions,
+                parallel=parallel,
+                base_only=base_only,
+                test_details=test_details,
+                min_time_limit=min_time_limit,
+                gt_time_limit_factor=gt_time_limit_factor,
+            )
+            dataset_solutions = dataset_solutions_early | dataset_problems_rest
+            eval_results = eval_results_early | eval_results_rest
+            results = prepare_evaluate_results(
+                dataset=dataset,
+                dataset_hash=dataset_hash,
+                dataset_problems=dataset_problems,
+                dataset_solutions=dataset_solutions,
+                eval_results=eval_results,
+                base_only=base_only,
+                test_details=test_details,
+            )
+            results["early_stopped"] = False
 
     time_evalplus = time.perf_counter() - t_start
     results["time_evalplus"] = time_evalplus
@@ -508,6 +608,7 @@ class EvalPlusEvaluator:
         evaluator_metrics: dict[str, float],
         enable_thinking: Optional[bool],
         max_new_tokens: Optional[int],
+        n_early_stopping: Optional[int],
     ):
         self.tokenizer = tokenizer
         self.evaluator_metrics = evaluator_metrics
@@ -533,6 +634,7 @@ class EvalPlusEvaluator:
         self.limit = evaluator_metrics_limits[0]
         self.greedy = True
         self.max_new_tokens = max_new_tokens
+        self.n_early_stopping = n_early_stopping
         self.last_results = None
 
     def get_last_results(self):
@@ -548,6 +650,7 @@ class EvalPlusEvaluator:
             enable_thinking=self.enable_thinking,
             limit=self.limit,
             max_new_tokens=self.max_new_tokens,
+            n_early_stopping=self.n_early_stopping,
         )
         res = {}
         if self.dataset == "mbpp":
