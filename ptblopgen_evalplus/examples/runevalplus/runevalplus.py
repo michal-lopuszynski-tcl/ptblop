@@ -107,6 +107,7 @@ def main(args):
         enable_thinking=args.enable_thinking,
         max_new_tokens=args.max_new_tokens,
         n_early_stopping=args.n_early_stopping,
+        cache_dir_prefix=args.cache_dir_prefix,
     )
     results_summary = evaluator(model, model.device)
     results = evaluator.get_last_results()
