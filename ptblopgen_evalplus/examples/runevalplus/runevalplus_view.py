@@ -26,10 +26,12 @@ def main(args):
     for sol_id in solutions_id:
         solutions_for_id = solutions_all[sol_id]
         for j, sol in enumerate(solutions_for_id, start=1):
-            print(f"{sol_id}.{j} OUTPUTS RAW:\n")
+            base = sol["base_status"]
+            plus = sol["plus_status"]
+            print(f"{sol_id}.{j} OUTPUTS RAW {base=} {plus=}:\n")
             for o in sol["outputs_raw"]:
                 print(o)
-            print(f"{sol_id}.{j} SOLUTION\n")
+            print(f"{sol_id}.{j} SOLUTION {base=} {plus=}\n")
             print(sol["solution"])
 
 
