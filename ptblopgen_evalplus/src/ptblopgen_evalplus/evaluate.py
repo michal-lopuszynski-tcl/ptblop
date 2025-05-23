@@ -423,9 +423,13 @@ def split_problems(dataset_problems, n):
     return dataset_problems1, dataset_problems2
 
 
+ALLOWED_RESUTLS = {"pass", "fail", "timeout"}
+
+
 def is_eligible_for_early_stopping(
     dataset_problems_early, dataset_solutions_early, eval_results_early
 ):
+
     t1 = time.perf_counter()
     assert set(dataset_problems_early.keys()) == set(dataset_solutions_early.keys())
     assert set(dataset_problems_early.keys()) == set(eval_results_early.keys())
@@ -439,7 +443,7 @@ def is_eligible_for_early_stopping(
         for j, task_data in enumerate(task_data_list, start=1):
             result = task_data["base"][0]
 
-            assert result in {"pass", "fail"}, f"{result=} not pass/fail"
+            assert result in ALLOWED_RESUTLS, f"{result=} not {ALLOWED_RESUTLS}"
             if result == "pass":
                 duration = time.perf_counter() - t1
                 logger.info(
@@ -449,7 +453,7 @@ def is_eligible_for_early_stopping(
                 return False
             if "plus" in task_data:
                 result = task_data["plus"][0]
-                assert result in {"pass", "fail"}, f"{result=} not pass/fail"
+                assert result in ALLOWED_RESUTLS, f"{result=} not {ALLOWED_RESUTLS}"
                 if result == "pass":
                     duration = time.perf_counter() - t1
                     logger.info(
