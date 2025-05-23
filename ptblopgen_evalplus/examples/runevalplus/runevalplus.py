@@ -1,14 +1,13 @@
 import argparse
 import json
 import logging
+import pathlib
 
 import torch
 import torch._dynamo
-
-
 import transformers
-import ptblopgen_evalplus
 
+import ptblopgen_evalplus
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +42,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model")
     parser.add_argument("--bp-config", default=None)
     parser.add_argument("--dataset")
+    parser.add_argument(
+        "--results-file", default=pathlib.Path("./results.json"), type=pathlib.Path
+    )
     parser.add_argument("--cache-dir-prefix", default="tmp__")
     parser.add_argument("--limit", default=None, type=float)
     parser.add_argument("--max-new-tokens", default=None, type=int)
@@ -87,14 +89,16 @@ def main(args):
     logger.info(f"{model.generation_config=}")
     # torch._dynamo.config.verbose = True
 
+    # # Compile test
     # logger.info("Compiling started")
     # logger.info(f"{model.generation_config=}")
     # model.generation_config.cache_implementation = "static"
-    # model.forward = torch.compile(model.forward, mode="reduce-overhead", fullgraph=True, dynamic=True)
+    # model.forward = torch.compile(
+    #     model.forward, mode="reduce-overhead", fullgraph=True, dynamic=True
+    # )
     # logger.info("Compiling finished")
     # torch.set_float32_matmul_precision("high")
 
-    # torch.set_float32_matmul_precision("high")
     if args.dataset == "mbpp":
         evaluator_metrics = {"mbpp_plus": args.limit}
     elif args.dataset == "humaneval":
@@ -114,7 +118,7 @@ def main(args):
 
     results = {"model": args.model} | results
 
-    with open("./results.json", "wt") as f:
+    with open(args.results_file, "wt") as f:
         json.dump(results, f)
     logger.info(f"{results_summary=}")
     logger.info(f"model=={args.model}")
