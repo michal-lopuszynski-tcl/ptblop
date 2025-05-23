@@ -1,8 +1,8 @@
 MODULE_NAME=ptblopgen_evalplus
 
-PY_DIRS=src/ptblopgen_evalplus tests setup.py
+PY_BLACK_ISORT=src/ptblopgen_evalplus examples/runevalplus tests aux setup.py
 
-PY_MYPY_FLAKE8=src/ptblopgen_evalplus tests setup.py
+PY_MYPY_FLAKE8=src/ptblopgen_evalplus examples/runevalplus tests aux setup.py
 
 FILES_TO_CLEAN=src/ptblopgen_evalplus.egg-info dist
 
@@ -23,12 +23,12 @@ check: -check_black -check_isort -check_flake8 -check_mypy
 check_fast: -check_black -check_isort -check_flake8
 
 check_black:
-	@black --color --check $(PY_DIRS) > make.black.log 2>&1 && \
+	@black --color --check $(PY_BLACK_ISORT) > make.black.log 2>&1 && \
 		echo "PASSED black" || \
 		(echo "FAILED black"; cat make.black.log; exit 1)
 
 check_isort:
-	@isort --check --profile=black $(ISORT_FLAGS) $(PY_DIRS) && echo "PASSED isort"
+	@isort --check --profile=black $(ISORT_FLAGS) $(PY_BLACK_ISORT) && echo "PASSED isort"
 
 
 check_flake8:
