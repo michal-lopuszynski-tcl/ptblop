@@ -43,7 +43,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--bp-config", default=None)
     parser.add_argument("--dataset")
     parser.add_argument(
-        "--results-file", default=pathlib.Path("./results.json"), type=pathlib.Path
+        "--results-file",
+        "-r",
+        default=pathlib.Path("./results.json"),
+        type=pathlib.Path,
     )
     parser.add_argument("--cache-dir-prefix", default="tmp__")
     parser.add_argument("--limit", default=None, type=float)

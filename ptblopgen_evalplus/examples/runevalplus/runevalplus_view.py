@@ -8,7 +8,10 @@ import pathlib
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--results-file", default=pathlib.Path("./results.json"), type=pathlib.Path
+        "--results-file",
+        "-r",
+        default=pathlib.Path("./results.json"),
+        type=pathlib.Path,
     )
     return parser.parse_args()
 
