@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 
 import argparse
-import pathlib
-import sys
 
 
-def parse_args(argv: list[str]) -> argparse.Namespace:
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="")
-
     parser.add_argument("--version-file", required=True)
-    return parser.parse_args(argv)
+    return parser.parse_args()
 
 
-def main(args):
+def main(args: argparse.Namespace) -> None:
     with open(args.version_file, "rt") as f:
         for line in f:
             line = line.strip()
@@ -26,4 +23,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(parse_args(sys.argv[1:]))
+    main(parse_args())
