@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """ ImageNet Validation Script
 
 This is intended to be a lean and easily modifiable ImageNet validation script for evaluating pretrained
@@ -22,11 +21,13 @@ import torch
 import torch.nn as nn
 import torch.nn.parallel
 
+import timm
+
 from timm.data import create_dataset, create_loader, resolve_data_config, RealLabelsImagenet
 from timm.layers import apply_test_time_pool, set_fast_norm
 from timm.models import create_model, load_checkpoint, is_model, list_models
 from timm.utils import accuracy, AverageMeter, natural_key, setup_default_logging, set_jit_fuser, \
-    decay_batch_step, check_batch_size_retry, ParseKwargs, reparameterize_model
+    decay_batch_step, check_batch_size_retry, reparameterize_model
 
 try:
     from apex import amp
@@ -44,122 +45,120 @@ has_compile = hasattr(torch, 'compile')
 
 _logger = logging.getLogger('validate')
 
-
-parser = argparse.ArgumentParser(description='PyTorch ImageNet Validation')
-parser.add_argument('data', nargs='?', metavar='DIR', const=None,
-                    help='path to dataset (*deprecated*, use --data-dir)')
-parser.add_argument('--data-dir', metavar='DIR',
-                    help='path to dataset (root dir)')
-parser.add_argument('--dataset', metavar='NAME', default='',
-                    help='dataset type + name ("<type>/<name>") (default: ImageFolder or ImageTar if empty)')
-parser.add_argument('--split', metavar='NAME', default='validation',
-                    help='dataset split (default: validation)')
-parser.add_argument('--num-samples', default=None, type=int,
-                    metavar='N', help='Manually specify num samples in dataset split, for IterableDatasets.')
-parser.add_argument('--dataset-download', action='store_true', default=False,
-                    help='Allow download of dataset for torch/ and tfds/ datasets that support it.')
-parser.add_argument('--class-map', default='', type=str, metavar='FILENAME',
-                    help='path to class to idx mapping file (default: "")')
-parser.add_argument('--input-key', default=None, type=str,
-                   help='Dataset key for input images.')
-parser.add_argument('--input-img-mode', default=None, type=str,
-                   help='Dataset image conversion mode for input images.')
-parser.add_argument('--target-key', default=None, type=str,
-                   help='Dataset key for target labels.')
-parser.add_argument('--dataset-trust-remote-code', action='store_true', default=False,
-                   help='Allow huggingface dataset import to execute code downloaded from the dataset\'s repo.')
-
-parser.add_argument('--model', '-m', metavar='NAME', default='dpn92',
-                    help='model architecture (default: dpn92)')
-parser.add_argument('--pretrained', dest='pretrained', action='store_true',
-                    help='use pre-trained model')
-parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
-                    help='number of data loading workers (default: 4)')
-parser.add_argument('-b', '--batch-size', default=256, type=int,
-                    metavar='N', help='mini-batch size (default: 256)')
-parser.add_argument('--img-size', default=None, type=int,
-                    metavar='N', help='Input image dimension, uses model default if empty')
-parser.add_argument('--in-chans', type=int, default=None, metavar='N',
-                    help='Image input channels (default: None => 3)')
-parser.add_argument('--input-size', default=None, nargs=3, type=int, metavar='N',
-                    help='Input all image dimensions (d h w, e.g. --input-size 3 224 224), uses model default if empty')
-parser.add_argument('--use-train-size', action='store_true', default=False,
-                    help='force use of train input size, even when test size is specified in pretrained cfg')
-parser.add_argument('--crop-pct', default=None, type=float,
-                    metavar='N', help='Input image center crop pct')
-parser.add_argument('--crop-mode', default=None, type=str,
-                    metavar='N', help='Input image crop mode (squash, border, center). Model default if None.')
-parser.add_argument('--crop-border-pixels', type=int, default=None,
-                    help='Crop pixels from image border.')
-parser.add_argument('--mean', type=float, nargs='+', default=None, metavar='MEAN',
-                    help='Override mean pixel value of dataset')
-parser.add_argument('--std', type=float,  nargs='+', default=None, metavar='STD',
-                    help='Override std deviation of of dataset')
-parser.add_argument('--interpolation', default='', type=str, metavar='NAME',
-                    help='Image resize interpolation type (overrides model)')
-parser.add_argument('--num-classes', type=int, default=None,
-                    help='Number classes in dataset')
-parser.add_argument('--gp', default=None, type=str, metavar='POOL',
-                    help='Global pool type, one of (fast, avg, max, avgmax, avgmaxc). Model default if None.')
-parser.add_argument('--log-freq', default=10, type=int,
-                    metavar='N', help='batch logging frequency (default: 10)')
-parser.add_argument('--checkpoint', default='', type=str, metavar='PATH',
-                    help='path to latest checkpoint (default: none)')
-parser.add_argument('--num-gpu', type=int, default=1,
-                    help='Number of GPUS to use')
-parser.add_argument('--test-pool', dest='test_pool', action='store_true',
-                    help='enable test time pool')
-parser.add_argument('--no-prefetcher', action='store_true', default=False,
-                    help='disable fast prefetcher')
-parser.add_argument('--pin-mem', action='store_true', default=False,
-                    help='Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.')
-parser.add_argument('--channels-last', action='store_true', default=False,
-                    help='Use channels_last memory layout')
-parser.add_argument('--device', default='cuda', type=str,
-                    help="Device (accelerator) to use.")
-parser.add_argument('--amp', action='store_true', default=False,
-                    help='use NVIDIA Apex AMP or Native AMP for mixed precision training')
-parser.add_argument('--amp-dtype', default='float16', type=str,
-                    help='lower precision AMP dtype (default: float16)')
-parser.add_argument('--amp-impl', default='native', type=str,
-                    help='AMP impl to use, "native" or "apex" (default: native)')
-parser.add_argument('--model-dtype', default=None, type=str,
-                   help='Model dtype override (non-AMP) (default: float32)')
-parser.add_argument('--tf-preprocessing', action='store_true', default=False,
-                    help='Use Tensorflow preprocessing pipeline (require CPU TF installed')
-parser.add_argument('--use-ema', dest='use_ema', action='store_true',
-                    help='use ema version of weights if present')
-parser.add_argument('--fuser', default='', type=str,
-                    help="Select jit fuser. One of ('', 'te', 'old', 'nvfuser')")
-parser.add_argument('--fast-norm', default=False, action='store_true',
-                    help='enable experimental fast-norm')
-parser.add_argument('--reparam', default=False, action='store_true',
-                    help='Reparameterize model')
-parser.add_argument('--model-kwargs', nargs='*', default={}, action=ParseKwargs)
-parser.add_argument('--torchcompile-mode', type=str, default=None,
-                    help="torch.compile mode (default: None).")
-
-scripting_group = parser.add_mutually_exclusive_group()
-scripting_group.add_argument('--torchscript', default=False, action='store_true',
-                             help='torch.jit.script the full model')
-scripting_group.add_argument('--torchcompile', nargs='?', type=str, default=None, const='inductor',
-                             help="Enable compilation w/ specified backend (default: inductor).")
-scripting_group.add_argument('--aot-autograd', default=False, action='store_true',
-                             help="Enable AOT Autograd support.")
-
-parser.add_argument('--results-file', default='', type=str, metavar='FILENAME',
-                    help='Output csv file for validation results (summary)')
-parser.add_argument('--results-format', default='csv', type=str,
-                    help='Format for results file one of (csv, json) (default: csv).')
-parser.add_argument('--real-labels', default='', type=str, metavar='FILENAME',
-                    help='Real labels JSON file for imagenet evaluation')
-parser.add_argument('--valid-labels', default='', type=str, metavar='FILENAME',
-                    help='Valid label indices txt file for validation of partial label space')
-parser.add_argument('--retry', default=False, action='store_true',
-                    help='Enable batch size decay & retry for single model validation')
+from typing import Optional
 
 
-def validate(args):
+class EvalConfig:
+    data_dir: str
+    split: str
+    num_samples: Optional[int]
+    dataset_download: bool
+    class_map: str
+    input_key: Optional[str]
+    input_img_mode: Optional[str]
+    target_key: Optional[str]
+    dataset_trust_remote_code: bool
+    model: str
+    pretrained: bool
+    workers: int
+    batch_size: int
+    img_size: Optional[int]
+    in_chans: Optional[int]
+    input_size: Optional[tuple[int, int,int]]
+    use_train_size: bool
+    crop_pct: Optional[float]
+    crop_mode: Optional[str]
+    crop_border_pixels: Optional[int]
+    mean: Optional[float] # Probably union of number/tuple
+    std: Optional[float] # Probably union of number/tuple
+    interpolation: str
+    num_classes: Optional[int]
+    gp: Optional[str]
+    log_freq: int
+    checkpoint: str
+    num_gpu: int
+    test_pool: bool
+    no_prefetcher: bool
+    pin_mem: bool
+    channels_last: bool
+    device: str
+    amp: bool
+    amp_dtype: str
+    amp_impl: str
+    model_dtype: Optional[str]
+    tf_preprocessing: bool
+    use_ema: bool
+    fuser: str
+    fast_norm: bool
+    reparam: bool
+    model_kwargs: dict
+    torchcompile_mode: Optional[str]
+    torchscript: bool
+    torchcompile: Optional[str]
+    aot_autograd: bool
+    results_file: str
+    results_format: str
+    real_labels: str
+    valid_labels: str
+    retry: bool
+
+    def __init__(self):
+        self.data_dir = "/nas/datasets/vision/tenegami/"
+        self.dataset = ""
+        self.split = "validation"
+        self.num_samples = None
+        self.dataset_download = False
+        self.class_map = ""
+        self.input_key = None
+        self.input_img_mode = None
+        self.target_key = None
+        self.dataset_trust_remote_code = False
+        self.model = "mobilevitv2_200.cvnets_in22k_ft_in1k"
+        self.pretrained = False
+        self.workers = 4
+        self.batch_size = 256
+        self.img_size = None
+        self.in_chans = None
+        self.input_size = None
+        self.use_train_size = False
+        self.crop_pct = None
+        self.crop_mode = None
+        self.crop_border_pixels = None
+        self.mean = None
+        self.std = None
+        self.interpolation = ""
+        self.num_classes = None
+        self.gp = None
+        self.log_freq = 10
+        self.checkpoint = ""
+        self.num_gpu = 1
+        self.test_pool = False
+        self.no_prefetcher = False
+        self.pin_mem = False
+        self.channels_last = False
+        self.device = "cuda"
+        self.amp = False
+        self.amp_dtype = "float16"
+        self.amp_impl = "native"
+        self.model_dtype = None
+        self.tf_preprocessing = False
+        self.use_ema = False
+        self.fuser = ""
+        self.fast_norm = False
+        self.reparam = False
+        self.model_kwargs = {}
+        self.torchcompile_mode = None
+        self.torchscript = False
+        self.torchcompile = None
+        self.aot_autograd = False
+        self.results_file = ""
+        self.results_format = "csv"
+        self.real_labels = ""
+        self.valid_labels = ""
+        self.retry = False
+
+
+def validate(model, args):
     # might as well try to validate something
     args.pretrained = args.pretrained or not args.checkpoint
     args.prefetcher = not args.no_prefetcher
@@ -207,15 +206,15 @@ def validate(args):
     elif args.input_size is not None:
         in_chans = args.input_size[0]
 
-    model = create_model(
-        args.model,
-        pretrained=args.pretrained,
-        num_classes=args.num_classes,
-        in_chans=in_chans,
-        global_pool=args.gp,
-        scriptable=args.torchscript,
-        **args.model_kwargs,
-    )
+    # model = create_model(
+    #     args.model,
+    #     pretrained=args.pretrained,
+    #     num_classes=args.num_classes,
+    #     in_chans=in_chans,
+    #     global_pool=args.gp,
+    #     scriptable=args.torchscript,
+    #     **args.model_kwargs,
+    # )
     if args.num_classes is None:
         assert hasattr(model, 'num_classes'), 'Model must have `num_classes` attr if not set on cmd line/config.'
         args.num_classes = model.num_classes
@@ -239,7 +238,7 @@ def validate(args):
     if args.test_pool:
         model, test_time_pool = apply_test_time_pool(model, data_config)
 
-    model = model.to(device=device, dtype=model_dtype)  # FIXME move model device & dtype into create_model
+    # model = model.to(device=device, dtype=model_dtype)  # FIXME move model device & dtype into create_model
     if args.channels_last:
         model = model.to(memory_format=torch.channels_last)
 
@@ -262,7 +261,7 @@ def validate(args):
 
     criterion = nn.CrossEntropyLoss().to(device)
 
-    root_dir = args.data or args.data_dir
+    root_dir = args.data_dir
     if args.input_img_mode is None:
         input_img_mode = 'RGB' if data_config['input_size'][0] == 3 else 'L'
     else:
@@ -418,72 +417,6 @@ def _try_run(args, initial_batch_size):
     return results
 
 
-_NON_IN1K_FILTERS = ['*_in21k', '*_in22k', '*in12k', '*_dino', '*fcmae', '*seer']
-
-
-def main():
-    setup_default_logging()
-    args = parser.parse_args()
-    model_cfgs = []
-    model_names = []
-    if os.path.isdir(args.checkpoint):
-        # validate all checkpoints in a path with same model
-        checkpoints = glob.glob(args.checkpoint + '/*.pth.tar')
-        checkpoints += glob.glob(args.checkpoint + '/*.pth')
-        model_names = list_models(args.model)
-        model_cfgs = [(args.model, c) for c in sorted(checkpoints, key=natural_key)]
-    else:
-        if args.model == 'all':
-            # validate all models in a list of names with pretrained checkpoints
-            args.pretrained = True
-            model_names = list_models(
-                pretrained=True,
-                exclude_filters=_NON_IN1K_FILTERS,
-            )
-            model_cfgs = [(n, '') for n in model_names]
-        elif not is_model(args.model):
-            # model name doesn't exist, try as wildcard filter
-            model_names = list_models(
-                args.model,
-                pretrained=True,
-            )
-            model_cfgs = [(n, '') for n in model_names]
-
-        if not model_cfgs and os.path.isfile(args.model):
-            with open(args.model) as f:
-                model_names = [line.rstrip() for line in f]
-            model_cfgs = [(n, None) for n in model_names if n]
-
-    if len(model_cfgs):
-        _logger.info('Running bulk validation on these pretrained models: {}'.format(', '.join(model_names)))
-        results = []
-        try:
-            initial_batch_size = args.batch_size
-            for m, c in model_cfgs:
-                args.model = m
-                args.checkpoint = c
-                r = _try_run(args, initial_batch_size)
-                if 'error' in r:
-                    continue
-                if args.checkpoint:
-                    r['checkpoint'] = args.checkpoint
-                results.append(r)
-        except KeyboardInterrupt as e:
-            pass
-        results = sorted(results, key=lambda x: x['top1'], reverse=True)
-    else:
-        if args.retry:
-            results = _try_run(args, args.batch_size)
-        else:
-            results = validate(args)
-
-    if args.results_file:
-        write_results(args.results_file, results, format=args.results_format)
-
-    # output results in JSON to stdout w/ delimiter for runner script
-    print(f'--result\n{json.dumps(results, indent=4)}')
-
-
 def write_results(results_file, results, format='csv'):
     with open(results_file, mode='w') as cf:
         if format == 'json':
@@ -500,6 +433,112 @@ def write_results(results_file, results, format='csv'):
             cf.flush()
 
 
+_NON_IN1K_FILTERS = ['*_in21k', '*_in22k', '*in12k', '*_dino', '*fcmae', '*seer']
 
-if __name__ == '__main__':
+
+def evaluate(model, config):
+    # setup_default_logging()
+    # args = parser.parse_args(["--data-dir",
+    #                           "/nas/datasets/vision/tenegami/",
+    #                           "--model",
+    #                           "mobilevitv2_200.cvnets_in22k_ft_in1k"])
+    # print(args)
+    # print("class EvalConfig:\n")
+
+    # for k, v in vars(args).items():
+    #     if v is None:
+    #         print(f"    {k} : Optional[TODO]")
+    #     else:
+    #         print(f"    {k} : {type(v).__name__}")
+
+    # print("\n    def __init__(self):")
+
+
+    # for k, v in vars(args).items():
+    #     print(f"       self.{k} = {repr(v)}")
+
+    # import sys; sys.exit(0)
+
+    model_cfgs = []
+    model_names = []
+    if os.path.isdir(config.checkpoint):
+        # validate all checkpoints in a path with same model
+        checkpoints = glob.glob(config.checkpoint + '/*.pth.tar')
+        checkpoints += glob.glob(config.checkpoint + '/*.pth')
+        model_names = list_models(config.model)
+        model_cfgs = [(config.model, c) for c in sorted(checkpoints, key=natural_key)]
+    else:
+        if config.model == 'all':
+            # validate all models in a list of names with pretrained checkpoints
+            config.pretrained = True
+            model_names = list_models(
+                pretrained=True,
+                exclude_filters=_NON_IN1K_FILTERS,
+            )
+            model_cfgs = [(n, '') for n in model_names]
+        elif not is_model(config.model):
+            # model name doesn't exist, try as wildcard filter
+            model_names = list_models(
+                config.model,
+                pretrained=True,
+            )
+            model_cfgs = [(n, '') for n in model_names]
+
+        if not model_cfgs and os.path.isfile(config.model):
+            with open(config.model) as f:
+                model_names = [line.rstrip() for line in f]
+            model_cfgs = [(n, None) for n in model_names if n]
+
+    if len(model_cfgs):
+        _logger.info('Running bulk validation on these pretrained models: {}'.format(', '.join(model_names)))
+        results = []
+        try:
+            initial_batch_size = config.batch_size
+            for m, c in model_cfgs:
+                config.model = m
+                config.checkpoint = c
+                r = _try_run(config, initial_batch_size)
+                if 'error' in r:
+                    continue
+                if config.checkpoint:
+                    r['checkpoint'] = config.checkpoint
+                results.append(r)
+        except KeyboardInterrupt as e:
+            pass
+        results = sorted(results, key=lambda x: x['top1'], reverse=True)
+    else:
+        if config.retry:
+            results = _try_run(config, config.batch_size)
+        else:
+            results = validate(config)
+
+    if config.results_file:
+        write_results(config.results_file, results, format=config.results_format)
+
+    # output results in JSON to stdout w/ delimiter for runner script
+    return results
+
+
+class ImageNetEvaluator:
+    def __init__(self, **kwargs):
+        pass
+
+    def evaluate(self, model: torch.nn.Module, device: torch.device):
+        return {
+            "imagenet-top1-acc": 0.93
+        }
+
+
+def main():
+    setup_default_logging()
+    config = EvalConfig()
+    config.data_dir = "/home/lopusz/Datasets/datahub/vision/imagenet-v2"
+    config.model = "mobilevitv2_200.cvnets_in22k_ft_in1k"
+    config.batch_size = 64
+    model = timm.create_model(config.model, pretrained=True)
+    model.to(torch.device("cuda"))
+    validate(model, config)
+
+
+if __name__ == "__main__":
     main()
