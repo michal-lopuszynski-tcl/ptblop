@@ -56,7 +56,7 @@ fixall:
 
 commit:
 	./aux/block_empty_commit.sh
-	git commit -e
+	git commit -m "[ptblopgen_imagenet] $${VER} $$(cat ./gitmessage)" -e
 
 show_version:
 	@./aux/get_version.py --version-file=$(VER_FILE)
