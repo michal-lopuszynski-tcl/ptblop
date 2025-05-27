@@ -14,6 +14,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 dynamic = ["version", "dependencies"]
+
 [project.urls]
 homepage = "https://github.com/michal-lopuszynski-tcl/ptblop/tree/main/ptblopgen_evalplus"
 
