@@ -9,9 +9,9 @@ echo -n "Started $(basename $0) "
 rm -rf tmp.paretofind
 mkdir tmp.paretofind
 SECONDS=0
-blop paretofind --config data/config.yaml \
+blop paretofind --config data/llm_config.yaml \
     --output-path tmp.paretofind \
-    --bp-configs-path data/bp_configs.json \
+    --bp-configs-path data/llm_bp_configs.json \
     > tmp.paretofind/log 2>&1
 ERRCODE=$?
 DURATION=$SECONDS

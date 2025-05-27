@@ -10,10 +10,10 @@ rm -rf tmp.paretoeval_blocks
 mkdir -p tmp.paretoeval_blocks
 
 SECONDS=0
-cp data/pareto_front_blocks_0004.json tmp.paretoeval_blocks
+cp data/llm_pareto_front_blocks_0004.json tmp.paretoeval_blocks
 blop paretoeval \
-   --config data/config_blocks.yaml \
-   --pareto-path  tmp.paretoeval_blocks/pareto_front_blocks_0004.json \
+   --config data/llm_config_blocks.yaml \
+   --pareto-path  tmp.paretoeval_blocks/llm_pareto_front_blocks_0004.json \
    > tmp.paretoeval_blocks/log 2>&1
 ERRCODE=$?
 DURATION=$SECONDS

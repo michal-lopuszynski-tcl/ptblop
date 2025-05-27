@@ -62,7 +62,7 @@ test_py:
 	@pytest -vv tests
 
 
-test_full:
+test_full_llm:
 	@rm -rf tests_full/tmp.*
 	-@cd tests_full && ./test_llm_sample.sh
 	-@cd tests_full && ./test_llm_paretofind.sh
@@ -70,9 +70,6 @@ test_full:
 	-@cd tests_full && ./test_llm_sample_blocks.sh
 	-@cd tests_full && ./test_llm_paretofind_blocks.sh
 	-@cd tests_full && ./test_llm_paretoeval_blocks.sh
-
-
-test: -test_py -test_full
 
 
 test_cpu:

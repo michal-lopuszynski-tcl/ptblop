@@ -11,7 +11,7 @@ mkdir -p tmp.sample
 
 SECONDS=0
 blop sample \
-  --config data/config.yaml \
+  --config data/llm_config.yaml \
   --output-path tmp.sample \
   > tmp.sample/log 2>&1
 ERRCODE=$?

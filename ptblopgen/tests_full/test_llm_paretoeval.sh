@@ -10,10 +10,10 @@ rm -rf tmp.paretoeval
 mkdir -p tmp.paretoeval
 
 SECONDS=0
-cp data/pareto_front_0004.json tmp.paretoeval
+cp data/llm_pareto_front_0004.json tmp.paretoeval
 blop paretoeval \
-   --config data/config.yaml \
-   --pareto-path  tmp.paretoeval/pareto_front_0004.json \
+   --config data/llm_config.yaml \
+   --pareto-path  tmp.paretoeval/llm_pareto_front_0004.json \
    --min-mparams 200 \
    --max-mparams 400 \
    --pareto-level 2 \
