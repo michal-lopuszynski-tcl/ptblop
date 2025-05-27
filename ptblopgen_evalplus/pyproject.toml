@@ -15,7 +15,7 @@ classifiers = [
 ]
 dynamic = ["version", "dependencies"]
 [project.urls]
-homepage = "https://pypi.org/project/ptblopgen-evalplus"
+homepage = "https://github.com/michal-lopuszynski-tcl/ptblop/tree/main/ptblopgen_evalplus"
 
 [tool.setuptools.packages.find]
 where = ["src"]
