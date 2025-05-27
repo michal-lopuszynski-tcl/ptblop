@@ -6,14 +6,14 @@ NC='\033[0m' # No Color
 
 echo -n "Started $(basename $0) "
 
-rm -rf tmp.sample
-mkdir -p tmp.sample
+rm -rf tmp.llm_sample
+mkdir -p tmp.llm_sample
 
 SECONDS=0
 blop sample \
   --config data/llm_config.yaml \
-  --output-path tmp.sample \
-  > tmp.sample/log 2>&1
+  --output-path tmp.llm_sample \
+  > tmp.llm_sample/log 2>&1
 ERRCODE=$?
 DURATION=$SECONDS
 DURATION_STR="$((DURATION / 60)):$((DURATION % 60))"
