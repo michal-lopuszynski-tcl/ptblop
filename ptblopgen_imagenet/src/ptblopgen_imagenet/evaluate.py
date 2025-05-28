@@ -1,13 +1,13 @@
 """ImageNet Validation Script
 
-This is intended to be a lean and easily modifiable ImageNet validation script for evaluating pretrained
-models or training checkpoints against ImageNet or similarly organized image datasets. It prioritizes
-canonical PyTorch, standard Python style, and good performance. Repurpose as you see fit.
+This is intended to be a lean and easily modifiable ImageNet validation script for
+evaluating pretrained models or training checkpoints against ImageNet or similarly
+organized image datasets. It prioritize canonical PyTorch, standard Python style,
+ and good performance. Repurpose as you see fit.
 
 Hacked together by Ross Wightman (https://github.com/rwightman)
 """
 
-import argparse
 import csv
 import glob
 import json
@@ -17,30 +17,29 @@ import time
 from collections import OrderedDict
 from contextlib import suppress
 from functools import partial
+from typing import Optional
 
+import timm
 import torch
 import torch.nn as nn
 import torch.nn.parallel
-
-import timm
-
 from timm.data import (
+    RealLabelsImagenet,
     create_dataset,
     create_loader,
     resolve_data_config,
-    RealLabelsImagenet,
 )
 from timm.layers import apply_test_time_pool, set_fast_norm
-from timm.models import create_model, load_checkpoint, is_model, list_models
+from timm.models import is_model, list_models, load_checkpoint
 from timm.utils import (
-    accuracy,
     AverageMeter,
-    natural_key,
-    setup_default_logging,
-    set_jit_fuser,
-    decay_batch_step,
+    accuracy,
     check_batch_size_retry,
+    decay_batch_step,
+    natural_key,
     reparameterize_model,
+    set_jit_fuser,
+    setup_default_logging,
 )
 
 try:
@@ -54,14 +53,12 @@ try:
     from functorch.compile import memory_efficient_fusion
 
     has_functorch = True
-except ImportError as e:
+except ImportError:
     has_functorch = False
 
 has_compile = hasattr(torch, "compile")
 
-_logger = logging.getLogger("validate")
-
-from typing import Optional
+logger = logging.getLogger(__name__)
 
 
 class EvalConfig:
@@ -144,7 +141,7 @@ class EvalConfig:
         self.interpolation = ""
         self.num_classes = None
         self.gp = None
-        self.log_freq = 10
+        self.log_freq = 100
         self.checkpoint = ""
         self.num_gpu = 1
         self.test_pool = False
@@ -198,7 +195,7 @@ def validate(*, model, device, data_dir, config):
             assert has_apex, "AMP impl specified as APEX but APEX is not installed."
             assert config.amp_dtype == "float16"
             use_amp = "apex"
-            _logger.info("Validating in mixed precision with NVIDIA APEX AMP.")
+            logger.info("Validating in mixed precision with NVIDIA APEX AMP.")
         else:
             assert config.amp_dtype in ("float16", "bfloat16")
             use_amp = "native"
@@ -208,9 +205,9 @@ def validate(*, model, device, data_dir, config):
             amp_autocast = partial(
                 torch.autocast, device_type=device.type, dtype=amp_dtype
             )
-            _logger.info("Validating in mixed precision with native PyTorch AMP.")
+            logger.info("Validating in mixed precision with native PyTorch AMP.")
     else:
-        _logger.info(f"Validating in {model_dtype or torch.float32}. AMP not enabled.")
+        logger.info(f"Validating in {model_dtype or torch.float32}. AMP not enabled.")
 
     if config.fuser:
         set_jit_fuser(config.fuser)
@@ -230,8 +227,8 @@ def validate(*, model, device, data_dir, config):
     if config.reparam:
         model = reparameterize_model(model)
 
-    param_count = sum([m.numel() for m in model.parameters()])
-    _logger.info("Model %s created, param count: %d" % (config.model, param_count))
+    param_count = sum([m.numel() for m in model.parameters()]) / 1.0e6
+    logger.info("Model %s created, param count: %.2f m" % (config.model, param_count))
 
     data_config = resolve_data_config(
         vars(config),
@@ -250,9 +247,10 @@ def validate(*, model, device, data_dir, config):
         assert not use_amp == "apex", "Cannot use APEX AMP with torchscripted model"
         model = torch.jit.script(model)
     elif config.torchcompile:
-        assert (
-            has_compile
-        ), "A version of torch w/ torch.compile() is required for --compile, possibly a nightly."
+        assert has_compile, (
+            "A version of torch w/ torch.compile() is required for --compile, possibly"
+            " a nightly."
+        )
         torch._dynamo.reset()
         model = torch.compile(
             model, backend=config.torchcompile, mode=config.torchcompile_mode
@@ -326,7 +324,8 @@ def validate(*, model, device, data_dir, config):
 
     model.eval()
     with torch.inference_mode():
-        # warmup, reduce variability of first batch time, especially for comparing torchscript vs non
+        # warmup, reduce variability of first batch time
+        # especially for comparing torchscript vs non
         input = torch.randn((config.batch_size,) + tuple(data_config["input_size"])).to(
             device=device, dtype=model_dtype
         )
@@ -365,12 +364,12 @@ def validate(*, model, device, data_dir, config):
             end = time.time()
 
             if batch_idx % config.log_freq == 0:
-                _logger.info(
-                    "Test: [{0:>4d}/{1}]  "
-                    "Time: {batch_time.val:.3f}s ({batch_time.avg:.3f}s, {rate_avg:>7.2f}/s)  "
-                    "Loss: {loss.val:>7.4f} ({loss.avg:>6.4f})  "
-                    "Acc@1: {top1.val:>7.3f} ({top1.avg:>7.3f})  "
-                    "Acc@5: {top5.val:>7.3f} ({top5.avg:>7.3f})".format(
+                logger.info(
+                    "Test: [{0:>4d}/{1}]  Time: {batch_time.val:.3f}s"
+                    " ({batch_time.avg:.3f}s, {rate_avg:>7.2f}/s)  Loss:"
+                    " {loss.val:>7.4f} ({loss.avg:>6.4f})  Acc@1: {top1.val:>7.3f}"
+                    " ({top1.avg:>7.3f})"
+                    " Acc@5: {top5.val:>7.3f} ({top5.avg:>7.3f})".format(
                         batch_idx,
                         len(loader),
                         batch_time=batch_time,
@@ -398,9 +397,7 @@ def validate(*, model, device, data_dir, config):
         interpolation=data_config["interpolation"],
     )
 
-    # _logger.info(' * Acc@1 {:.3f} ({:.3f}) Acc@5 {:.3f} ({:.3f})'.format(
-    #    results['top1'], results['top1_err'], results['top5'], results['top5_err']))
-    _logger.info(json.dumps(results))
+    logger.info(json.dumps(results))
     return results
 
 
@@ -421,14 +418,14 @@ def _try_run(args, initial_batch_size):
             return results
         except RuntimeError as e:
             error_str = str(e)
-            _logger.error(f'"{error_str}" while running validation.')
+            logger.error(f'"{error_str}" while running validation.')
             if not check_batch_size_retry(error_str):
                 break
         batch_size = decay_batch_step(batch_size)
-        _logger.warning(f"Reducing batch size to {batch_size} for retry.")
+        logger.warning(f"Reducing batch size to {batch_size} for retry.")
     results["model"] = args.model
     results["error"] = error_str
-    _logger.error(f"{args.model} failed to validate ({error_str}).")
+    logger.error(f"{args.model} failed to validate ({error_str}).")
     return results
 
 
@@ -504,7 +501,7 @@ def evaluate(model, config):
             model_cfgs = [(n, None) for n in model_names if n]
 
     if len(model_cfgs):
-        _logger.info(
+        logger.info(
             "Running bulk validation on these pretrained models: {}".format(
                 ", ".join(model_names)
             )
@@ -521,7 +518,7 @@ def evaluate(model, config):
                 if config.checkpoint:
                     r["checkpoint"] = config.checkpoint
                 results.append(r)
-        except KeyboardInterrupt as e:
+        except KeyboardInterrupt:
             pass
         results = sorted(results, key=lambda x: x["top1"], reverse=True)
     else:
@@ -546,10 +543,10 @@ class ImageNetEvaluator:
         imagenet_v2_path: Optional[str],
     ):
         AVAILABLE_METRICS = {
-            "imagenet_v1_top1",
-            "imagenet_v1_top5",
-            "imagenet_v2_top1",
-            "imagenet_v2_top5",
+            "imagenet_v1_top1_acc",
+            "imagenet_v1_top5_acc",
+            "imagenet_v2_top1_acc",
+            "imagenet_v2_top5_acc",
         }
         unknown_metrics = set(evaluator_metrics.keys()) - AVAILABLE_METRICS
         if unknown_metrics:
@@ -560,7 +557,8 @@ class ImageNetEvaluator:
         self.imagenet_v2_path = imagenet_v2_path
 
         for k, v in evaluator_metrics.items():
-            if v != None or abs(v - 1.0) > 1.0e-3:
+            if v is not None and abs(v - 1.0) > 1.0e-3:
+                logger.info(f"{abs(v - 1.0)=}")
                 raise ValueError(
                     "Subset metrics not supported, "
                     f"evaluator_metrics.{k} = {v} not 1.0 or None"
@@ -569,7 +567,7 @@ class ImageNetEvaluator:
         imagenet_v1 = False
         imagenet_v2 = False
 
-        for metric in evaluator_metrics.items():
+        for metric in evaluator_metrics:
             if metric.startswith("imagenet_v1_"):
                 imagenet_v1 = True
             elif metric.startswith("imagenet_v2_"):
@@ -591,7 +589,7 @@ class ImageNetEvaluator:
         if self.imagenet_v1_path is None and self.imagenet_v2_path is None:
             raise ValueError("Both ImageNet_v1 nad ImageNet_v2 disabled")
 
-    def evaluate(self, model: torch.nn.Module, device: torch.device):
+    def __call__(self, model: torch.nn.Module, device: torch.device):
         r = {}
         if self.imagenet_v1_path is not None:
             t_start = time.perf_counter()
@@ -603,23 +601,23 @@ class ImageNetEvaluator:
             )
             time_imagenet_v1_eval = time.perf_counter() - t_start
             r["imagenet_v1_top1_acc"] = r_raw["top1"] / 100.0
-            r["imagenet_v1_top5_acc"] = r_raw["top5" ]/ 100.0
+            r["imagenet_v1_top5_acc"] = r_raw["top5"] / 100.0
             r["imagenet_v1_img_size"] = r_raw["img_size"]
             r["imagenet_v1_crop_pct"] = r_raw["crop_pct"]
             r["imagenet_v1_interpolation"] = r_raw["interpolation"]
             r["time_imagenet_v1_eval"] = time_imagenet_v1_eval
 
-        if self.imagenet_v1_path is not None:
+        if self.imagenet_v2_path is not None:
             t_start = time.perf_counter()
             r_raw = validate(
                 model=model,
                 device=device,
-                data_dir=self.imagenet_v1_path,
+                data_dir=self.imagenet_v2_path,
                 config=self.config,
             )
             time_imagenet_v2_eval = time.perf_counter() - t_start
             r["imagenet_v2_top1_acc"] = r_raw["top1"] / 100.0
-            r["imagenet_v2_top5_acc"] = r_raw["top5" ]/ 100.0
+            r["imagenet_v2_top5_acc"] = r_raw["top5"] / 100.0
             r["imagenet_v2_img_size"] = r_raw["img_size"]
             r["imagenet_v2_crop_pct"] = r_raw["crop_pct"]
             r["imagenet_v2_interpolation"] = r_raw["interpolation"]
