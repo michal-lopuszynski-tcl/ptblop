@@ -1,5 +1,6 @@
-ptblopgen_imagenet.egg-info
+build
 dist
 make.black.log
 make.flake8.log
 make.mypy.log
+ptblopgen_imagenet.egg-info
