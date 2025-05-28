@@ -1,10 +1,7 @@
 PyYAML
-lm_eval
 numpy
 pydantic
 pymoo
 scikit-learn
 skops
 torch
-torchvision
-transformers
