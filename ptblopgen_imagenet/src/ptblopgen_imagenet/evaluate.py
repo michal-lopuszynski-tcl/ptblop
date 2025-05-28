@@ -164,7 +164,6 @@ class EvalConfig:
 
 def validate(*, model, device, data_dir, config):
     # might as well try to validate something
-    config.pretrained = config.pretrained or not config.checkpoint
     config.prefetcher = not config.no_prefetcher
 
     if torch.cuda.is_available():
