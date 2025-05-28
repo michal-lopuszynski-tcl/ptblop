@@ -1,5 +1,6 @@
 build
 dist
+examples/run_imagenet/out
 make.black.log
 make.flake8.log
 make.mypy.log
