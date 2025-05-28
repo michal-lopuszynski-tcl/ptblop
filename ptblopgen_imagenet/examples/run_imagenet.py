@@ -82,6 +82,8 @@ def main(args):
 
     with open(args.results_file, "wt") as f:
         json.dump(results, f)
+    results_str = json.dumps(results, indent=2)
+    logger.info(f"Results:\n\n {results_str}\n")
     logger.info(f"model=={args.model}")
     logger.info(f"torch=={torch.__version__}")
     logger.info(f"ptblopgen_imagenet=={ptblopgen_imagenet.__version__}")
