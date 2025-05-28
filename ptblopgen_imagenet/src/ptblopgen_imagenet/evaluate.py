@@ -6,6 +6,7 @@ organized image datasets. It prioritize canonical PyTorch, standard Python style
  and good performance. Repurpose as you see fit.
 
 Hacked together by Ross Wightman (https://github.com/rwightman)
+Adapted for ptblob by lopusz
 """
 
 import csv
