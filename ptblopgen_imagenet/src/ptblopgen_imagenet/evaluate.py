@@ -67,7 +67,7 @@ class EvalConfig:
     dataset_trust_remote_code: bool
     model: str
     pretrained: bool
-    workers: int
+    n_workers: int
     batch_size: int
     img_size: Optional[int]
     in_chans: Optional[int]
@@ -120,7 +120,7 @@ class EvalConfig:
         self.dataset_trust_remote_code = False
         self.model = "mobilevitv2_200.cvnets_in22k_ft_in1k"
         self.pretrained = False
-        self.workers = 4
+        self.n_workers = 4
         self.batch_size = 256
         self.img_size = None
         self.in_chans = None
@@ -295,7 +295,7 @@ def validate(*, model, device, data_dir, config):
         interpolation=data_config["interpolation"],
         mean=data_config["mean"],
         std=data_config["std"],
-        num_workers=config.workers,
+        num_workers=config.n_workers,
         crop_pct=crop_pct,
         crop_mode=data_config["crop_mode"],
         crop_border_pixels=config.crop_border_pixels,
@@ -438,6 +438,7 @@ class ImageNetEvaluator:
         self,
         evaluator_metrics: dict[str, float],
         batch_size: int,
+        n_workers: int,
         imagenet_v1_path: Optional[str],
         imagenet_v2_path: Optional[str],
     ):
@@ -452,6 +453,7 @@ class ImageNetEvaluator:
             raise ValueError(f"Unknown metrics {unknown_metrics}")
         self.config = EvalConfig()
         self.config.batch_size = batch_size
+        self.config.n_workers = n_workers
         self.imagenet_v1_path = imagenet_v1_path
         self.imagenet_v2_path = imagenet_v2_path
 
