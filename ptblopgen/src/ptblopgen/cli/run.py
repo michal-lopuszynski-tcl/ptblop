@@ -5,6 +5,7 @@ import logging
 import pathlib
 import platform
 import shutil
+import sys
 from typing import Any, Optional
 
 import yaml
@@ -107,12 +108,14 @@ def save_requirements(
     package_names = sorted(package_name_to_version.keys(), key=lambda x: x.lower())
 
     with open(requirements_path, "wt") as f:
+        f.write(f"# Python {sys.version}\n\n")
         for package_name in package_names:
             if package_name not in UNSAFE_PACKAGES:
                 version = package_name_to_version[package_name]
                 f.write(f"{package_name}=={version}\n")
 
     with open(requirements_unsafe_path, "wt") as f:
+        f.write(f"# Python {sys.version}\n\n")
         for package_name in package_names:
             version = package_name_to_version[package_name]
             f.write(f"{package_name}=={version}\n")
