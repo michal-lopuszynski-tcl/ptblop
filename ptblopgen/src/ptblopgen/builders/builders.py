@@ -19,7 +19,11 @@ def _make_model_and_evaluator_llm(
 def _make_model_and_evaluator_vis(
     model_config, evaluator_config, device
 ) -> tuple[torch.nn.Module, EVALUATOR_FN_TYPE]:
-    raise NotImplementedError()
+    from . import vis_evaluators, vis_models
+
+    model = vis_models.make_model(model_config, device)
+    evaluator_fn = vis_evaluators.make_evaluator(evaluator_config)
+    return model, evaluator_fn
 
 
 def make_model_and_evaluator(

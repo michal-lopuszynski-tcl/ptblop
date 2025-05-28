@@ -1,6 +1,5 @@
 import codecs
 import collections
-import importlib
 import logging
 import random
 import time
@@ -12,6 +11,8 @@ import lm_eval
 import ptblop
 import torch
 import transformers
+
+from .. import utils
 
 _SLEEP_SECONDS_ON_EXCEPTION = 30
 _PPL_N_SAMPLES = 1000
@@ -450,13 +451,6 @@ class MockLMEvalWithPPLEvaluator:
         return res
 
 
-def instantiate_from_str(qualified_class_name: str, tokenizer, class_kwargs):
-    module_name, class_name = qualified_class_name.rsplit(".", 1)
-    module = importlib.import_module(module_name)
-    cls = getattr(module, class_name)
-    return cls(tokenizer=tokenizer, **class_kwargs)
-
-
 def make_evaluator(evaluator_config, tokenizer):
     evaluator_name = evaluator_config["evaluator_name"]
 
@@ -474,7 +468,11 @@ def make_evaluator(evaluator_config, tokenizer):
         )
     else:
         evaluator_kwargs = {
-            k: v for k, v in evaluator_config.items() if k != "evaluator_name"
+            "tokenizer": tokenizer,
         }
-        evaluator = instantiate_from_str(evaluator_name, tokenizer, evaluator_kwargs)
+        for k, v in evaluator_config.items():
+            if k != "evaluator_name":
+                evaluator_kwargs[k] = v
+
+        evaluator = utils.instantiate_from_str(evaluator_name, evaluator_kwargs)
         return evaluator

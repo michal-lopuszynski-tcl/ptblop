@@ -1,4 +1,5 @@
 import datetime
+import importlib
 import json
 import pathlib
 import random
@@ -15,6 +16,13 @@ except ImportError:
     WQLINEAR_GEMM_TYPE = type(None)
 
 from . import _version
+
+
+def instantiate_from_str(qualified_class_name: str, class_kwargs: dict[str, Any]):
+    module_name, class_name = qualified_class_name.rsplit(".", 1)
+    module = importlib.import_module(module_name)
+    cls = getattr(module, class_name)
+    return cls(**class_kwargs)
 
 
 def get_timestamp() -> str:
