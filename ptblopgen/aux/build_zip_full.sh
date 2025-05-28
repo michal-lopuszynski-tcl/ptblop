@@ -21,6 +21,7 @@ cd ${ZIP_DIR}/${TMP_DIR}
 python3 -mpip install --no-dependencies ../../../../ptblop --target .
 python3 -mpip install --no-dependencies ../../../../ptblopgen --target .
 python3 -mpip install --no-dependencies ../../../../ptblopgen_evalplus --target .
+python3 -mpip install --no-dependencies ../../../../ptblopgen_imagenet --target .
 
 printf "import sys\nimport ptblopgen.cli\n\nsys.exit(ptblopgen.cli.main())\n" > __main__.py
 
