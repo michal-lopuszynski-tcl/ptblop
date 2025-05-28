@@ -256,7 +256,7 @@ def find_pareto_front_pymoo(
         for d in pareto_data:
             f.write(json.dumps(d) + "\n")
     t2 = time.perf_counter()
-    msg = f"Finished Pareto optimization: duration={t2-t1:.2f} seconds"
+    msg = f"Finished Pareto optimization: duration={t2 - t1:.2f} seconds"
     msg += f" n_gen={config_pareto_optimization.n_gen}"
     msg += f" pos_size={config_pareto_optimization.pop_size}"
     msg += f" optimizer_seed={config_pareto_optimization.optimizer_seed}"
@@ -368,7 +368,7 @@ def find_pareto_front_beam_full_block(
         for d in pareto_data:
             f.write(json.dumps(d) + "\n")
     t2 = time.perf_counter()
-    msg = f"Finished Pareto optimization: duration={t2-t1:.2f} seconds"
+    msg = f"Finished Pareto optimization: duration={t2 - t1:.2f} seconds"
     msg += f" n_features={n_features}"
     logger.info(msg)
 
@@ -519,6 +519,6 @@ def find_pareto_front_beam_non_full_block(
             for d in pareto_data:
                 f.write(json.dumps(d) + "\n")
     t2 = time.perf_counter()
-    msg = f"Finished Pareto optimization: duration={t2-t1:.2f} seconds"
+    msg = f"Finished Pareto optimization: duration={t2 - t1:.2f} seconds"
     msg += f" n_features={n_features}"
     logger.info(msg)
