@@ -9,20 +9,16 @@ Hacked together by Ross Wightman (https://github.com/rwightman)
 """
 
 import csv
-import glob
 import json
 import logging
-import os
 import time
 from collections import OrderedDict
 from contextlib import suppress
 from functools import partial
 from typing import Optional
 
-import timm
 import torch
 import torch.nn as nn
-import torch.nn.parallel
 from timm.data import (
     RealLabelsImagenet,
     create_dataset,
@@ -30,16 +26,13 @@ from timm.data import (
     resolve_data_config,
 )
 from timm.layers import apply_test_time_pool, set_fast_norm
-from timm.models import is_model, list_models, load_checkpoint
 from timm.utils import (
     AverageMeter,
     accuracy,
     check_batch_size_retry,
     decay_batch_step,
-    natural_key,
     reparameterize_model,
     set_jit_fuser,
-    setup_default_logging,
 )
 
 try:
@@ -88,7 +81,6 @@ class EvalConfig:
     num_classes: Optional[int]
     gp: Optional[str]
     log_freq: int
-    checkpoint: str
     num_gpu: int
     test_pool: bool
     no_prefetcher: bool
@@ -142,7 +134,6 @@ class EvalConfig:
         self.num_classes = None
         self.gp = None
         self.log_freq = 100
-        self.checkpoint = ""
         self.num_gpu = 1
         self.test_pool = False
         self.no_prefetcher = False
@@ -220,9 +211,6 @@ def validate(*, model, device, data_dir, config):
             model, "num_classes"
         ), "Model must have `num_classes` attr if not set on cmd line/config."
         config.num_classes = model.num_classes
-
-    if config.checkpoint:
-        load_checkpoint(model, config.checkpoint, config.use_ema)
 
     if config.reparam:
         model = reparameterize_model(model)
@@ -445,95 +433,6 @@ def write_results(results_file, results, format="csv"):
             cf.flush()
 
 
-_NON_IN1K_FILTERS = ["*_in21k", "*_in22k", "*in12k", "*_dino", "*fcmae", "*seer"]
-
-
-def evaluate(model, config):
-    # setup_default_logging()
-    # args = parser.parse_args(["--data-dir",
-    #                           "/nas/datasets/vision/tenegami/",
-    #                           "--model",
-    #                           "mobilevitv2_200.cvnets_in22k_ft_in1k"])
-    # print(args)
-    # print("class EvalConfig:\n")
-
-    # for k, v in vars(args).items():
-    #     if v is None:
-    #         print(f"    {k} : Optional[TODO]")
-    #     else:
-    #         print(f"    {k} : {type(v).__name__}")
-
-    # print("\n    def __init__(self):")
-
-    # for k, v in vars(args).items():
-    #     print(f"       self.{k} = {repr(v)}")
-
-    # import sys; sys.exit(0)
-
-    model_cfgs = []
-    model_names = []
-    if os.path.isdir(config.checkpoint):
-        # validate all checkpoints in a path with same model
-        checkpoints = glob.glob(config.checkpoint + "/*.pth.tar")
-        checkpoints += glob.glob(config.checkpoint + "/*.pth")
-        model_names = list_models(config.model)
-        model_cfgs = [(config.model, c) for c in sorted(checkpoints, key=natural_key)]
-    else:
-        if config.model == "all":
-            # validate all models in a list of names with pretrained checkpoints
-            config.pretrained = True
-            model_names = list_models(
-                pretrained=True,
-                exclude_filters=_NON_IN1K_FILTERS,
-            )
-            model_cfgs = [(n, "") for n in model_names]
-        elif not is_model(config.model):
-            # model name doesn't exist, try as wildcard filter
-            model_names = list_models(
-                config.model,
-                pretrained=True,
-            )
-            model_cfgs = [(n, "") for n in model_names]
-
-        if not model_cfgs and os.path.isfile(config.model):
-            with open(config.model) as f:
-                model_names = [line.rstrip() for line in f]
-            model_cfgs = [(n, None) for n in model_names if n]
-
-    if len(model_cfgs):
-        logger.info(
-            "Running bulk validation on these pretrained models: {}".format(
-                ", ".join(model_names)
-            )
-        )
-        results = []
-        try:
-            initial_batch_size = config.batch_size
-            for m, c in model_cfgs:
-                config.model = m
-                config.checkpoint = c
-                r = _try_run(config, initial_batch_size)
-                if "error" in r:
-                    continue
-                if config.checkpoint:
-                    r["checkpoint"] = config.checkpoint
-                results.append(r)
-        except KeyboardInterrupt:
-            pass
-        results = sorted(results, key=lambda x: x["top1"], reverse=True)
-    else:
-        if config.retry:
-            results = _try_run(config, config.batch_size)
-        else:
-            results = validate(config)
-
-    if config.results_file:
-        write_results(config.results_file, results, format=config.results_format)
-
-    # output results in JSON to stdout w/ delimiter for runner script
-    return results
-
-
 class ImageNetEvaluator:
     def __init__(
         self,
@@ -624,19 +523,3 @@ class ImageNetEvaluator:
             r["time_imagenet_v2_eval"] = time_imagenet_v2_eval
 
         return r
-
-
-def main():
-    setup_default_logging()
-    config = EvalConfig()
-    data_dir = "/home/lopusz/Datasets/datahub/vision/imagenet-v2"
-    config.model = "mobilevitv2_200.cvnets_in22k_ft_in1k"
-    config.batch_size = 64
-    model = timm.create_model(config.model, pretrained=True)
-    device = torch.device("cuda")
-    model.to(device)
-    validate(model=model, device=device, data_dir=data_dir, config=config)
-
-
-if __name__ == "__main__":
-    main()
