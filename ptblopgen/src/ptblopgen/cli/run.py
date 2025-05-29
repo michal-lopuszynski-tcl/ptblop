@@ -70,6 +70,7 @@ def setup_logging() -> None:
         "ptblop",
         "ptblopgen",
         "ptblopgen_evalplus",
+        "ptblopgen_imagenet",
     ]:
         logging.getLogger(module_name).setLevel(logging.INFO)
 
