@@ -8,3 +8,4 @@ This repository contains tools for pruning transformer blocks in PyTorch:
 
 * [ptblopgen_evalplus](./ptblopgen_evalplus) - EvalPlus evaluator plugin for `ptblopgen`
 
+* [ptblopgen_imagenet](./ptblopgen_imagenet) - ImageNet evaluator plugin for `ptblopgen`
