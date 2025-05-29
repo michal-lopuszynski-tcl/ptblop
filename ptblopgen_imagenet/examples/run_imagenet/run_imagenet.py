@@ -30,7 +30,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--bp-config", default=None)
     parser.add_argument("--imagenet-v1-path", default=None)
     parser.add_argument("--imagenet-v2-path", default=None)
-    parser.add_argument("--batch-size", default=32, type=int)
+    parser.add_argument("--batch-size", default=128, type=int)
+    parser.add_argument("--n-workers", default=4, type=int)
     parser.add_argument(
         "--results-file",
         "-r",
@@ -72,7 +73,8 @@ def main(args):
     }
     evaluator = ptblopgen_imagenet.ImageNetEvaluator(
         evaluator_metrics=evaluator_metrics,
-        batch_size=32,
+        batch_size=args.batch_size,
+        n_workers=args.n_workers,
         imagenet_v1_path=args.imagenet_v1_path,
         imagenet_v2_path=args.imagenet_v2_path,
     )
