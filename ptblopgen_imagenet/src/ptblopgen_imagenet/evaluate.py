@@ -65,7 +65,6 @@ class EvalConfig:
     input_img_mode: Optional[str]
     target_key: Optional[str]
     dataset_trust_remote_code: bool
-    model: str
     pretrained: bool
     n_workers: int
     batch_size: int
@@ -118,7 +117,6 @@ class EvalConfig:
         self.input_img_mode = None
         self.target_key = None
         self.dataset_trust_remote_code = False
-        self.model = "mobilevitv2_200.cvnets_in22k_ft_in1k"
         self.pretrained = False
         self.n_workers = 4
         self.batch_size = 256
@@ -216,7 +214,7 @@ def validate(*, model, device, data_dir, config):
         model = reparameterize_model(model)
 
     param_count = sum([m.numel() for m in model.parameters()]) / 1.0e6
-    logger.info("Model %s created, param count: %.2f m" % (config.model, param_count))
+    logger.info("Evaluating model with param count: %.2f m" % param_count)
 
     data_config = resolve_data_config(
         vars(config),
@@ -379,7 +377,6 @@ def validate(*, model, device, data_dir, config):
     else:
         top1a, top5a = top1.avg, top5.avg
     results = OrderedDict(
-        model=config.model,
         top1=round(top1a, 4),
         top1_err=round(100 - top1a, 4),
         top5=round(top5a, 4),
