@@ -85,6 +85,7 @@ def main(args):
 
     with open(args.results_file, "wt") as f:
         json.dump(results, f)
+        f.write("\n")
     results_str = json.dumps(results, indent=2)
     logger.info(f"Results:\n\n {results_str}\n")
     logger.info(f"model=={args.model}")
