@@ -69,6 +69,7 @@ def main(args):
 
     evaluator_metrics = {
         "imagenet_v1_top1_acc": 1.0,
+        "imagenet_v1_real_labels_top1_acc": 1.0,
         "imagenet_v2_top1_acc": 1.0,
     }
     evaluator = ptblopgen_imagenet.ImageNetEvaluator(
