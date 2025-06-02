@@ -280,9 +280,14 @@ def validate(*, model, device, data_dir, config):
         valid_labels = None
 
     if config.real_labels:
-        real_labels = RealLabelsImagenet(
-            dataset.filenames(basename=True), real_json=config.real_labels
-        )
+        if config.real_labels.lower() == "default":
+            real_labels = RealLabelsImagenet(
+                dataset.filenames(basename=True), real_json=None
+            )
+        else:
+            real_labels = RealLabelsImagenet(
+                dataset.filenames(basename=True), real_json=config.real_labels
+            )
     else:
         real_labels = None
 
@@ -445,6 +450,8 @@ class ImageNetEvaluator:
         AVAILABLE_METRICS = {
             "imagenet_v1_top1_acc",
             "imagenet_v1_top5_acc",
+            "imagenet_v1_real_labels_top1_acc",
+            "imagenet_v1_real_labels_top5_acc",
             "imagenet_v2_top1_acc",
             "imagenet_v2_top5_acc",
         }
@@ -455,6 +462,7 @@ class ImageNetEvaluator:
         self.config.batch_size = batch_size
         self.config.n_workers = n_workers
         self.imagenet_v1_path = imagenet_v1_path
+        self.imagenet_v1_real_labels_path = imagenet_v1_path
         self.imagenet_v2_path = imagenet_v2_path
 
         for k, v in evaluator_metrics.items():
@@ -466,13 +474,25 @@ class ImageNetEvaluator:
                 )
 
         imagenet_v1 = False
+        imagenet_v1_real_labels = False
         imagenet_v2 = False
 
         for metric in evaluator_metrics:
-            if metric.startswith("imagenet_v1_"):
+            if metric.startswith("imagenet_v1_top"):
                 imagenet_v1 = True
+            elif metric.startswith("imagenet_v1_real_labels"):
+                imagenet_v1_real_labels = True
             elif metric.startswith("imagenet_v2_"):
                 imagenet_v2 = True
+
+        if imagenet_v1_real_labels:
+            if self.imagenet_v1_real_labels_path is None:
+                raise ValueError(
+                    "ImageNet_v1_real_labels eval requested, "
+                    "but imagenet_v1_path is None"
+                )
+        else:
+            self.imagenet_v1_real_labels_path = None
 
         if imagenet_v1:
             if self.imagenet_v1_path is None:
@@ -487,11 +507,19 @@ class ImageNetEvaluator:
                 raise ValueError(msg)
         else:
             self.imagenet_v2_path = None
-        if self.imagenet_v1_path is None and self.imagenet_v2_path is None:
-            raise ValueError("Both ImageNet_v1 nad ImageNet_v2 disabled")
+        if (
+            self.imagenet_v1_path is None
+            and self.imagenet_v2_path is None
+            and self.imagenet_v1_real_labels_path is None
+        ):
+            raise ValueError(
+                "Al evals - ImageNet_v1, ImageNet_v1_real_labels,"
+                " and ImageNet_v2 disabled"
+            )
 
     def __call__(self, model: torch.nn.Module, device: torch.device):
         r = {}
+
         if self.imagenet_v1_path is not None:
             t_start = time.perf_counter()
             r_raw = validate(
@@ -523,5 +551,24 @@ class ImageNetEvaluator:
             r["imagenet_v2_crop_pct"] = r_raw["crop_pct"]
             r["imagenet_v2_interpolation"] = r_raw["interpolation"]
             r["time_imagenet_v2_eval"] = time_imagenet_v2_eval
+
+        if self.imagenet_v1_real_labels_path:
+            t_start = time.perf_counter()
+            old_real_labels = self.config.real_labels
+            self.config.real_labels = "default"
+            r_raw = validate(
+                model=model,
+                device=device,
+                data_dir=self.imagenet_v1_real_labels_path,
+                config=self.config,
+            )
+            self.config.real_labels = old_real_labels
+            time_imagenet_v1_eval = time.perf_counter() - t_start
+            r["imagenet_v1_real_labels_top1_acc"] = r_raw["top1"] / 100.0
+            r["imagenet_v1_real_labels_top5_acc"] = r_raw["top5"] / 100.0
+            r["imagenet_v1_real_labels_img_size"] = r_raw["img_size"]
+            r["imagenet_v1_real_labels_crop_pct"] = r_raw["crop_pct"]
+            r["imagenet_v1_real_labels_interpolation"] = r_raw["interpolation"]
+            r["time_imagenet_v1_real_labels_eval"] = time_imagenet_v1_eval
 
         return r
