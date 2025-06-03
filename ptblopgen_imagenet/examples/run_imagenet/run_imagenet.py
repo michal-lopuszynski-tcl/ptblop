@@ -41,13 +41,21 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def get_num_params(m: torch.nn.Module, only_trainable: bool = False) -> int:
+    parameters = list(m.parameters())
+    if only_trainable:
+        parameters = [p for p in parameters if p.requires_grad]
+    unique = {p.data_ptr(): p for p in parameters}.values()
+    return sum(p.numel() for p in unique)
+
+
 def apply_bp_config(model, bp_config_path):
     import ptblop
 
     logger.info(f"Applying bp_config from {bp_config_path}")
     with open(bp_config_path, "rt") as f:
         bp_config = json.load(f)
-    ptblop.apply_bp_config_in_place(model, bp_config)
+    ptblop.apply_bp_config_in_place(model, bp_config, set_unused_layers_to_none=True)
 
 
 def main(args):
@@ -66,7 +74,7 @@ def main(args):
         apply_bp_config(model, args.bp_config)
     model.to(device)
     model.eval()
-
+    n_params = get_num_params(model) / 1.0e6
     evaluator_metrics = {
         "imagenet_v1_top1_acc": 1.0,
         "imagenet_v1_real_labels_top1_acc": 1.0,
@@ -79,9 +87,9 @@ def main(args):
         imagenet_v1_path=args.imagenet_v1_path,
         imagenet_v2_path=args.imagenet_v2_path,
     )
-    results = evaluator(model, device)
 
-    results = {"model": args.model} | results
+    results = evaluator(model, device)
+    results = {"model": args.model, "n_params_in_million": n_params} | results
 
     with open(args.results_file, "wt") as f:
         json.dump(results, f)
