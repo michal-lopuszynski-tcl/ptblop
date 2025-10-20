@@ -1,0 +1,31 @@
+task: finetune
+
+# Dataset setup
+
+imagenet_root_dir: /nas/datasets/vision/ImageNet/pod_download/data/fix
+trn_imagenet_classes_fname: /nas/datasets/vision/ImageNet/pod_download/data/train_es.txt
+val_imagenet_classes_fname: /nas/datasets/vision/ImageNet/pod_download/data/val.txt
+batch_size: 256
+normalization: imagenet
+input_h_w: [240, 240]
+
+
+# Model setup
+
+model_name: timm.crossvit_18_240.in1k
+bp_config: examples_config/bp_config.json
+bp_state_dict: null
+
+# Training setup
+
+lr: 0.0015
+lr_t_warmup: 5ep
+lr_scheduler: fixed
+max_duration: 200ep
+optimizer: AdamW
+precision: amp_fp16
+alg_channel_last: True
+alg_gradient_clipping_type: null
+
+compile_config:
+    mode: default
