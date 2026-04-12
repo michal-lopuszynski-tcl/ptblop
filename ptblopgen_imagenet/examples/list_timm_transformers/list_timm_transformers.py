@@ -65,6 +65,7 @@ def run_scan_trasformers_only():
     Outputs number of parameters, number of transformer blocks.
     """
     # model_list = ["vit_tiny_patch16_224.augreg_in21k_ft_in1k"]
+    t0_start = time.perf_counter()
     model_list = timm.list_models(pretrained=True)
     res = []
     n = len(model_list)
@@ -99,6 +100,8 @@ def run_scan_trasformers_only():
             duration = time.perf_counter() - t_start
             print(f"... no blocks,  [{n_vit_models=} {duration=:.2f} s]", flush=True)
         del m
+    duration = time.perf_counter() - t0_start
+    print(f"Total {duration=:.2f} s")
 
 
 def run_scan_all():
@@ -106,6 +109,7 @@ def run_scan_all():
     List name and number of parameters for ALL timm models.
     """
     # model_list = ["vit_tiny_patch16_224.augreg_in21k_ft_in1k"]
+    t0_start = time.perf_counter()
 
     model_list = timm.list_models(pretrained=True)
     res = []
@@ -127,6 +131,8 @@ def run_scan_all():
         duration = time.perf_counter() - t_start
         print(f"{i}/{n} {model_name} {duration=:.2f}", flush=True)
         del m
+    duration = time.perf_counter() - t0_start
+    print(f"Total {duration=:.2f} s")
 
 
 if __name__ == "__main__":
