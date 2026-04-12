@@ -71,17 +71,19 @@ def main_paretofind(
         full_block_mode=config_sampler.full_block_mode,
     )
 
-    quality_estimator, quality_estimator_metrics, quality_estimator_id = (
-        estimator_helpers.train_quality_estimator(
-            quality_estimator_config=config["quality_estimator"],
-            bp_config_db_paths=processing_env.bp_config_db_paths,
-            quality_estimator_report_path=quality_estimator_report_path,
-            quality_estimators_db_path=quality_estimators_db_path,
-            data_iter=0,
-            quality_metric=config_sampler.quality_evaluator_metric,
-            run_id=processing_env.run_id,
-            full_block_mode=config_sampler.full_block_mode,
-        )
+    (
+        quality_estimator,
+        quality_estimator_metrics,
+        quality_estimator_id,
+    ) = estimator_helpers.train_quality_estimator(
+        quality_estimator_config=config["quality_estimator"],
+        bp_config_db_paths=processing_env.bp_config_db_paths,
+        quality_estimator_report_path=quality_estimator_report_path,
+        quality_estimators_db_path=quality_estimators_db_path,
+        data_iter=0,
+        quality_metric=config_sampler.quality_evaluator_metric,
+        run_id=processing_env.run_id,
+        full_block_mode=config_sampler.full_block_mode,
     )
 
     full_block_mode = config_sampler.full_block_mode

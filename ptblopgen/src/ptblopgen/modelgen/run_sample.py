@@ -90,7 +90,6 @@ def apply_bp_config_changes(bp_config_unpruned, bp_config_changes):
 
 
 def make_old_iter_generator(bp_config_db_path: pathlib.Path):
-
     def __read_ids_types_signatures(bp_config_db_path):
 
         if bp_config_db_path.exists():
@@ -120,7 +119,6 @@ def make_old_iter_generator(bp_config_db_path: pathlib.Path):
 
 
 def make_generator_for_data_iter(i, n_val_rand, trn_schedule, max_onel):
-
     def __get_num_onel(n, max_onel):
         if n == -1 or n > max_onel:
             return max_onel
@@ -333,7 +331,6 @@ def make_rand_bp_config_generator(
 
 
 def conv_quality_estimator_to_scoring_fn(quality_estimator, full_block_mode):
-
     def __scoring_fn(bp_configs):
         X = estimator_helpers.get_quality_features(bp_configs, full_block_mode)
         _, ypred_min, ypred_max = quality_estimator.predict_with_bounds(X)
@@ -698,27 +695,31 @@ def main_sample(config: dict[str, Any], output_path: pathlib.Path) -> None:
                 # Train predictors
 
                 if cost_estimator is None:
-                    cost_estimator, _, cost_estimator_id = (
-                        estimator_helpers.train_param_estimator(
-                            bp_config_db_paths=[processing_env.bp_config_db_path],
-                            cost_estimators_db_path=cost_estimators_db_path,
-                            data_iter=data_iter,
-                            run_id=processing_env.run_id,
-                            full_block_mode=config_sampler.full_block_mode,
-                        )
-                    )
-
-                quality_estimator, quality_estimator_metrics, quality_estimator_id = (
-                    estimator_helpers.train_quality_estimator(
-                        quality_estimator_config=config["quality_estimator"],
+                    (
+                        cost_estimator,
+                        _,
+                        cost_estimator_id,
+                    ) = estimator_helpers.train_param_estimator(
                         bp_config_db_paths=[processing_env.bp_config_db_path],
-                        quality_estimator_report_path=quality_estimator_report_path,
-                        quality_estimators_db_path=quality_estimators_db_path,
+                        cost_estimators_db_path=cost_estimators_db_path,
                         data_iter=data_iter,
-                        quality_metric=config_sampler.quality_evaluator_metric,
                         run_id=processing_env.run_id,
                         full_block_mode=config_sampler.full_block_mode,
                     )
+
+                (
+                    quality_estimator,
+                    quality_estimator_metrics,
+                    quality_estimator_id,
+                ) = estimator_helpers.train_quality_estimator(
+                    quality_estimator_config=config["quality_estimator"],
+                    bp_config_db_paths=[processing_env.bp_config_db_path],
+                    quality_estimator_report_path=quality_estimator_report_path,
+                    quality_estimators_db_path=quality_estimators_db_path,
+                    data_iter=data_iter,
+                    quality_metric=config_sampler.quality_evaluator_metric,
+                    run_id=processing_env.run_id,
+                    full_block_mode=config_sampler.full_block_mode,
                 )
                 is_new_quality_estimator = True
 

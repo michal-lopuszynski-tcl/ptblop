@@ -49,7 +49,6 @@ def build_predict_cost(reg_param):
 
 
 class BinomialSampling(pymoo.core.sampling.Sampling):
-
     def __init__(self, p):
         super().__init__()
         self.p = p
@@ -60,7 +59,6 @@ class BinomialSampling(pymoo.core.sampling.Sampling):
 
 
 class UniformSampling(pymoo.core.sampling.Sampling):
-
     def __init__(self, p):
         super().__init__()
         self.p = p
