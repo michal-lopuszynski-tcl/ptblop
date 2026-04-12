@@ -54,7 +54,6 @@ def _str_to_sklearn(o_ascii: str) -> Any:
 
 
 class BoundsEstimator(abc.ABC):
-
     @abc.abstractmethod
     def fit(self, X, y) -> None:
         pass
@@ -91,7 +90,6 @@ class _EnsembleBoundsEstimator(BoundsEstimator):
 
 
 class EnsembleRandomForestBoundsEstimator(_EnsembleBoundsEstimator):
-
     def __init__(self, n_regressors, **kwargs):
         super().__init__()
         main_seed = 14840861314273139720968056470480592917
@@ -109,7 +107,6 @@ class EnsembleRandomForestBoundsEstimator(_EnsembleBoundsEstimator):
 
 
 class EnsembleExtraTreesBoundsEstimator(_EnsembleBoundsEstimator):
-
     def __init__(self, n_regressors, **kwargs):
         super().__init__()
         main_seed = 14840861314273139720968056470480592917
@@ -127,7 +124,6 @@ class EnsembleExtraTreesBoundsEstimator(_EnsembleBoundsEstimator):
 
 
 class EnsembleGradientBoostingBoundsEstimator(_EnsembleBoundsEstimator):
-
     def __init__(self, n_regressors, **kwargs):
         super().__init__()
         main_seed = 14840861314273139720968056470480592917
@@ -145,7 +141,6 @@ class EnsembleGradientBoostingBoundsEstimator(_EnsembleBoundsEstimator):
 
 
 class QuantileGradientBoostingBoundsEstimator(BoundsEstimator):
-
     def __init__(
         self,
         q_min,
@@ -195,7 +190,6 @@ class QuantileGradientBoostingBoundsEstimator(BoundsEstimator):
 
 
 class QuantileLinearEstimator(BoundsEstimator):
-
     def __init__(self, **kwargs):
         super().__init__()
         self.regressor_median = sklearn.linear_model.QuantileRegressor(
@@ -221,7 +215,6 @@ class QuantileLinearEstimator(BoundsEstimator):
 
 
 class QuantileTabPFNEstimator(BoundsEstimator):
-
     def __init__(self, q_min, q_max, **kwargs):
         super().__init__()
 
@@ -245,8 +238,32 @@ class QuantileTabPFNEstimator(BoundsEstimator):
         return y, y_min, y_max
 
 
-class QuantileLightGBMBoundsEstimator(BoundsEstimator):
+class QuantileTabICLEstimator(BoundsEstimator):
+    def __init__(self, q_min, q_max, **kwargs):
+        super().__init__()
 
+        try:
+            import tabicl
+        except ImportError:
+            msg = "No tabpfn package, please `pip install tabicl`"
+
+            raise EstimatorNotAvailableException(msg)
+        self.q_min = q_min
+        self.q_max = q_max
+        self.regressor = tabicl.TabICLRegressor()
+
+    def fit(self, X, y) -> None:
+        self.regressor.fit(X, y)
+
+    def predict_with_bounds(self, X):
+        y = self.regressor.predict(
+            X, output_type="quantiles", quantiles=[0.5, self.q_min, self.q_max]
+        )
+
+        return y[:, 0], y[:, 1], y[:, 2]
+
+
+class QuantileLightGBMBoundsEstimator(BoundsEstimator):
     def __init__(
         self,
         q_min,
