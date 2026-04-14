@@ -257,7 +257,7 @@ class QuantileTabICLEstimator(BoundsEstimator):
 
     def predict_with_bounds(self, X):
         y = self.regressor.predict(
-            X, output_type="quantiles", quantiles=[0.5, self.q_min, self.q_max]
+            X, output_type="quantiles", alphas=[0.5, self.q_min, self.q_max]
         )
 
         return y[:, 0], y[:, 1], y[:, 2]
