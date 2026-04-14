@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 
 def read_data_one_file(db_path, data_iter):
-
     def __is_val(d):
         return d["id"].startswith("val.")
 
@@ -133,17 +132,25 @@ def evaluate_bounds_estimator(
     *, bounds_regressor, X_trn, y_trn, X_val, y_val, plot_fname=None
 ):
 
-    y_trn_pred, y_trn_pred_min, y_trn_pred_max, err_trn, err_trn_pred = (
-        _get_bounds_pred(bounds_regressor, X_trn, y_trn)
-    )
+    (
+        y_trn_pred,
+        y_trn_pred_min,
+        y_trn_pred_max,
+        err_trn,
+        err_trn_pred,
+    ) = _get_bounds_pred(bounds_regressor, X_trn, y_trn)
 
     r_trn = get_metrics(
         prefix="trn_", y=y_trn, ypred=y_trn_pred, err=err_trn, errpred=err_trn_pred
     )
 
-    y_val_pred, y_val_pred_min, y_val_pred_max, err_val, err_val_pred = (
-        _get_bounds_pred(bounds_regressor, X_val, y_val)
-    )
+    (
+        y_val_pred,
+        y_val_pred_min,
+        y_val_pred_max,
+        err_val,
+        err_val_pred,
+    ) = _get_bounds_pred(bounds_regressor, X_val, y_val)
 
     r_val = get_metrics(
         prefix="val_", y=y_val, ypred=y_val_pred, err=err_val, errpred=err_val_pred
@@ -267,7 +274,6 @@ def get_quality_feature_names(bp_configs):
 
 
 def get_quality_features(bp_configs, full_block_mode):
-
     def __cast(v):
         return float(v)
 

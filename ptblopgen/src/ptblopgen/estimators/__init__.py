@@ -6,6 +6,7 @@ from .bounds_estimator import EstimatorNotAvailableException  # noqa: F401
 from .bounds_estimator import QuantileGradientBoostingBoundsEstimator  # noqa: F401
 from .bounds_estimator import QuantileLightGBMBoundsEstimator  # noqa: F401
 from .bounds_estimator import QuantileLinearEstimator  # noqa: F401
+from .bounds_estimator import QuantileTabICLEstimator  # noqa: F401
 from .bounds_estimator import QuantileTabPFNEstimator  # noqa: F401
 from .bounds_estimator import load_regressor  # noqa: F401
 from .bounds_estimator import save_regressor  # noqa: F401
