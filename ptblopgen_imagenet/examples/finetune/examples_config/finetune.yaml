@@ -27,5 +27,7 @@ precision: amp_fp16
 alg_channel_last: True
 alg_gradient_clipping_type: null
 
-compile_config:
-    mode: default
+compile_config: null
+
+#compile_config:
+#    mode: default

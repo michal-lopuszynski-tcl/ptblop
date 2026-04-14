@@ -354,7 +354,7 @@ def main(config_raw: dict[str, Any], output_path: pathlib.Path) -> None:
         output_path=output_path,
     )
 
-    parameters = model.student_model.parameters()
+    parameters = list(model.student_model.parameters())
 
     # if config.finetune_only_decomposed:
     #     logger.info("Fine-tuning ONLY DECOMPOSED layers")
