@@ -335,6 +335,10 @@ def make_quality_estimator(quality_estimator_config):
         if estimator_kwargs is None:
             estimator_kwargs = dict(n_estimators=8, q_min=0.2, q_max=0.8)
         estimator = estimators.QuantileTabPFNEstimator(**estimator_kwargs)
+    elif estimator_type == "QuantileTabICLEstimator":
+        if estimator_kwargs is None:
+            estimator_kwargs = dict(n_estimators=8, q_min=0.2, q_max=0.8)
+        estimator = estimators.QuantileTabICLEstimator(**estimator_kwargs)
     elif estimator_type == "QuantileLightGBMBoundsEstimator":
         if estimator_kwargs is None:
             estimator_kwargs = dict(q_min=0.2, q_max=0.8)
