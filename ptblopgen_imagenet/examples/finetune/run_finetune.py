@@ -12,7 +12,7 @@ import composer.callbacks
 import composer.core
 import composer.devices
 import composer.optim
-import nvidia.dali.plugin.pytorch  # type:ignore
+import nvidia.dali.plugin.pytorch  # type: ignore
 import ptblop
 import torch
 import torch.utils.tensorboard
@@ -311,11 +311,6 @@ def main(config_raw: dict[str, Any], output_path: pathlib.Path) -> None:
     # Get teacher or orig model statistics
 
     stats_orig = builder.get_model_stats(teacher_model, b_c_h_w)
-    # stats_orig.update(
-    #     builder.get_decomposeable_model_stats(
-    #         teacher_model, b_c_h_w, ptdeco.dwain.is_decomposeable_module
-    #     )
-    # )
 
     accuracy_val_orig = 100.0 * metrics.calc_accuracy(
         model=teacher_model,
@@ -328,11 +323,6 @@ def main(config_raw: dict[str, Any], output_path: pathlib.Path) -> None:
     # Get decomposed model statistics
 
     stats_final = builder.get_model_stats(student_model, b_c_h_w)
-    # stats_final.update(
-    #     builder.get_decomposeable_model_stats(
-    #         student_model, b_c_h_w, ptdeco.dwain.is_decomposeable_module
-    #     )
-    # )
 
     accuracy_val_initial = 100.0 * metrics.calc_accuracy(
         model=student_model,
@@ -342,10 +332,6 @@ def main(config_raw: dict[str, Any], output_path: pathlib.Path) -> None:
     stats_final["accuracy_val"] = accuracy_val_initial  # Only for printing
     builder.log_model_stats(logger, "Decomposed model:", stats_final)
 
-    # out_decompose_config_path = output_path / "decompose_config.json"
-    # with open(out_decompose_config_path, "wt") as f:
-    #     json.dump(student_decompose_config, f)
-
     student_model.train()
     teacher_model.eval()
     model = KdClassificationModel(
@@ -353,19 +339,8 @@ def main(config_raw: dict[str, Any], output_path: pathlib.Path) -> None:
         teacher_model=teacher_model,
         output_path=output_path,
     )
-
+    # "listify" to makes mypy happy ?
     parameters = list(model.student_model.parameters())
-
-    # if config.finetune_only_decomposed:
-    #     logger.info("Fine-tuning ONLY DECOMPOSED layers")
-    #     disable_grad_for_non_decomposed(model.student_model, student_decompose_config)
-    #     # parameters = get_decomposed_parameters(
-    #     #     model.student_model, student_decompose_config
-    #     # )
-    # else:
-    #     # # "listify" to make mypy happy
-    #     # parameters = list(model.student_model.parameters())
-    #     logger.info("Fine-tuning ALL layers")
 
     optimizers = configurator.get_optimizer(parameters, config)
     lr_schedulers = configurator.get_lr_scheduler(config)
@@ -420,12 +395,6 @@ def main(config_raw: dict[str, Any], output_path: pathlib.Path) -> None:
     if "cuda" in device_str:
         device_str += " @ " + torch.cuda.get_device_name(device)
 
-    mparams_deco_frac = (
-        stats_final["mparams_decomposeable"] / stats_orig["mparams_decomposeable"]
-    )
-    gflops_deco_frac = (
-        stats_final["gflops_decomposeable"] / stats_orig["gflops_decomposeable"]
-    )
     t_finetue = time.perf_counter() - t_start
 
     summary = {
@@ -433,19 +402,11 @@ def main(config_raw: dict[str, Any], output_path: pathlib.Path) -> None:
         "accuracy_val_initial": accuracy_val_initial,
         "accuracy_val_final": accuracy_val_final,
         "mparams_initial": stats_orig["mparams"],
-        # number of parameters in decomposeable operations
-        "mparams_orig_decomposeable": stats_orig["mparams_decomposeable"],
         "mparams_final": stats_final["mparams"],
-        "mparams_final_decomposeable": stats_final["mparams_decomposeable"],
         "mparams_frac": stats_final["mparams"] / stats_orig["mparams"] * 100.0,
-        "mparams_decomposeable_frac": mparams_deco_frac * 100.0,
         "gflops_initial": stats_orig["gflops"],
-        # number of gflops in decomposeable operations
-        "gflops_orig_decomposeable": stats_orig["gflops_decomposeable"],
         "gflops_final": stats_final["gflops"],
-        "gflops_final_decomposeable": stats_final["gflops_decomposeable"],
         "gflops_frac": stats_final["gflops"] / stats_orig["gflops"] * 100.0,
-        "gflops_frac_decomposeable": gflops_deco_frac * 100.0,
         "kmapps_initial": stats_orig["kmapps"],
         "kmapps_finall": stats_final["kmapps"],
         # Should be the same as "gflops_frac", but we log it for completeness

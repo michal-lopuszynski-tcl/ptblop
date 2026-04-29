@@ -2,7 +2,7 @@
 
 # Initially based on versio 0.8.48 of ptdeco trainer
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 _ver_major = int(__version__.split(".")[0])
 _ver_minor = int(__version__.split(".")[1])
